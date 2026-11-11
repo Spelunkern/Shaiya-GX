@@ -131,3 +131,21 @@ func (a *App) selectActor(w *scene.World) *scene.Character {
 	a.actor, a.actorID = c, ch.ID
 	return c
 }
+
+// loginScene loads the login3 backdrop once.
+func (a *App) loginBackdrop() *scene.LoginScene {
+	if a.login3 == nil && !a.login3Failed {
+		ls, err := scene.LoadLoginScene(a.assets)
+		if err != nil {
+			log.Printf("login scene: %v", err)
+			a.login3Failed = true
+			return nil
+		}
+		for f := range a.assets.Missing {
+			log.Printf("login scene: missing %s", f)
+			delete(a.assets.Missing, f)
+		}
+		a.login3 = ls
+	}
+	return a.login3
+}

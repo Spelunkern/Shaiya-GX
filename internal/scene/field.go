@@ -23,6 +23,7 @@ type World struct {
 	Lightmap *render.Texture
 	Objects  []Instance
 	Sky      *Sky
+	dg       []dgPart
 	FogColor render.V3
 	FogStart float32
 	FogEnd   float32
@@ -175,6 +176,14 @@ func (w *World) Draw(s *render.Scene3D) {
 	}
 	if w.Lightmap != nil && w.Terrain != nil && !first {
 		s.DrawLightmap(w.Terrain, w.Lightmap)
+	}
+	for _, p := range w.dg {
+		if p.lightmap != nil {
+			s.DrawLightmapped(p.mesh, p.tex, p.lightmap)
+		} else {
+			// No lightmap pages: EP5 material (Phoenix draws it the same way).
+			s.DrawModel(p.mesh, p.tex, render.Identity(), 0.5, false)
+		}
 	}
 	for _, o := range w.Objects {
 		for _, p := range o.Model.Parts {

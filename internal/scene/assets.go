@@ -22,6 +22,7 @@ type Assets struct {
 	parts    map[string]*skinPart
 	clips    map[string]*Clip
 	Missing  map[string]bool
+	byStem   map[string]string
 }
 
 func NewAssets(a *archive.Archive) *Assets {
