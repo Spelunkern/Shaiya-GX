@@ -51,12 +51,6 @@ func KeyExchange(exponentLE, modulusLE []byte) (block []byte, m Material, err er
 		return nil, m, err
 	}
 	secret[127] &= 0x7f
-	// Rapture recovers the secret with big.Int and drops trailing zero
-	// bytes, which would change the HMAC key; keep the top byte nonzero
-	// (still a valid value for the original client's rule).
-	if secret[127] == 0 {
-		secret[127] = 1
-	}
 	e := new(big.Int).SetBytes(reversed(exponentLE))
 	n := new(big.Int).SetBytes(reversed(modulusLE))
 	c := new(big.Int).Exp(new(big.Int).SetBytes(reversed(secret[:])), e, n)
