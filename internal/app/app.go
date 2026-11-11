@@ -57,8 +57,9 @@ type App struct {
 	world *session.World
 	state *game.State
 
-	clock  float64
-	notice charNotice
+	clock   float64
+	frameDT float64
+	notice  charNotice
 
 	posted chan func()
 	Quit   bool
@@ -120,6 +121,7 @@ func (a *App) post(f func()) { a.posted <- f }
 
 // Update runs one frame of logic.
 func (a *App) Update(in *platform.Input, w, h int, dt float64) {
+	a.frameDT = dt
 	for {
 		select {
 		case f := <-a.posted:

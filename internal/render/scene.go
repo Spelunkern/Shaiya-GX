@@ -41,6 +41,8 @@ uniform float alphaRef;
 uniform vec3 fogColor;
 uniform vec2 fogRange; // start, end; end <= start disables
 uniform float tileSize; // terrain layer tiling (world units per repeat)
+uniform vec4 tint;      // mode 3 colour (sky, clouds)
+uniform vec2 uvOffset;
 in vec2 vUV;
 in vec2 vUV2;
 in float vDiffuse;
@@ -50,6 +52,9 @@ void main() {
 	vec4 c;
 	if (mode == 1) {
 		c = vec4(texture(tex1, vUV2 / tileSize).rgb, texture(tex0, vUV).a);
+	} else if (mode == 3) {
+		frag = texture(tex0, vUV + uvOffset) * tint;
+		return;
 	} else if (mode == 2) {
 		frag = vec4(texture(tex0, vUV).rgb, 1.0);
 		return;
@@ -69,8 +74,8 @@ void main() {
 type Scene3D struct {
 	prog                                                      uint32
 	uWorld, uViewProj, uView, uLight, uAmb, uLit, uMode, uRef int32
-	uFogColor, uFogRange, uTile                               int32
-	View, Proj                                                M4
+	uFogColor, uFogRange, uTile, uTint, uUVOff                int32
+	View, Proj, SkyProj                                       M4
 	LightDir                                                  V3
 	Ambient                                                   float32
 	FogColor                                                  V3
@@ -84,7 +89,7 @@ func NewScene3D() (*Scene3D, error) {
 	}
 	u := func(n string) int32 { return gl.GetUniformLocation(p, gl.Str(n+"\x00")) }
 	return &Scene3D{prog: p, uWorld: u("world"), uViewProj: u("viewProj"), uView: u("view"), uLight: u("lightDir"),
-		uAmb: u("ambient"), uLit: u("lit"), uMode: u("mode"), uRef: u("alphaRef"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uTile: u("tileSize"),
+		uAmb: u("ambient"), uLit: u("lit"), uMode: u("mode"), uRef: u("alphaRef"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uTile: u("tileSize"), uTint: u("tint"), uUVOff: u("uvOffset"),
 		LightDir: V3{-1, -1, -1}, Ambient: 128.0 / 255}, nil
 }
 
@@ -174,4 +179,32 @@ func (t *Texture) SetWrap(repeat bool) {
 	}
 	gl.TextureParameteri(t.ID, gl.TEXTURE_WRAP_S, mode)
 	gl.TextureParameteri(t.ID, gl.TEXTURE_WRAP_T, mode)
+}
+
+// BeginSky switches to the sky projection (near 10, far 100000) without
+// depth; EndSky restores the scene projection and depth.
+func (s *Scene3D) BeginSky() {
+	vp := s.View.Mul(s.SkyProj)
+	gl.UniformMatrix4fv(s.uViewProj, 1, false, &vp[0])
+	gl.Disable(gl.DEPTH_TEST)
+	gl.DepthMask(false)
+}
+
+func (s *Scene3D) EndSky() {
+	vp := s.View.Mul(s.Proj)
+	gl.UniformMatrix4fv(s.uViewProj, 1, false, &vp[0])
+	gl.Enable(gl.DEPTH_TEST)
+	gl.DepthMask(true)
+	gl.Disable(gl.BLEND)
+}
+
+// DrawUnlit draws texture * (1,1,1,alpha) with alpha blending.
+func (s *Scene3D) DrawUnlit(m *Mesh, t *Texture, world M4, alpha float32, uvOff [2]float32) {
+	gl.UniformMatrix4fv(s.uWorld, 1, false, &world[0])
+	gl.Uniform1i(s.uMode, 3)
+	gl.Uniform4f(s.uTint, 1, 1, 1, alpha)
+	gl.Uniform2f(s.uUVOff, uvOff[0], uvOff[1])
+	s.blend(true)
+	gl.BindTextureUnit(0, t.ID)
+	m.Draw()
 }
