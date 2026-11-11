@@ -29,7 +29,7 @@ Todas las coordenadas están en píxeles de pantalla, como en el cliente D3D9.
 |---|---|---|
 | Login | `0x4b8ff0` / `0x4ba650` (al final) / lógica `0x4bd680` | **Portada** (`ui.Login`) |
 | Lista de servidores | `0x4eb520` / `0x4ea5d0` | **Portada** (`ui.ServerList`) |
-| Selección de personaje | `0x46ce30` | Ubicada; hay una pantalla provisoria |
+| Selección de personaje | `0x46ce30` / `0x46a960`, `0x469870`, `0x4697d0` | **Portada la parte 2D** (`ui.CharSelect`); falta la escena 3D y los modelos |
 | Escena 3D del login | `0x4bcd60` | Ubicada (ver apariencia.md) |
 
 ### Login (`ui.Login`)
@@ -53,3 +53,23 @@ Todas las coordenadas están en píxeles de pantalla, como en el cliente D3D9.
   > 0.45 = msg 10080 (`0xfff3dea0`), > 0.3 = msg 10081 (`0xffa8f3a0`), si no msg 10082
   (`0xffa0cff3`).
 - **NO VERIFICADO:** selección por clic y doble clic, scrollbar sin portar.
+
+### Selección de personaje (`ui.CharSelect`)
+
+- Panel `character_select.tga` (256x1024) en `(w/16, h/2 - 0x127)`; cadenas
+  `character_chain.tga` en (+0x20/+0xd0, -0x136/-0x9b).
+- Slots `character_select_button2.tga`: (43, 244 + 36·i), dibujo 256x32, clic 162x25;
+  UV normal/hover/presionado/seleccionado (= hover)/deshabilitado. Nombre centrado
+  en el área clicable (`0x543eb0`).
+- Create (29,440), Delete (29,478), Option (136,440), Exit (136,478):
+  columnas 0/2/1/3 de `character_select_button.tga` (512x256), dibujo 128x64, clic 88x32.
+- Game Start `character_select_start.tga` (62,527), dibujo 256x64, clic 131x43.
+- Cruz `character_navi_bg.tga` en `(w - w/12 - 0x82, h - h/6 - 100)`; botones de 32x32
+  (clic 23x23): rotar ← (8,38), rotar → (99,38), pausa (41,39), stop (69,39),
+  zoom + (53,7), zoom − (53,76).
+- Info: nombre en `(x+0x7e - 3·len, y+0x28)`; `Level` (msg 5065), `Title` (clase:
+  msgs 5050.. para Luz, 5047.. para Furia), `Mode` (470..473) y `exit location`
+  (mapa: tabla generada de `CPlayerData::GetMapName` `0x4d2e90`) en x+0x1f, y+0x49/0x5b/0x6d/0x7f.
+- Cámara de la escena (`0x46a5a0`): ojo (271.097, 1.866, 178.515), mira (275.03, 1.957, …).
+- **NO VERIFICADO / pendiente:** confirmación de Delete (diálogo original), Create
+  (pantalla de creación), Option, doble clic, slots vacíos (hoy deshabilitados), navegación 3D.

@@ -26,7 +26,7 @@ func main() {
 	height := flag.Int("h", 768, "window height")
 	debug := flag.Bool("gldebug", false, "OpenGL debug context")
 	shot := flag.String("screenshot", "", "render offscreen to this PNG and exit")
-	shotScreen := flag.String("screenshot-screen", "login", "screen for -screenshot: login | servers")
+	shotScreen := flag.String("screenshot-screen", "login", "screen for -screenshot: login | servers | chars")
 	autoplay := flag.String("autoplay", "", "account to log in with (SHAIYA_PASSWORD) offscreen until in world, then save -screenshot")
 	flag.Parse()
 	if *dataDir == "" {
