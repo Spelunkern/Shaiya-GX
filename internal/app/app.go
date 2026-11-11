@@ -16,6 +16,7 @@ import (
 	"github.com/Spelunkern/shaiya-go-client/internal/platform"
 	"github.com/Spelunkern/shaiya-go-client/internal/proto"
 	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/shaiya-go-client/internal/scene"
 	"github.com/Spelunkern/shaiya-go-client/internal/session"
 	"github.com/Spelunkern/shaiya-go-client/internal/ui"
 )
@@ -43,6 +44,9 @@ type App struct {
 	msg     text.SysMsg
 	white   *render.Texture
 	cache   map[string]*render.Texture
+	assets  *scene.Assets
+	scene3d *render.Scene3D
+	worlds  map[string]*scene.World
 
 	screen  screen
 	login   *ui.Login
@@ -62,8 +66,12 @@ type App struct {
 }
 
 func New(cfg Config, arc *archive.Archive) (*App, error) {
-	a := &App{cfg: cfg, arc: arc, cache: map[string]*render.Texture{}, posted: make(chan func(), 64)}
+	a := &App{cfg: cfg, arc: arc, cache: map[string]*render.Texture{}, posted: make(chan func(), 64),
+		assets: scene.NewAssets(arc), worlds: map[string]*scene.World{}}
 	var err error
+	if a.scene3d, err = render.NewScene3D(); err != nil {
+		return nil, err
+	}
 	if a.sprites, err = render.NewSprites(8192); err != nil {
 		return nil, err
 	}
@@ -143,6 +151,10 @@ func (a *App) Update(in *platform.Input, w, h int, dt float64) {
 }
 
 func (a *App) Draw(w, h int) {
+	if a.screen == screenCharacters && a.state != nil {
+		fury := a.state.Faction.Faction == 1
+		a.drawWorld(a.selectWorld(fury), selectEye, selectTarget, w, h)
+	}
 	a.sprites.Begin(w, h)
 	switch a.screen {
 	case screenLogin:

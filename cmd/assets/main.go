@@ -114,6 +114,9 @@ func main() {
 			}
 		}
 		fmt.Printf("mani: %d assets %d instances\n", len(w.ManiAssets), len(w.Manis))
+		for _, l := range w.Layers {
+			fmt.Printf("layer %q tile=%.2f\n", l.Texture, l.TileSize)
+		}
 	case "dg":
 		b, err := a.ReadFile(flag.Arg(1))
 		if err != nil {
