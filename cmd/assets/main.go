@@ -17,6 +17,7 @@ import (
 
 	"github.com/Spelunkern/shaiya-go-client/internal/data/archive"
 	img "github.com/Spelunkern/shaiya-go-client/internal/data/image"
+	"github.com/Spelunkern/shaiya-go-client/internal/data/world"
 )
 
 func main() {
@@ -88,6 +89,66 @@ func main() {
 		defer f.Close()
 		if err := png.Encode(f, out); err != nil {
 			log.Fatal(err)
+		}
+	case "wld":
+		b, err := a.ReadFile(flag.Arg(1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		w, err := world.ParseWLD(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("dungeon=%v mapsize=%d layers=%d layout=%q sky=%q fog=%v %.0f..%.0f effects=%q (%d)\n",
+			w.Dungeon, w.MapSize, len(w.Layers), w.Layout, w.Sky, w.FogColor, w.FogStart, w.FogEnd, w.EffectFile, len(w.Effects))
+		for _, g := range []struct {
+			name string
+			g    world.Group
+		}{{"buildings", w.Buildings}, {"shapes", w.Shapes}, {"trees", w.Trees}, {"grass", w.Grass},
+			{"vaniA", w.VaniA}, {"vaniB", w.VaniB}, {"dungeons", w.Dungeons}, {"objects", w.Objects}} {
+			fmt.Printf("%s: %d assets, %d instances\n", g.name, len(g.g.Assets), len(g.g.Instances))
+			for i, n := range g.g.Assets {
+				if i < 12 {
+					fmt.Printf("   %s\n", n)
+				}
+			}
+		}
+		fmt.Printf("mani: %d assets %d instances\n", len(w.ManiAssets), len(w.Manis))
+	case "dg":
+		b, err := a.ReadFile(flag.Arg(1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		d, err := world.ParseDG(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		nodes, meshes, verts := 0, 0, 0
+		d.Root.Walk(func(n *world.DGNode) {
+			nodes++
+			for _, g := range n.Groups {
+				for _, m := range g.Meshes {
+					meshes++
+					verts += len(m.Vertices)
+				}
+			}
+		})
+		fmt.Printf("bounds=%v lightmaps=%d nodes=%d meshes=%d vertices=%d\n", d.Bounds, d.Lightmaps, nodes, meshes, verts)
+		for _, t := range d.Textures {
+			fmt.Println("  ", t)
+		}
+	case "smod":
+		b, err := a.ReadFile(flag.Arg(1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		m, err := world.ParseSMOD(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("center=%v radius=%.1f box=%v meshes=%d\n", m.Center, m.Radius, m.ViewBox, len(m.Meshes))
+		for _, x := range m.Meshes {
+			fmt.Printf("   %s: %d vertices %d faces\n", x.Texture, len(x.Vertices), len(x.Faces))
 		}
 	case "find":
 		needle := strings.ToLower(flag.Arg(1))

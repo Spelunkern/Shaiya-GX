@@ -39,7 +39,7 @@ func NewLogin(t Textures) (*Login, error) {
 	if l.panel, err = t.Interface("login.tga"); err != nil {
 		return nil, err
 	}
-	if l.logo, err = t.Interface("shaiyalogo01.TGA"); err != nil {
+	if l.logo, err = t.Interface("shaiyalogo01_new.TGA"); err != nil { // feature 15 (login3) is on for this client
 		return nil, err
 	}
 	ok, err := t.Interface("ok_button.tga")
