@@ -15,7 +15,7 @@ Rapture (`~/Desktop/Rapture`). Proyecto privado. Directivas:
 | Protocolo | 406 opcodes recibidos mapeados; 27 decodificados; 15 writers verificados en Ghidra. Ver [docs/protocolo.md](docs/protocolo.md) |
 | Datos | `data.sah`/`data.saf` (24.655 archivos), TGA/DDS/BMP: 11.867 texturas decodifican (N1) |
 | Ventana y render | GLFW + OpenGL 4.5 core, texturas DXT subidas comprimidas, batch 2D |
-| UI | **Login y lista de servidores fieles** (layout, botones de 5 estados, checkbox, Tahoma 13, mensajes de `sysmsg-uni.txt`). Selección de personaje y mundo: pantallas provisorias de texto |
+| UI | **Login, lista de servidores y selección de personaje (2D) fieles**: layout, botones de 5 estados, checkbox, Tahoma 13, mensajes de `sysmsg-uni.txt`, nombres de mapa. Sin escena 3D todavía; el mundo es una pantalla provisoria de texto |
 | Cliente con ventana | **Funciona contra Rapture (N2):** login → servidores → personajes → mundo (`-autoplay`) |
 | Mundo 3D, modelos, efectos, audio | No empezado |
 | Windows | Sin compilar ni probar (se hará más adelante) |

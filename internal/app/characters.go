@@ -2,43 +2,65 @@ package app
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/Spelunkern/shaiya-go-client/internal/game"
 	"github.com/Spelunkern/shaiya-go-client/internal/platform"
 	"github.com/Spelunkern/shaiya-go-client/internal/proto"
+	"github.com/Spelunkern/shaiya-go-client/internal/ui"
 )
 
-// PROVISIONAL: character select (0x46ce30) and the world are not ported
-// yet; this screen lists the characters and plays the protocol flow.
-var gray = [4]float32{.8, .8, .8, 1}
+var (
+	white = [4]float32{1, 1, 1, 1}
+	gray  = [4]float32{.8, .8, .8, 1}
+)
 
-func (a *App) slots() []proto.CharacterSlot {
-	var out []proto.CharacterSlot
-	if a.state == nil {
-		return out
-	}
-	for _, c := range a.state.Slots {
-		out = append(out, c)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Slot < out[j].Slot })
-	return out
+// charNotice is a provisional message line until the original dialogs
+// (message boxes) are ported.
+type charNotice struct {
+	text      string
+	until     float64
+	deleteArm float64
 }
 
-func (a *App) updateCharacters(in *platform.Input) {
-	if a.state == nil || a.world == nil {
+func (a *App) updateCharacters(in *platform.Input, w, h int, dt float64) {
+	if a.state == nil {
 		return
 	}
+	if a.world == nil { // offscreen preview
+		a.chars.Update(in, w, h, dt)
+		return
+	}
+	a.clock += dt
 	switch a.state.Phase {
 	case game.PhaseCharSelect:
 		a.screen = screenCharacters
-		list := a.slots()
-		for _, r := range in.Chars {
-			if r >= '1' && r <= '5' && int(r-'1') < len(list) {
-				a.world.Send(proto.SelectCharacterPacket(list[r-'1'].ID))
+		a.chars.Light = a.state.Faction.Faction == 0
+		a.chars.SetChars(a.state.Slots)
+		a.chars.Busy = false
+		switch a.chars.Update(in, w, h, dt) {
+		case ui.CharStart:
+			if ch := a.chars.Chars[a.chars.Selected]; ch != nil {
+				a.chars.Busy = true
+				a.world.Send(proto.SelectCharacterPacket(ch.ID))
 			}
+		case ui.CharDelete:
+			ch := a.chars.Chars[a.chars.Selected]
+			if ch == nil {
+				break
+			}
+			if a.clock < a.notice.deleteArm {
+				a.world.Send(proto.DeleteCharacterPacket(ch.ID))
+				a.notice = charNotice{text: "Deleting " + ch.Name + "...", until: a.clock + 3}
+			} else {
+				a.notice = charNotice{text: "Press Delete again to delete " + ch.Name + ".", until: a.clock + 3, deleteArm: a.clock + 3}
+			}
+		case ui.CharCreate:
+			a.notice = charNotice{text: "Character creation is not available yet.", until: a.clock + 3}
+		case ui.CharExit:
+			a.backToLogin("")
 		}
 	case game.PhaseFaction:
+		// PROVISIONAL: the faction screen is not ported.
 		for _, r := range in.Chars {
 			if r == 'l' || r == 'f' {
 				f := uint8(0)
@@ -57,24 +79,26 @@ func (a *App) updateCharacters(in *platform.Input) {
 }
 
 func (a *App) drawCharacters(w, h int) {
+	if a.state == nil {
+		return
+	}
 	y := 40
 	line := func(s string, c [4]float32) {
 		a.font.Draw(a.sprites, s, 40, y, c, 0)
 		y += 18
 	}
-	if a.state == nil {
-		return
-	}
 	switch a.state.Phase {
 	case game.PhaseFaction:
-		line("Choose a faction: L = Light, F = Fury", white)
-	case game.PhaseCharSelect:
-		line("Character select (provisional): press 1-5", white)
-		for i, c := range a.slots() {
-			line(fmt.Sprintf("%d. %s  Lv %d", i+1, c.Name, c.Level), gray)
+		line("Choose a faction (provisional): L = Light, F = Fury", white)
+	case game.PhaseCharSelect, game.PhaseLoading:
+		a.chars.Draw(a.sprites, a.font, w, h)
+		if a.state.Phase == game.PhaseLoading {
+			line("Loading...", white)
 		}
-	case game.PhaseLoading:
-		line("Loading...", white)
+		if a.clock < a.notice.until {
+			tw := a.font.Width(a.notice.text)
+			a.font.Draw(a.sprites, a.notice.text, (w-tw)/2, h/2, white, 0)
+		}
 	case game.PhaseInWorld:
 		s := a.state
 		line(fmt.Sprintf("In world (provisional): map %d  (%.1f, %.1f, %.1f)", s.MapID, s.Self.X, s.Self.Y, s.Self.Z), white)
@@ -84,5 +108,3 @@ func (a *App) drawCharacters(w, h int) {
 		}
 	}
 }
-
-var white = [4]float32{1, 1, 1, 1}

@@ -33,7 +33,7 @@ func (p *Autoplay) Inject(a *App, in *platform.Input, dt float64) bool {
 		in.Keys = append(in.Keys, platform.KeyEnter)
 		p.step = 3
 	case a.state != nil && a.state.Phase == game.PhaseCharSelect && p.step == 3:
-		in.Chars = append(in.Chars, '1')
+		in.Keys = append(in.Keys, platform.KeyEnter) // first character is preselected
 		p.step = 4
 	case a.state != nil && a.state.Phase == game.PhaseInWorld:
 		return true

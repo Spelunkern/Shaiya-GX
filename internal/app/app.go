@@ -47,10 +47,14 @@ type App struct {
 	screen  screen
 	login   *ui.Login
 	servers *ui.ServerList
+	chars   *ui.CharSelect
 
 	sess  *session.Login
 	world *session.World
 	state *game.State
+
+	clock  float64
+	notice charNotice
 
 	posted chan func()
 	Quit   bool
@@ -76,6 +80,9 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 		return nil, err
 	}
 	if a.servers, err = ui.NewServerList(a, a.msg, a.white); err != nil {
+		return nil, err
+	}
+	if a.chars, err = ui.NewCharSelect(a, a.msg); err != nil {
 		return nil, err
 	}
 	a.loadSavedID()
@@ -131,7 +138,7 @@ func (a *App) Update(in *platform.Input, w, h int, dt float64) {
 			a.backToLogin("")
 		}
 	case screenCharacters, screenWorld:
-		a.updateCharacters(in)
+		a.updateCharacters(in, w, h, dt)
 	}
 }
 
