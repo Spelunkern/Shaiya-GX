@@ -71,9 +71,14 @@ func (a *App) updateCharacters(in *platform.Input, w, h int, dt float64) {
 			}
 		}
 	case game.PhaseInWorld:
-		a.screen = screenWorld
+		if a.screen != screenWorld || a.wv == nil || a.wv.mapID != a.state.MapID {
+			a.screen = screenWorld
+			a.enterWorld()
+		}
+		a.updateWorld(in, dt)
 		if in.HasKey(platform.KeyEscape) {
 			a.world.Send(proto.LogoutPacket())
+			a.wv = nil
 		}
 	}
 }
@@ -101,8 +106,7 @@ func (a *App) drawCharacters(w, h int) {
 		}
 	case game.PhaseInWorld:
 		s := a.state
-		line(fmt.Sprintf("In world (provisional): map %d  (%.1f, %.1f, %.1f)", s.MapID, s.Self.X, s.Self.Y, s.Self.Z), white)
-		line(fmt.Sprintf("Entities in view: %d   Esc = back to character select", len(s.Entities)), gray)
+		line(fmt.Sprintf("map %d  (%.1f, %.1f, %.1f)  entities %d  [provisional HUD; Esc = character select]", s.MapID, s.Self.X, s.Self.Y, s.Self.Z, len(s.Entities)), white)
 		for _, c := range s.Chat[max(0, len(s.Chat)-10):] {
 			line(fmt.Sprintf("[%d%s] %s", c.SenderID, c.Sender, c.Text), gray)
 		}

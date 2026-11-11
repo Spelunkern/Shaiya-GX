@@ -61,10 +61,9 @@ func (s *LoginScene) smokeWorld() render.M4 {
 }
 
 // Draw renders sky plane, smoke, world, float rock and the rear effect.
-func (s *LoginScene) Draw(r *render.Scene3D, width, height int) {
+func (s *LoginScene) Draw(r *render.Scene3D, aspect float32) {
 	eye := s.Camera.Eye
 	r.View = render.LookAtLH(eye, LoginTarget, render.V3{0, 1, 0})
-	aspect := float32(width) / float32(height)
 	r.Proj = render.PerspectiveFovLH(math.Pi/4, aspect, 1, 400)
 	r.SkyProj = render.PerspectiveFovLH(math.Pi/4, aspect, 10, 100000)
 	r.FogStart, r.FogEnd = 0, 0 // the login draws without fog

@@ -105,3 +105,25 @@ func (s *Assets) SMOD(file string) (*Model, error) {
 	s.models[key] = m
 	return m, nil
 }
+
+// optionalTexture loads a texture that may legitimately be absent (field
+// masks exist only for the layers a section uses); absence is not logged.
+func (s *Assets) optionalTexture(file string) *render.Texture {
+	if _, ok := s.Arc.Lookup(file); !ok {
+		return nil
+	}
+	return s.Texture(file)
+}
+
+// LoadMap loads world/<id>.wld as a field or a dungeon.
+func LoadMap(a *Assets, id uint16) (*World, error) {
+	file := fmt.Sprintf("world/%d.wld", id)
+	b, err := a.Arc.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) >= 3 && string(b[:3]) == "DUN" {
+		return LoadDungeon(a, file)
+	}
+	return LoadField(a, fmt.Sprint(id))
+}
