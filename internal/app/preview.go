@@ -25,7 +25,7 @@ func (a *App) Preview(name string) error {
 	case "chars":
 		a.state = game.New()
 		a.state.Phase = game.PhaseCharSelect
-		a.state.Slots[0] = proto.CharacterSlot{Slot: 0, ID: 1, Name: "Interloper", Level: 60, Class: 0, Mode: 2, MapID: 42}
+		a.state.Slots[0] = proto.CharacterSlot{Slot: 0, ID: 1, Name: "Interloper", Level: 60, Race: 0, Class: 0, Mode: 2, MapID: 42, Hair: 1, Face: 1, Height: 2}
 		a.state.Slots[1] = proto.CharacterSlot{Slot: 1, ID: 2, Name: "Valiant", Level: 60, Class: 1, Mode: 2, MapID: 1}
 		a.state.Slots[3] = proto.CharacterSlot{Slot: 3, ID: 4, Name: "Sylvan", Level: 12, Class: 4, Mode: 1, MapID: 3}
 		a.screen = screenCharacters

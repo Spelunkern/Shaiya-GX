@@ -9,6 +9,8 @@ import (
 // screen into the world (N2 check of the windowed flow).
 type Autoplay struct {
 	User, Password string
+	StopAtSelect   bool
+	Slot           int
 	step           int
 	wait           float64
 }
@@ -33,8 +35,18 @@ func (p *Autoplay) Inject(a *App, in *platform.Input, dt float64) bool {
 		in.Keys = append(in.Keys, platform.KeyEnter)
 		p.step = 3
 	case a.state != nil && a.state.Phase == game.PhaseCharSelect && p.step == 3:
+		if p.StopAtSelect {
+			if p.Slot >= 0 && p.Slot < len(a.chars.Chars) && a.chars.Chars[p.Slot] != nil {
+				a.chars.Selected = p.Slot
+			}
+			p.wait = 2 // let the actor load and animate
+			p.step = 5
+			return false
+		}
 		in.Keys = append(in.Keys, platform.KeyEnter) // first character is preselected
 		p.step = 4
+	case p.step == 5:
+		return true
 	case a.state != nil && a.state.Phase == game.PhaseInWorld:
 		return true
 	}

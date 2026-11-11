@@ -91,16 +91,24 @@ func (w *World) Height(x, z float32) float32 {
 
 // buildTerrain: samples every MapSize/(side-1) units, height (raw-10000)/50,
 // diagonal (x1,z0)-(x0,z1) (Phoenix terrain_builder / wld_data).
-func (w *World) buildTerrain() {
+func (w *World) heightsOnly() bool {
 	side := int(w.WLD.MapSize/2) + 1
 	if side < 2 || len(w.WLD.Heights) < side*side {
-		return
+		return false
 	}
 	w.side, w.step = side, float32(w.WLD.MapSize)/float32(side-1)
 	w.heights = make([]float32, side*side)
 	for i, raw := range w.WLD.Heights[:side*side] {
 		w.heights[i] = (float32(raw) - 10000) / 50
 	}
+	return true
+}
+
+func (w *World) buildTerrain() {
+	if !w.heightsOnly() {
+		return
+	}
+	side := w.side
 	v := make([]render.Vertex, side*side)
 	inv := 1 / float32(side-1)
 	for z := 0; z < side; z++ {

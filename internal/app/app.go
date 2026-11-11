@@ -11,6 +11,7 @@ import (
 
 	"github.com/Spelunkern/shaiya-go-client/internal/data/archive"
 	img "github.com/Spelunkern/shaiya-go-client/internal/data/image"
+	"github.com/Spelunkern/shaiya-go-client/internal/data/sdata"
 	"github.com/Spelunkern/shaiya-go-client/internal/data/text"
 	"github.com/Spelunkern/shaiya-go-client/internal/game"
 	"github.com/Spelunkern/shaiya-go-client/internal/platform"
@@ -47,6 +48,10 @@ type App struct {
 	assets  *scene.Assets
 	scene3d *render.Scene3D
 	worlds  map[string]*scene.World
+	skinner *render.Skinner
+	items   map[sdata.ItemKey]*sdata.Item
+	actor   *scene.Character
+	actorID uint32
 
 	screen  screen
 	login   *ui.Login
@@ -71,6 +76,9 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 		assets: scene.NewAssets(arc), worlds: map[string]*scene.World{}}
 	var err error
 	if a.scene3d, err = render.NewScene3D(); err != nil {
+		return nil, err
+	}
+	if a.skinner, err = render.NewSkinner(); err != nil {
 		return nil, err
 	}
 	if a.sprites, err = render.NewSprites(8192); err != nil {

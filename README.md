@@ -6,7 +6,7 @@ Rapture (`~/Desktop/Rapture`). Proyecto privado. Directivas:
 
 ## Estado (2026-11-11)
 
-**Hito actual: M3 (pantallas de cuenta) en curso.**
+**Hito actual: M3 casi cerrado (falta la escena 3D del login y la creación de personaje); comienza M4 (mundo).**
 
 | Área | Estado |
 |---|---|
@@ -17,11 +17,12 @@ Rapture (`~/Desktop/Rapture`). Proyecto privado. Directivas:
 | Ventana y render | GLFW + OpenGL 4.5 core, texturas DXT subidas comprimidas, batch 2D |
 | UI | **Login, lista de servidores y selección de personaje (2D) fieles**: layout, botones de 5 estados, checkbox, Tahoma 13, mensajes de `sysmsg-uni.txt`, nombres de mapa. Sin escena 3D todavía; el mundo es una pantalla provisoria de texto |
 | Cliente con ventana | **Funciona contra Rapture (N2):** login → servidores → personajes → mundo (`-autoplay`) |
-| Mundo 3D, modelos, efectos, audio | No empezado |
+| 3D | **Selección de personaje completa**: terreno de campo (capas + máscaras + lightmap), objetos SMOD, cielo con nubes, personaje con skinning en GPU y animación ANI, equipo real vía `Item.SData` (SEED) + MLT |
+| Mundo de juego, efectos, VANI/MAni, audio | No empezado |
 | Windows | Sin compilar ni probar (se hará más adelante) |
 
-Lo que **no** funciona todavía: selección de personaje real (con modelos 3D),
-escena 3D del login, mundo 3D, combate, inventario y UI de juego.
+Lo que **no** funciona todavía: escena 3D del login, creación de personaje,
+mundo de juego en 3D, combate, inventario y UI de juego.
 
 ## Uso
 
