@@ -42,8 +42,7 @@ SHAIYA_TEST_USER=admin1 SHAIYA_PASSWORD=... go test -tags integration ./cmd/shai
 
 ## Diferencias con el original
 
-- La contraseña RSA de 128 bytes nunca tiene su byte más alto en cero
-  (ver [docs/discrepancias.md](docs/discrepancias.md)).
+- Ninguna en el protocolo. Ver [docs/discrepancias.md](docs/discrepancias.md).
 
 ## Herramientas de análisis
 
