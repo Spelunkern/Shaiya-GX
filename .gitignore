@@ -1,0 +1,13 @@
+# Original game data and binaries never enter git.
+*.sah
+*.saf
+*.SData
+*.exe
+*.dll
+# Local analysis, captures and build outputs.
+/work/
+/build/
+/logs/
+*.pcap
+*.packetlog
+shaiya-go.toml
