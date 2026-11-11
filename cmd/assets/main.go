@@ -8,19 +8,22 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image"
+	"image/png"
 	"log"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/Spelunkern/shaiya-go-client/internal/data/archive"
+	img "github.com/Spelunkern/shaiya-go-client/internal/data/image"
 )
 
 func main() {
 	dataDir := flag.String("data", os.Getenv("SHAIYA_DATA"), "directory with data.sah and data.saf")
 	flag.Parse()
 	if *dataDir == "" || flag.NArg() == 0 {
-		log.Fatal("usage: assets -data DIR stats | ls [DIR] | cat FILE | find SUBSTR")
+		log.Fatal("usage: assets -data DIR stats | ls [DIR] | cat FILE | png FILE OUT.png | find SUBSTR")
 	}
 	a, err := archive.Open(*dataDir)
 	if err != nil {
@@ -64,6 +67,28 @@ func main() {
 			log.Fatal(err)
 		}
 		os.Stdout.Write(b)
+	case "png":
+		b, err := a.ReadFile(flag.Arg(1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		t, err := img.Decode(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if t.RGBA == nil {
+			log.Fatal("compressed DDS: png export supports TGA/BMP/uncompressed only")
+		}
+		out := image.NewNRGBA(image.Rect(0, 0, t.RGBA.W, t.RGBA.H))
+		copy(out.Pix, t.RGBA.Pix)
+		f, err := os.Create(flag.Arg(2))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		if err := png.Encode(f, out); err != nil {
+			log.Fatal(err)
+		}
 	case "find":
 		needle := strings.ToLower(flag.Arg(1))
 		a.Walk(func(p string, f *archive.File) {

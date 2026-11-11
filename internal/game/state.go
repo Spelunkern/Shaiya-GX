@@ -13,11 +13,11 @@ import (
 type Phase int
 
 const (
-	PhaseConnecting  Phase = iota
-	PhaseFaction           // account has no country yet
-	PhaseCharSelect        // 0x0101 list + 0x0109 received
-	PhaseLoading           // 0x0104 accepted, initial state arriving
-	PhaseInWorld           // 0x0201 for ourselves received
+	PhaseConnecting Phase = iota
+	PhaseFaction          // account has no country yet
+	PhaseCharSelect       // 0x0101 list + 0x0109 received
+	PhaseLoading          // 0x0104 accepted, initial state arriving
+	PhaseInWorld          // 0x0201 for ourselves received
 )
 
 func (p Phase) String() string {
