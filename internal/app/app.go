@@ -38,20 +38,22 @@ const (
 )
 
 type App struct {
-	cfg     Config
-	arc     *archive.Archive
-	sprites *render.Sprites
-	font    *ui.Font
-	msg     text.SysMsg
-	white   *render.Texture
-	cache   map[string]*render.Texture
-	assets  *scene.Assets
-	scene3d *render.Scene3D
-	worlds  map[string]*scene.World
-	skinner *render.Skinner
-	items   map[sdata.ItemKey]*sdata.Item
-	actor   *scene.Character
-	actorID uint32
+	cfg          Config
+	arc          *archive.Archive
+	sprites      *render.Sprites
+	font         *ui.Font
+	msg          text.SysMsg
+	white        *render.Texture
+	cache        map[string]*render.Texture
+	assets       *scene.Assets
+	scene3d      *render.Scene3D
+	worlds       map[string]*scene.World
+	skinner      *render.Skinner
+	items        map[sdata.ItemKey]*sdata.Item
+	actor        *scene.Character
+	actorID      uint32
+	login3       *scene.LoginScene
+	login3Failed bool
 
 	screen  screen
 	login   *ui.Login
@@ -161,6 +163,12 @@ func (a *App) Update(in *platform.Input, w, h int, dt float64) {
 }
 
 func (a *App) Draw(w, h int) {
+	if a.screen == screenLogin || a.screen == screenServers {
+		if ls := a.loginBackdrop(); ls != nil {
+			ls.Update(a.frameDT)
+			ls.Draw(a.scene3d, w, h)
+		}
+	}
 	if a.screen == screenCharacters && a.state != nil {
 		fury := a.state.Faction.Faction == 1
 		a.drawWorld(a.selectWorld(fury), selectEye, selectTarget, w, h)

@@ -12,6 +12,11 @@ func (a *App) Preview(name string) error {
 	switch name {
 	case "login":
 		a.login.ID.Text, a.login.Password.Text = "admin1", "secret"
+	case "login-settled":
+		a.login.ID.Text, a.login.Password.Text = "admin1", "secret"
+		if ls := a.loginBackdrop(); ls != nil {
+			ls.Camera.Skip()
+		}
 	case "servers":
 		a.servers.Servers = []proto.Server{
 			{ID: 1, Name: "Rapture", Users: 10, Capacity: 100},

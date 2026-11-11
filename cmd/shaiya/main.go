@@ -103,7 +103,9 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 		if err := a.Preview(shotScreen); err != nil {
 			return err
 		}
-		frame(0.75) // caret visible
+		for i := 0; i < 3; i++ {
+			frame(0.25) // caret visible, scene warmed up
+		}
 		gl.Finish()
 		fw, fh := win.GetFramebufferSize()
 		if err := render.SavePNG(shot, fw, fh); err != nil {

@@ -52,6 +52,9 @@ void main() {
 	vec4 c;
 	if (mode == 1) {
 		c = vec4(texture(tex1, vUV2 / tileSize).rgb, texture(tex0, vUV).a);
+	} else if (mode == 4) {
+		c = texture(tex0, vUV);
+		c.rgb *= texture(tex1, vUV2).rgb;
 	} else if (mode == 3) {
 		frag = texture(tex0, vUV + uvOffset) * tint;
 		return;
@@ -207,4 +210,45 @@ func (s *Scene3D) DrawUnlit(m *Mesh, t *Texture, world M4, alpha float32, uvOff 
 	s.blend(true)
 	gl.BindTextureUnit(0, t.ID)
 	m.Draw()
+}
+
+// DrawLightmapped draws DG geometry: texture * lightmap (clamp), unlit.
+func (s *Scene3D) DrawLightmapped(m *Mesh, t, lm *Texture) {
+	id := Identity()
+	gl.UniformMatrix4fv(s.uWorld, 1, false, &id[0])
+	gl.Uniform1i(s.uMode, 4)
+	gl.Uniform1f(s.uRef, 0.5)
+	s.blend(false)
+	if t != nil {
+		gl.BindTextureUnit(0, t.ID)
+	}
+	gl.BindTextureUnit(1, lm.ID)
+	m.Draw()
+}
+
+// DrawTinted draws texture*tint unlit. blend: alpha blending; additive:
+// SRCALPHA/ONE. Blended draws do not write depth.
+func (s *Scene3D) DrawTinted(m *Mesh, t *Texture, world M4, tint [4]float32, blend, additive bool) {
+	if t == nil {
+		return
+	}
+	gl.UniformMatrix4fv(s.uWorld, 1, false, &world[0])
+	gl.Uniform1i(s.uMode, 3)
+	gl.Uniform4f(s.uTint, tint[0], tint[1], tint[2], tint[3])
+	gl.Uniform2f(s.uUVOff, 0, 0)
+	if blend {
+		gl.Enable(gl.BLEND)
+		if additive {
+			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE)
+		} else {
+			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+		}
+		gl.DepthMask(false)
+	} else {
+		gl.Disable(gl.BLEND)
+	}
+	gl.BindTextureUnit(0, t.ID)
+	m.Draw()
+	gl.DepthMask(true)
+	gl.Disable(gl.BLEND)
 }
