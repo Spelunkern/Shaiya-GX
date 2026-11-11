@@ -6,7 +6,7 @@ Rapture (`~/Desktop/Rapture`). Proyecto privado. Directivas:
 
 ## Estado (2026-11-11)
 
-**Hito actual: cierre de M0/M1, comienzo de M2.**
+**Hito actual: M3 (pantallas de cuenta) en curso.**
 
 | Área | Estado |
 |---|---|
@@ -15,19 +15,21 @@ Rapture (`~/Desktop/Rapture`). Proyecto privado. Directivas:
 | Protocolo | 406 opcodes recibidos mapeados; 27 decodificados; 15 writers verificados en Ghidra. Ver [docs/protocolo.md](docs/protocolo.md) |
 | Datos | `data.sah`/`data.saf` (24.655 archivos), TGA/DDS/BMP: 11.867 texturas decodifican (N1) |
 | Ventana y render | GLFW + OpenGL 4.5 core, texturas DXT subidas comprimidas, batch 2D |
-| UI | **Sin layout todavía:** la pantalla de login es provisoria. El layout original está ubicado (`0x4b8ff0`), falta portar el framework de widgets |
+| UI | **Login y lista de servidores fieles** (layout, botones de 5 estados, checkbox, Tahoma 13, mensajes de `sysmsg-uni.txt`). Selección de personaje y mundo: pantallas provisorias de texto |
+| Cliente con ventana | **Funciona contra Rapture (N2):** login → servidores → personajes → mundo (`-autoplay`) |
 | Mundo 3D, modelos, efectos, audio | No empezado |
 | Windows | Sin compilar ni probar (se hará más adelante) |
 
-Lo que **no** funciona todavía: no hay pantallas reales (login, servidores,
-personajes), ni mundo 3D, ni combate, inventario o UI de juego.
+Lo que **no** funciona todavía: selección de personaje real (con modelos 3D),
+escena 3D del login, mundo 3D, combate, inventario y UI de juego.
 
 ## Uso
 
 ```sh
 ./tools/build.sh                       # build/shaiya, build/shaiyacli, build/assets
 export SHAIYA_DATA="$HOME/Desktop/Client EP5"
-build/shaiya                           # ventana (pantalla provisoria)
+build/shaiya                           # cliente con ventana
+SHAIYA_PASSWORD=... build/shaiya -autoplay admin1 -screenshot w.png   # flujo completo oculto
 SHAIYA_PASSWORD=... build/shaiyacli -user admin1 -slot 0
 build/assets stats | ls interface | cat interface/login.tga | find .wld
 ```
