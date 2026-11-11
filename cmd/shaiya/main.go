@@ -27,17 +27,18 @@ func main() {
 	debug := flag.Bool("gldebug", false, "OpenGL debug context")
 	shot := flag.String("screenshot", "", "render offscreen to this PNG and exit")
 	shotScreen := flag.String("screenshot-screen", "login", "screen for -screenshot: login | servers | chars")
+	autoSelect := flag.Int("autoplay-select", -1, "with -autoplay: stop at character select on this slot")
 	autoplay := flag.String("autoplay", "", "account to log in with (SHAIYA_PASSWORD) offscreen until in world, then save -screenshot")
 	flag.Parse()
 	if *dataDir == "" {
 		log.Fatal("set -data or SHAIYA_DATA to the folder with data.sah/data.saf")
 	}
-	if err := run(*dataDir, app.Config{LoginAddr: *login, WorldPort: *worldPort, Version: proto.ClientVersion}, *width, *height, *debug, *shot, *shotScreen, *autoplay); err != nil {
+	if err := run(*dataDir, app.Config{LoginAddr: *login, WorldPort: *worldPort, Version: proto.ClientVersion}, *width, *height, *debug, *shot, *shotScreen, *autoplay, *autoSelect); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen, autoUser string) error {
+func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen, autoUser string, autoSelect int) error {
 	arc, err := archive.Open(dataDir)
 	if err != nil {
 		return err
@@ -59,7 +60,7 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 	var auto *app.Autoplay
 	inWorld := false
 	if autoUser != "" {
-		auto = &app.Autoplay{User: autoUser, Password: os.Getenv("SHAIYA_PASSWORD")}
+		auto = &app.Autoplay{User: autoUser, Password: os.Getenv("SHAIYA_PASSWORD"), StopAtSelect: autoSelect >= 0, Slot: autoSelect}
 	}
 	frame := func(dt float64) {
 		fw, fh := win.GetFramebufferSize()

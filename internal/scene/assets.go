@@ -19,11 +19,13 @@ type Assets struct {
 	Arc      *archive.Archive
 	textures map[string]*render.Texture
 	models   map[string]*Model
+	parts    map[string]*skinPart
+	clips    map[string]*Clip
 	Missing  map[string]bool
 }
 
 func NewAssets(a *archive.Archive) *Assets {
-	return &Assets{Arc: a, textures: map[string]*render.Texture{}, models: map[string]*Model{}, Missing: map[string]bool{}}
+	return &Assets{Arc: a, textures: map[string]*render.Texture{}, models: map[string]*Model{}, parts: map[string]*skinPart{}, clips: map[string]*Clip{}, Missing: map[string]bool{}}
 }
 
 // DDSName applies the data's convention: models and worlds name their

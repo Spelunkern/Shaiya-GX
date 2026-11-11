@@ -6,7 +6,11 @@ Cada pase y shader: estado original (D3D9) → equivalente GL 4.5, fuente y esta
 |---|---|---|---|
 | UI 2D | Quads en píxeles, `SRCALPHA/INVSRCALPHA` | `render.Sprites`, GLSL 450 | Base hecha; filtrado y redondeo de píxel sin verificar |
 | Escena de login | `FUN_004bcd60`. Este cliente tiene el feature 15 activo (deducido: el decomp calibró la cámara y las rocas solo para `login3`), así que carga `login3.wld` (DUN, `Login_eternity_territory_01.dg`, 11 edificios animados por MAni, 2 árboles, 6 VANI, `world_a1.EFT`) más 6 SMOD a mano: `Login_mainstructure`, `Logineffect_smoke01a`, `login_effect_acrossup`/`acrossdown`, `Login_floatrock`, `login_effect_back01a` | — | Formatos leídos (WLD/DG/SMOD); render pendiente |
-| Terreno, objetos, personajes, agua, cielo, efectos | — | — | No empezado |
+| Terreno de campo | Una pasada por capa: RGB del tile (`Terrain/Detail`, repetido cada `TileSize`), alfa de la máscara `<mapa>_00_A<i>.dds`; primera opaca, luego alfa (corte 7.5/255); pasada final × lightmap `_L.dds` (port D3D11 del decomp, `native_terrain_ports.cpp`) | `scene.World`, modos 1 y 2 | Hecho; altura `(muestra-10000)/50` confirmada en `0x5aef30` |
+| Objetos SMOD | textura × difusa Gouraud clamp(amb + max(0, N·−L)), amb 128/255, sin culling (Phoenix `account_ep5`) | modo 0 | Hecho; corte de alfa 0.5 NO VERIFICADO |
+| Cielo | cúpula `sky.3do` + gradiente del mapa + 2 nubes (`0x54c9b0`, `0x54dd00`) | `scene.Sky` | Hecho; orden y estados NO VERIFICADOS |
+| Personajes | 3DC (B por parte) × finales ANI, 2 pesos; partes por MLT según `0x417220`; amb 0.8 | `render.Skinner`, `scene.Character` | Hecho; reflejo esférico (ps_1_1 `0x6c87b8`) pendiente |
+| Agua, VANI, MAni, efectos EFT | — | — | No empezado |
 
 Texturas: DXT1/3/5 se suben comprimidas (`COMPRESSED_RGBA_S3TC_*`); el
 contenido decide el formato (hay BMP y TGA con extensión `.dds`).
