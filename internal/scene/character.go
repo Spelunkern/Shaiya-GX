@@ -58,10 +58,27 @@ type skinPart struct {
 
 // Character is a posed, animated actor.
 type Character struct {
-	parts []*skinPart
-	clip  *Clip
-	Time  float32
-	World render.M4
+	parts    []*skinPart
+	clip     *Clip
+	clipName string
+	folder   string
+	prefix   string
+	assets   *Assets
+	Time     float32
+	World    render.M4
+}
+
+// SetClip switches to <prefix>_<name>.ANI (e.g. "000_normal", "002_run"),
+// restarting it; unknown clips keep the current one.
+func (c *Character) SetClip(name string) {
+	if c == nil || c.clipName == name {
+		return
+	}
+	cl, err := c.assets.Clip(fmt.Sprintf("Character/%s/ANI/%s_%s.ANI", c.folder, c.prefix, name))
+	if err != nil {
+		return
+	}
+	c.clip, c.clipName, c.Time = cl, name, 0
 }
 
 func (s *Assets) mlt(folder, prefix, part string) (*model.MLT, error) {
@@ -77,7 +94,7 @@ func (s *Assets) mlt(folder, prefix, part string) (*model.MLT, error) {
 func BuildCharacter(s *Assets, a Appearance, clip string) (*Character, error) {
 	folder := raceFolders[a.Race%4]
 	prefix := a.Prefix()
-	c := &Character{}
+	c := &Character{folder: folder, prefix: prefix, assets: s}
 	add := func(part string, index int) {
 		m, err := s.mlt(folder, prefix, part)
 		if err != nil || index < 0 || index >= len(m.Records) {
@@ -113,10 +130,9 @@ func BuildCharacter(s *Assets, a Appearance, clip string) (*Character, error) {
 	} else {
 		add("hair", int(a.Hair))
 	}
-	clipFile := fmt.Sprintf("Character/%s/ANI/%s_%s.ANI", folder, prefix, clip)
-	var err error
-	if c.clip, err = s.Clip(clipFile); err != nil {
-		return c, err
+	c.SetClip(clip)
+	if c.clip == nil {
+		return c, fmt.Errorf("clip %s_%s not found", prefix, clip)
 	}
 	return c, nil
 }

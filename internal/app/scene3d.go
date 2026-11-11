@@ -45,7 +45,7 @@ func (a *App) drawWorld(w *scene.World, eye, target render.V3, width, height int
 	}
 	s := a.scene3d
 	s.View = render.LookAtLH(eye, target, render.V3{0, 1, 0})
-	aspect := float32(width) / float32(height)
+	aspect := projectionAspect(width, height)
 	s.Proj = render.PerspectiveFovLH(math.Pi/4, aspect, 0.1, 400)
 	s.SkyProj = render.PerspectiveFovLH(math.Pi/4, aspect, 10, 100000)
 	s.FogColor, s.FogStart, s.FogEnd = w.FogColor, w.FogStart, w.FogEnd

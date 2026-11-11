@@ -18,9 +18,7 @@ type Instance struct {
 // World is a drawable map.
 type World struct {
 	WLD      *world.WLD
-	Terrain  *render.Mesh
-	Layers   []TerrainLayer
-	Lightmap *render.Texture
+	Sections []Section
 	Objects  []Instance
 	Sky      *Sky
 	dg       []dgPart
@@ -36,6 +34,14 @@ type TerrainLayer struct {
 	Tile     *render.Texture
 	Mask     *render.Texture
 	TileSize float32
+}
+
+// Section is one field section (1x1 below map size 1536, else 2x2; file
+// suffix <z><x>), with its own masks and lightmap.
+type Section struct {
+	Mesh     *render.Mesh
+	Layers   []TerrainLayer
+	Lightmap *render.Texture
 }
 
 // LoadField loads world/<stem>.wld with its field data in
@@ -55,17 +61,27 @@ func LoadField(a *Assets, stem string) (*World, error) {
 	out := &World{WLD: w, FogColor: render.V3{w.FogColor[0] / 255, w.FogColor[1] / 255, w.FogColor[2] / 255},
 		FogStart: w.FogStart, FogEnd: w.FogEnd}
 	out.buildTerrain()
-	field := "world/Field/" + stem + "/" + stem + "_00"
+	tiles := make([]*render.Texture, len(w.Layers))
 	for i, l := range w.Layers {
-		tl := TerrainLayer{TileSize: l.TileSize,
-			Tile: a.Texture("Terrain/Detail/" + DDSName(path.Base(l.Texture))),
-			Mask: a.Texture(fmt.Sprintf("%s_A%d.dds", field, i))}
-		if tl.Tile != nil {
-			tl.Tile.SetWrap(true)
+		if strings.TrimSpace(l.Texture) == "" {
+			continue // unused layer slot
 		}
-		out.Layers = append(out.Layers, tl)
+		if tiles[i] = a.Texture("Terrain/Detail/" + DDSName(path.Base(l.Texture))); tiles[i] != nil {
+			tiles[i].SetWrap(true)
+		}
 	}
-	out.Lightmap = a.Texture(field + "_L.dds")
+	n := out.sectionsPerSide()
+	for sz := 0; sz < n; sz++ {
+		for sx := 0; sx < n; sx++ {
+			sec := &out.Sections[sz*n+sx]
+			field := fmt.Sprintf("world/Field/%s/%s_%d%d", stem, stem, sz, sx)
+			for i, l := range w.Layers {
+				sec.Layers = append(sec.Layers, TerrainLayer{TileSize: l.TileSize, Tile: tiles[i],
+					Mask: a.optionalTexture(fmt.Sprintf("%s_A%d.dds", field, i))})
+			}
+			sec.Lightmap = a.optionalTexture(field + "_L.dds")
+		}
+	}
 	out.addObjects(a)
 	out.Sky = LoadSky(a, w)
 	return out, nil
@@ -105,30 +121,50 @@ func (w *World) heightsOnly() bool {
 	return true
 }
 
+func (w *World) sectionsPerSide() int {
+	if w.WLD.MapSize >= 1536 {
+		return 2
+	}
+	return 1
+}
+
+// buildTerrain: samples every MapSize/(side-1) units, height (raw-10000)/50
+// (0x5aef30: x0.02 - 200), diagonal (x1,z0)-(x0,z1). One mesh per section;
+// UV covers the section (masks, lightmap), UV2 is the raw XZ (tiles).
 func (w *World) buildTerrain() {
 	if !w.heightsOnly() {
 		return
 	}
 	side := w.side
-	v := make([]render.Vertex, side*side)
-	inv := 1 / float32(side-1)
-	for z := 0; z < side; z++ {
-		for x := 0; x < side; x++ {
-			px, pz := float32(x)*w.step, float32(z)*w.step
-			v[z*side+x] = render.Vertex{
-				Pos: render.V3{px, w.heights[z*side+x], pz}, Normal: render.V3{0, 1, 0},
-				UV: [2]float32{float32(x) * inv, float32(z) * inv}, UV2: [2]float32{px, pz}}
+	n := w.sectionsPerSide()
+	cells := (side - 1) / n
+	w.Sections = make([]Section, n*n)
+	for sz := 0; sz < n; sz++ {
+		for sx := 0; sx < n; sx++ {
+			x0, z0 := sx*cells, sz*cells
+			cs := cells + 1
+			v := make([]render.Vertex, 0, cs*cs)
+			inv := 1 / float32(cells)
+			for z := 0; z < cs; z++ {
+				for x := 0; x < cs; x++ {
+					gx, gz := x0+x, z0+z
+					px, pz := float32(gx)*w.step, float32(gz)*w.step
+					v = append(v, render.Vertex{
+						Pos: render.V3{px, w.heights[gz*side+gx], pz}, Normal: render.V3{0, 1, 0},
+						UV: [2]float32{float32(x) * inv, float32(z) * inv}, UV2: [2]float32{px, pz}})
+				}
+			}
+			idx := make([]uint32, 0, cells*cells*6)
+			for z := 0; z < cells; z++ {
+				for x := 0; x < cells; x++ {
+					a, b := uint32(z*cs+x), uint32(z*cs+x+1)
+					c, d := uint32((z+1)*cs+x), uint32((z+1)*cs+x+1)
+					idx = append(idx, a, b, c, b, d, c)
+				}
+			}
+			w.Sections[sz*n+sx].Mesh = render.NewMesh(v, idx)
 		}
 	}
-	idx := make([]uint32, 0, (side-1)*(side-1)*6)
-	for z := 0; z < side-1; z++ {
-		for x := 0; x < side-1; x++ {
-			a, b := uint32(z*side+x), uint32(z*side+x+1)
-			c, d := uint32((z+1)*side+x), uint32((z+1)*side+x+1)
-			idx = append(idx, a, b, c, b, d, c)
-		}
-	}
-	w.Terrain = render.NewMesh(v, idx)
 }
 
 var groupDirs = []struct {
@@ -166,16 +202,18 @@ func (w *World) addObjects(a *Assets) {
 
 // Draw renders terrain passes, the lightmap and the objects.
 func (w *World) Draw(s *render.Scene3D) {
-	first := true
-	for _, l := range w.Layers {
-		if l.Mask == nil || l.Tile == nil || w.Terrain == nil {
-			continue
+	for _, sec := range w.Sections {
+		first := true
+		for _, l := range sec.Layers {
+			if l.Mask == nil || l.Tile == nil || sec.Mesh == nil {
+				continue
+			}
+			s.DrawTerrainLayer(sec.Mesh, l.Mask, l.Tile, l.TileSize, first)
+			first = false
 		}
-		s.DrawTerrainLayer(w.Terrain, l.Mask, l.Tile, l.TileSize, first)
-		first = false
-	}
-	if w.Lightmap != nil && w.Terrain != nil && !first {
-		s.DrawLightmap(w.Terrain, w.Lightmap)
+		if sec.Lightmap != nil && sec.Mesh != nil && !first {
+			s.DrawLightmap(sec.Mesh, sec.Lightmap)
+		}
 	}
 	for _, p := range w.dg {
 		if p.lightmap != nil {
@@ -191,3 +229,6 @@ func (w *World) Draw(s *render.Scene3D) {
 		}
 	}
 }
+
+// HasTerrain reports whether the world has a heightmap (fields).
+func (w *World) HasTerrain() bool { return w != nil && w.side >= 2 }

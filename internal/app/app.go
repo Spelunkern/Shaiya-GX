@@ -54,6 +54,9 @@ type App struct {
 	actorID      uint32
 	login3       *scene.LoginScene
 	login3Failed bool
+	wv           *worldView
+	lastMouseX   int
+	lastMouseY   int
 
 	screen  screen
 	login   *ui.Login
@@ -166,8 +169,11 @@ func (a *App) Draw(w, h int) {
 	if a.screen == screenLogin || a.screen == screenServers {
 		if ls := a.loginBackdrop(); ls != nil {
 			ls.Update(a.frameDT)
-			ls.Draw(a.scene3d, w, h)
+			ls.Draw(a.scene3d, projectionAspect(w, h))
 		}
+	}
+	if a.screen == screenWorld {
+		a.drawWorldView(w, h)
 	}
 	if a.screen == screenCharacters && a.state != nil {
 		fury := a.state.Faction.Faction == 1

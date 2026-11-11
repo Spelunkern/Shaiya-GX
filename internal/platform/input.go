@@ -27,7 +27,14 @@ type Input struct {
 	Chars          []rune
 	Keys           []Key
 	Shift          bool
+	RightDown      bool    // right button held
+	RightPressed   bool    // right button pressed this frame
+	Wheel          float64 // wheel delta in Win32 units (120 per notch)
+	held           func(rune) bool
 }
+
+// Held reports whether a letter key or an arrow ('<' '>' '^' 'v') is down.
+func (in *Input) Held(k rune) bool { return in.held != nil && in.held(k) }
 
 func (in *Input) HasKey(k Key) bool {
 	for _, x := range in.Keys {
@@ -57,7 +64,15 @@ func (w *Window) InstallInput() *InputQueue {
 			q.cur.Keys = append(q.cur.Keys, mk)
 		}
 	})
+	w.SetScrollCallback(func(_ *glfw.Window, _, dy float64) { q.cur.Wheel += dy * 120 })
 	w.SetMouseButtonCallback(func(_ *glfw.Window, b glfw.MouseButton, a glfw.Action, _ glfw.ModifierKey) {
+		if b == glfw.MouseButtonRight {
+			q.cur.RightDown = a == glfw.Press
+			if a == glfw.Press {
+				q.cur.RightPressed = true
+			}
+			return
+		}
 		if b != glfw.MouseButtonLeft {
 			return
 		}
@@ -88,6 +103,25 @@ func (q *InputQueue) Frame() Input {
 	}
 	in := q.cur
 	in.MouseX, in.MouseY = int(x*scale), int(y*scale)
-	q.cur = Input{MouseDown: in.MouseDown, Shift: in.Shift}
+	win := q.win
+	in.held = func(k rune) bool {
+		var key glfw.Key
+		switch {
+		case k >= 'A' && k <= 'Z':
+			key = glfw.Key(int(glfw.KeyA) + int(k-'A'))
+		case k == '<':
+			key = glfw.KeyLeft
+		case k == '>':
+			key = glfw.KeyRight
+		case k == '^':
+			key = glfw.KeyUp
+		case k == 'v':
+			key = glfw.KeyDown
+		default:
+			return false
+		}
+		return win.GetKey(key) == glfw.Press
+	}
+	q.cur = Input{MouseDown: in.MouseDown, RightDown: in.RightDown, Shift: in.Shift}
 	return in
 }
