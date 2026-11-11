@@ -22,6 +22,7 @@ type World struct {
 	Layers   []TerrainLayer
 	Lightmap *render.Texture
 	Objects  []Instance
+	Sky      *Sky
 	FogColor render.V3
 	FogStart float32
 	FogEnd   float32
@@ -65,6 +66,7 @@ func LoadField(a *Assets, stem string) (*World, error) {
 	}
 	out.Lightmap = a.Texture(field + "_L.dds")
 	out.addObjects(a)
+	out.Sky = LoadSky(a, w)
 	return out, nil
 }
 

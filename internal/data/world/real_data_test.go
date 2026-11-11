@@ -78,3 +78,8 @@ func TestRealDG(t *testing.T) {
 		return err
 	})
 }
+
+func TestReal3DO(t *testing.T) {
+	a := openArchive(t)
+	eachFile(t, a, ".3do", func(_ string, b []byte) error { _, err := Parse3DO(b); return err })
+}
