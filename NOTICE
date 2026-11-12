@@ -1,5 +1,9 @@
 Shaiya GX — third-party notices
 
+Original project source: BSD 3-Clause License; see LICENSE.
+Original Shaiya game data, artwork, audio, executables and trademarks remain
+the property of their respective rights holders and are outside this license.
+
 Parsec (https://github.com/matigramirez/Parsec), MIT License.
 Ported: KISA SEED tables and SData decryption (internal/data/sdata),
 and format layouts used throughout internal/data.
