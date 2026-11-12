@@ -80,3 +80,7 @@ Tests that require a graphics context, local game archives or a server are opt-i
 Game assets and generated files belong outside Git. See [.gitignore](.gitignore), [third-party notices](NOTICE), and the [protocol notes](docs/protocol.md).
 
 Shaiya and its original game content belong to their respective rights holders. Public source availability does not grant rights to the original game's assets or branding.
+
+## License
+
+Shaiya GX source code is licensed under the [BSD 3-Clause License](LICENSE). Third-party components retain their own licenses; see [NOTICE](NOTICE). Original game data, assets and trademarks are not covered by this license.
