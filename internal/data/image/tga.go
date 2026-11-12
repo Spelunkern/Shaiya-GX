@@ -1,5 +1,5 @@
 // Package image decodes the client's texture formats: TGA (raw and RLE,
-// 8/24/32-bit truecolor), BMP, and DDS (DXT1/3/5 and uncompressed RGB(A)).
+// 8/24/32-bit truecolor), BMP, JPEG, and DDS (DXT1/3/5 and uncompressed RGB(A)).
 // Compressed DDS data is kept as blocks for direct upload to the GPU.
 package image
 
@@ -36,6 +36,9 @@ func DecodeTGA(b []byte) (*RGBA, error) {
 		return nil, fmt.Errorf("%w: tga type %d bpp %d", ErrFormat, typ, bpp)
 	}
 	ps := bpp / 8
+	if idLen > len(b)-18 {
+		return nil, errors.New("image: truncated tga image ID")
+	}
 	src := b[18+idLen:]
 	n := w * h
 	raw := make([]byte, n*ps)

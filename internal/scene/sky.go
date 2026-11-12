@@ -3,8 +3,8 @@ package scene
 import (
 	"strings"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/world"
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/world"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // Sky is the field sky (0x54c8a0 / 0x54c9b0 / 0x54dd00): the data/sky/sky.3do

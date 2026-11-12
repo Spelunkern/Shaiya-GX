@@ -41,7 +41,15 @@ func Dial(addr string, timeout time.Duration) (*Conn, error) {
 	return &Conn{nc: nc, r: bufio.NewReaderSize(nc, 64<<10)}, nil
 }
 
-func (c *Conn) Close() error         { return c.nc.Close() }
+func (c *Conn) Close() error { return c.nc.Close() }
+
+// CloseWrite delivers EOF after queued requests, leaving the read side open.
+func (c *Conn) CloseWrite() error {
+	if tcp, ok := c.nc.(*net.TCPConn); ok {
+		return tcp.CloseWrite()
+	}
+	return c.nc.Close()
+}
 func (c *Conn) RemoteAddr() net.Addr { return c.nc.RemoteAddr() }
 
 // SetReadDeadline forwards to the socket.

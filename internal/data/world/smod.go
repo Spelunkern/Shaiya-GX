@@ -1,5 +1,10 @@
 package world
 
+import (
+	"fmt"
+	"math"
+)
+
 // SMOD is a static model (Parsec Shaiya/Smod).
 type SMOD struct {
 	Center    Vec3
@@ -7,6 +12,13 @@ type SMOD struct {
 	ViewBox   Box
 	Meshes    []SMODMesh
 	Collision Box
+	Colliders []CollisionMesh
+}
+
+type CollisionMesh struct {
+	Bounds   Box
+	Vertices []Vec3
+	Faces    []Face
 }
 
 type SMODMesh struct {
@@ -37,6 +49,48 @@ func ParseSMOD(b []byte) (*SMOD, error) {
 		m.Meshes = append(m.Meshes, mesh)
 	}
 	m.Collision = r.box()
-	// Collision meshes follow; the client does not need them for drawing.
+	n = r.count(8)
+	for i := 0; i < n && r.err == nil; i++ {
+		c := r.collisionMesh()
+		m.Colliders = append(m.Colliders, c)
+	}
 	return m, r.err
+}
+
+// SMODBounds reads only the 16-byte sphere header (Parsec Smod Center/Radius).
+func SMODBounds(b []byte) (Vec3, float32, error) {
+	r := &reader{b: b}
+	center, radius := r.vec3(), r.f32()
+	if r.err != nil {
+		return center, radius, r.err
+	}
+	for _, v := range []float32{center[0], center[1], center[2], radius} {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return center, radius, fmt.Errorf("smod: non-finite bounds")
+		}
+	}
+	if radius < 0 {
+		return center, radius, fmt.Errorf("smod: negative radius")
+	}
+	return center, radius, nil
+}
+
+func (r *reader) collisionMesh() CollisionMesh {
+	c := CollisionMesh{}
+	nv := r.count(12)
+	c.Vertices = make([]Vec3, nv)
+	for i := range c.Vertices {
+		p := r.vec3()
+		c.Vertices[i] = p
+		if i == 0 {
+			c.Bounds = Box{Min: p, Max: p}
+		} else {
+			for axis := range 3 {
+				c.Bounds.Min[axis] = min(c.Bounds.Min[axis], p[axis])
+				c.Bounds.Max[axis] = max(c.Bounds.Max[axis], p[axis])
+			}
+		}
+	}
+	c.Faces = r.faces()
+	return c
 }

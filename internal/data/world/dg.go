@@ -17,6 +17,7 @@ type DGNode struct {
 	CollBox  Box
 	Groups   []DGGroup
 	Children []*DGNode
+	Collider CollisionMesh
 }
 
 type DGGroup struct {
@@ -64,9 +65,7 @@ func (r *reader) dgNode(depth int) *DGNode {
 		n.Groups = append(n.Groups, g)
 	}
 	if r.i32() == 1 { // collision mesh
-		nv := r.count(12)
-		r.take(12 * nv)
-		r.faces()
+		n.Collider = r.collisionMesh()
 	}
 	for i := 0; i < 8 && r.err == nil; i++ {
 		if r.i32() > 0 {

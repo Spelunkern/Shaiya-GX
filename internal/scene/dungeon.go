@@ -5,9 +5,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/archive"
-	"github.com/Spelunkern/shaiya-go-client/internal/data/world"
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/archive"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/world"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // FindTexture resolves a texture by base name anywhere in the archive
@@ -28,7 +28,7 @@ func (s *Assets) FindTexture(name string) *render.Texture {
 	}
 	stem := strings.ToLower(strings.TrimSuffix(DDSName(path.Base(strings.ReplaceAll(name, `\`, "/"))), ".dds"))
 	if p, ok := s.byStem[stem]; ok {
-		return s.Texture(p)
+		return s.worldTexture(p)
 	}
 	s.Missing[name] = true
 	return nil
@@ -54,18 +54,9 @@ func LoadDungeon(a *Assets, wldFile string) (*World, error) {
 		return nil, err
 	}
 	out.addObjects(a)
-	// MAni instances place building assets (their motion is not applied yet).
-	for _, m := range w.Manis {
-		if m.Building < 0 || int(m.Building) >= len(w.Buildings.Assets) {
-			continue
-		}
-		mdl, err := a.SMOD("Entity/Building/" + w.Buildings.Assets[m.Building])
-		if err != nil {
-			continue
-		}
-		out.Objects = append(out.Objects, Instance{Model: mdl,
-			World: render.Basis(render.V3(m.Pos), render.V3(m.Fwd), render.V3(m.Up))})
-	}
+	out.addManis(a)
+	out.addVanis(a)
+	out.loadMapEffects(a)
 	return out, nil
 }
 
@@ -85,6 +76,12 @@ func (w *World) loadDG(a *Assets, layout string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", file, err)
 	}
+	w.dgShadow = buildDungeonShadowIndex(d.Root)
+	d.Root.Walk(func(n *world.DGNode) {
+		if len(n.Collider.Faces) > 0 {
+			w.dgColliders = append(w.dgColliders, n.Collider)
+		}
+	})
 	stem := strings.TrimSuffix(layout, path.Ext(layout))
 	lightmaps := map[int32]*render.Texture{}
 	lm := func(i int32) *render.Texture {
@@ -97,7 +94,7 @@ func (w *World) loadDG(a *Assets, layout string) error {
 		f := fmt.Sprintf("world/dungeon/%s/%s_L%d.dds", stem, stem, i)
 		var t *render.Texture
 		if _, ok := a.Arc.Lookup(f); ok {
-			t = a.Texture(f)
+			t = a.worldTexture(f)
 		}
 		lightmaps[i] = t
 		return t
@@ -107,6 +104,11 @@ func (w *World) loadDG(a *Assets, layout string) error {
 			var tex *render.Texture
 			if g.Texture >= 0 && int(g.Texture) < len(d.Textures) {
 				tex = a.FindTexture(d.Textures[g.Texture])
+				if tex != nil {
+					// DG material UVs tile beyond [0,1]; confirmed against the
+					// original Login.wld floor. Lightmap UVs remain clamped.
+					tex.SetWrap(true)
+				}
 			}
 			for _, m := range g.Meshes {
 				v := make([]render.Vertex, len(m.Vertices))

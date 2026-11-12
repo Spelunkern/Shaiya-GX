@@ -5,6 +5,7 @@ package platform
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 
 	"github.com/go-gl/glfw/v3.4/glfw"
@@ -15,6 +16,9 @@ func LockMainThread() { runtime.LockOSThread() }
 
 type Window struct {
 	*glfw.Window
+	rememberSize bool
+	normalSize   windowState
+	maximized    bool
 }
 
 type Config struct {
@@ -23,10 +27,22 @@ type Config struct {
 	Debug         bool // GL debug context
 	VSync         bool
 	Hidden        bool // offscreen checks (screenshots)
+	RememberSize  bool // persist ordinary desktop windows only
+	RestoreSize   bool // explicit command-line dimensions override saved size
 }
 
 // Open initializes GLFW and creates a window with a GL 4.5 core context.
 func Open(c Config) (*Window, error) {
+	var saved windowState
+	if c.RememberSize && c.RestoreSize && !c.Hidden {
+		var err error
+		saved, err = loadWindowState()
+		if err != nil {
+			log.Printf("restore window size: %v", err)
+		} else if saved.Width != 0 {
+			c.Width, c.Height = saved.Width, saved.Height
+		}
+	}
 	if err := glfw.Init(); err != nil {
 		return nil, fmt.Errorf("glfw: %w", err)
 	}
@@ -52,10 +68,25 @@ func Open(c Config) (*Window, error) {
 	} else {
 		glfw.SwapInterval(0)
 	}
-	return &Window{w}, nil
+	win := &Window{Window: w, rememberSize: c.RememberSize && !c.Hidden,
+		normalSize: windowState{Width: c.Width, Height: c.Height}}
+	if win.rememberSize {
+		w.SetSizeCallback(func(_ *glfw.Window, width, height int) {
+			if width >= 320 && height >= 240 && w.GetAttrib(glfw.Maximized) == glfw.False && w.GetAttrib(glfw.Iconified) == glfw.False {
+				win.normalSize.Width, win.normalSize.Height = width, height
+			}
+		})
+		w.SetMaximizeCallback(func(_ *glfw.Window, maximized bool) { win.maximized = maximized })
+		if saved.Maximized {
+			w.Maximize()
+			win.maximized = true
+		}
+	}
+	return win, nil
 }
 
 func (w *Window) Close() {
+	w.saveSize()
 	w.Destroy()
 	glfw.Terminate()
 }

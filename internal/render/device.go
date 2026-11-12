@@ -24,6 +24,21 @@ func Init(debug bool) error {
 		return fmt.Errorf("OpenGL 4.5 is required, the driver offers %d.%d", major, minor)
 	}
 	log.Printf("OpenGL %s, %s", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER)))
+	gpuBytes, drawCalls = 0, 0
+	gpuCapacity = 0
+	var extensionCount int32
+	gl.GetIntegerv(gl.NUM_EXTENSIONS, &extensionCount)
+	for i := int32(0); i < extensionCount; i++ {
+		if gl.GoStr(gl.GetStringi(gl.EXTENSIONS, uint32(i))) == "GL_NVX_gpu_memory_info" {
+			var kib int32
+			gl.GetIntegerv(0x9047, &kib) // GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX
+			if kib > 0 {
+				gpuCapacity = uint64(kib) * 1024
+			}
+			break
+		}
+	}
+	fallbackDiffuse = nil
 	if debug {
 		gl.Enable(gl.DEBUG_OUTPUT)
 		gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)

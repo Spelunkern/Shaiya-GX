@@ -10,12 +10,21 @@ import (
 // the space the original UI is laid out in. Blending is the D3D9 UI state
 // SRCALPHA / INVSRCALPHA.
 type Sprites struct {
-	prog     uint32
-	vao, vbo uint32
-	uScreen  int32
-	verts    []float32
-	tex      *Texture
-	cap      int
+	prog                   uint32
+	vao, vbo               uint32
+	uScreen, uMasked       int32
+	uCircle                int32
+	uNameDepth             int32
+	nameDepth              float32
+	depth                  *Texture
+	depthValid             bool
+	depthReversed          bool
+	depthReadValid         bool
+	depthReadX, depthReadY int
+	depthReadValue         float32
+	verts                  []float32
+	tex                    *Texture
+	cap                    int
 }
 
 const spriteVS = `#version 450 core
@@ -33,10 +42,46 @@ void main() {
 
 const spriteFS = `#version 450 core
 layout(binding=0) uniform sampler2D tex;
+layout(binding=1) uniform sampler2D mask;
+layout(binding=2) uniform sampler2D worldDepth;
+uniform int masked;
+uniform float nameDepth;
+uniform int reversedDepth;
+uniform vec2 screen;
+uniform vec3 circle; // screen centre and radius; zero radius disables clipping
 in vec2 vUV;
 in vec4 vColor;
 out vec4 frag;
-void main() { frag = texture(tex, vUV) * vColor; }`
+void main() {
+	// Phoenix classic_overlay.gdshader, adapted from reverse Z to GL ZERO_TO_ONE.
+	if (nameDepth >= 0.0) {
+ float sampledDepth = texelFetch(worldDepth, ivec2(gl_FragCoord.xy), 0).r;
+ if (reversedDepth != 0) sampledDepth = 1.0 - sampledDepth;
+ if (sampledDepth + 0.000001 < nameDepth) discard;
+ }
+	vec2 uv = masked != 0 ? vec2(vUV.x, 1.0 - vUV.y) : vUV;
+	if (masked != 0) {
+		// Phoenix shaders/retail_portrait.gdshader: integrate the pixel
+		// footprint when reducing the 384px snapshot to the HUD rectangle.
+		vec2 dx = dFdx(uv), dy = dFdy(uv);
+		vec4 face = vec4(0.0);
+		for (int y = 0; y < 4; y++) {
+			for (int x = 0; x < 4; x++) {
+				vec2 offset = (vec2(x,y) + 0.5) / 4.0 - 0.5;
+				face += texture(tex, clamp(uv + offset.x*dx + offset.y*dy, vec2(0.0), vec2(1.0)));
+			}
+		}
+		frag = face * (1.0/16.0) * vColor;
+		if (masked == 1) frag.a *= texture(mask, vUV).a;
+ else frag.a *= 1.0-smoothstep(0.88,0.96,length((vUV-vec2(0.5))*2.0));
+	} else {
+		frag = texture(tex, uv) * vColor;
+	}
+	if (circle.z > 0.0) {
+		float radius = length(vec2(gl_FragCoord.x, screen.y - gl_FragCoord.y) - circle.xy);
+		frag.a *= 1.0 - smoothstep(circle.z - 1.0, circle.z, radius);
+	}
+}`
 
 const floatsPerVertex = 8
 
@@ -45,9 +90,14 @@ func NewSprites(maxQuads int) (*Sprites, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Sprites{prog: p, uScreen: gl.GetUniformLocation(p, gl.Str("screen\x00")), cap: maxQuads}
+	s := &Sprites{prog: p, uScreen: gl.GetUniformLocation(p, gl.Str("screen\x00")), cap: maxQuads, nameDepth: -1}
+	s.uMasked = gl.GetUniformLocation(p, gl.Str("masked\x00"))
+	s.uCircle = gl.GetUniformLocation(p, gl.Str("circle\x00"))
+	s.uNameDepth = gl.GetUniformLocation(p, gl.Str("nameDepth\x00"))
+	gl.ProgramUniform1f(p, s.uNameDepth, -1)
 	gl.CreateBuffers(1, &s.vbo)
 	gl.NamedBufferStorage(s.vbo, maxQuads*6*floatsPerVertex*4, nil, gl.DYNAMIC_STORAGE_BIT)
+	addGPUBytes(uint64(maxQuads * 6 * floatsPerVertex * 4))
 	gl.CreateVertexArrays(1, &s.vao)
 	gl.VertexArrayVertexBuffer(s.vao, 0, s.vbo, 0, floatsPerVertex*4)
 	for i, n := range []int32{2, 2, 4} {
@@ -91,6 +141,26 @@ func (s *Sprites) DrawImage(t *Texture, x, y float32) {
 	s.Draw(t, x, y, float32(t.W), float32(t.H), 0, 0, 1, 1, [4]float32{1, 1, 1, 1})
 }
 
+// DrawMasked draws a framebuffer snapshot through the original UI alpha mask.
+func (s *Sprites) DrawMasked(t, mask *Texture, x, y float32) {
+	s.Flush()
+	gl.Uniform1i(s.uMasked, 1)
+	gl.BindTextureUnit(1, mask.ID)
+	s.Draw(t, x, y, float32(mask.W), float32(mask.H), 0, 0, 1, 1, [4]float32{1, 1, 1, 1})
+	s.Flush()
+	gl.Uniform1i(s.uMasked, 0)
+}
+
+// DrawPortrait uses Phoenix's final 55x53 ellipse; the offscreen snapshot
+// remains square. The original 64px mask includes unrelated rim padding.
+func (s *Sprites) DrawPortrait(t *Texture, x, y, w, h float32) {
+	s.Flush()
+	gl.Uniform1i(s.uMasked, 2)
+	s.Draw(t, x, y, w, h, 0, 0, 1, 1, [4]float32{1, 1, 1, 1})
+	s.Flush()
+	gl.Uniform1i(s.uMasked, 0)
+}
+
 func (s *Sprites) Flush() {
 	if len(s.verts) == 0 || s.tex == nil {
 		s.verts = s.verts[:0]
@@ -99,6 +169,7 @@ func (s *Sprites) Flush() {
 	gl.NamedBufferSubData(s.vbo, 0, len(s.verts)*4, unsafe.Pointer(&s.verts[0]))
 	gl.BindTextureUnit(0, s.tex.ID)
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(s.verts)/floatsPerVertex))
+	drawCalls++
 	s.verts = s.verts[:0]
 }
 

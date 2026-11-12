@@ -27,7 +27,25 @@ type Group struct {
 
 // WLD is a world layout. Field-only parts (terrain, sky) are empty for
 // dungeons.
+type MusicZone struct {
+	Box        Box
+	Radius     float32
+	Asset, Unk int32
+}
+
+// NPCPlacement is the original WLD placement, which may differ from the
+// server's live NPCs. Patrol contains the additional route points.
+type NPCPlacement struct {
+	Type, TypeID int32
+	Position     Vec3
+	Orientation  float32
+	Patrol       []Vec3
+}
+
 type WLD struct {
+	MusicAssets  []string
+	MusicZones   []MusicZone
+	NPCs         []NPCPlacement
 	Dungeon      bool
 	MapSize      uint32
 	Heights      []uint16 // (MapSize/2+1)^2 samples
@@ -119,12 +137,13 @@ func ParseWLD(b []byte) (*WLD, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-	// The rest (music, zones, sounds, portals, spawns, areas, NPCs) is
-	// server-side or audio data; skip to sky and fog.
-	r.names()                  // music assets
-	r.skipList(24 + 4 + 4 + 4) // music zones
-	r.names()                  // sound assets
-	nz := r.count(28)          // zones
+	// Audio and static map metadata precede the sky and fog.
+	w.MusicAssets = r.names()
+	for i, n := 0, r.count(36); i < n; i++ {
+		w.MusicZones = append(w.MusicZones, MusicZone{r.box(), r.f32(), r.i32(), r.i32()})
+	}
+	r.names()         // sound assets
+	nz := r.count(28) // zones
 	for i := 0; i < nz && r.err == nil; i++ {
 		r.box()
 		r.take(4 * r.count(4))
@@ -135,10 +154,20 @@ func ParseWLD(b []byte) (*WLD, error) {
 	r.skipList(4 + 24 + 4 + 4 + 4)            // spawns
 	r.skipList(24 + 4 + 512 + 4 + 4)          // named areas
 	npcs := r.i32()                           // NPCs + patrol points
+	if npcs < 0 {
+		return nil, fmt.Errorf("world: negative NPC count %d", npcs)
+	}
 	for npcs > 0 && r.err == nil {
-		r.take(4 + 4 + 12 + 4)
+		npc := NPCPlacement{Type: r.i32(), TypeID: r.i32(), Position: r.vec3(), Orientation: r.f32()}
 		p := r.count(12)
-		r.take(12 * p)
+		if int32(p) >= npcs {
+			return nil, fmt.Errorf("world: NPC patrol count %d exceeds remaining records %d", p, npcs)
+		}
+		npc.Patrol = make([]Vec3, p)
+		for i := range npc.Patrol {
+			npc.Patrol[i] = r.vec3()
+		}
+		w.NPCs = append(w.NPCs, npc)
 		npcs -= int32(p) + 1
 	}
 	if !w.Dungeon {

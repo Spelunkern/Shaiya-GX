@@ -1,6 +1,9 @@
 package platform
 
-import "github.com/go-gl/glfw/v3.4/glfw"
+import (
+	"github.com/go-gl/glfw/v3.4/glfw"
+	"strings"
+)
 
 // Key is a subset of keys the UI uses.
 type Key int
@@ -16,25 +19,41 @@ const (
 	KeyLeft
 	KeyRight
 	KeyDelete
+	KeyNumLock
+	KeyHome
+	KeyPageUp
+	KeyPageDown
+	KeyF9
+	KeyF10
+	KeySpace
+	KeyTarget // Synthetic target selection for integration autoplay, not a native binding.
 )
 
 // Input is one frame of input: the state plus the events since last frame.
 type Input struct {
-	MouseX, MouseY int
-	MouseDown      bool // left button held
-	Clicked        bool // left button released this frame
-	Pressed        bool // left button pressed this frame
-	Chars          []rune
-	Keys           []Key
-	Shift          bool
-	RightDown      bool    // right button held
-	RightPressed   bool    // right button pressed this frame
-	Wheel          float64 // wheel delta in Win32 units (120 per notch)
-	held           func(rune) bool
+	KeypadChars      string // character events that belong to keypad action edges
+	Actions          []int  // second-bar keypad press edges, flattened slot indices
+	MouseX, MouseY   int
+	MouseLook        bool    // captured pointer; UI coordinates stay at the drag anchor
+	MouseDX, MouseDY float64 // framebuffer displacement during captured look
+	MouseDown        bool    // left button held
+	Clicked          bool    // left button released this frame
+	Pressed          bool    // left button pressed this frame
+	Chars            []rune
+	Keys             []Key
+	Shift            bool
+	MiddlePressed    bool    // middle button pressed this frame
+	Released         string  // released A..Z, for native double-tap controls
+	RightDown        bool    // right button held
+	RightPressed     bool    // right button pressed this frame
+	Space            bool    // space held
+	Wheel            float64 // wheel delta in Win32 units (120 per notch)
+	Down             string  // snapshot: held A..Z and arrow markers < > ^ v
+	SuppressAutoRun  bool    // modal/chat updates pause automatic travel
 }
 
 // Held reports whether a letter key or an arrow ('<' '>' '^' 'v') is down.
-func (in *Input) Held(k rune) bool { return in.held != nil && in.held(k) }
+func (in *Input) Held(k rune) bool { return strings.ContainsRune(in.Down, k) }
 
 func (in *Input) HasKey(k Key) bool {
 	for _, x := range in.Keys {
@@ -48,24 +67,54 @@ func (in *Input) HasKey(k Key) bool {
 var keyMap = map[glfw.Key]Key{
 	glfw.KeyEnter: KeyEnter, glfw.KeyKPEnter: KeyEnter, glfw.KeyTab: KeyTab,
 	glfw.KeyBackspace: KeyBackspace, glfw.KeyEscape: KeyEscape, glfw.KeyUp: KeyUp,
+	glfw.KeyHome: KeyHome, glfw.KeyPageUp: KeyPageUp, glfw.KeyPageDown: KeyPageDown,
+	glfw.KeyF9: KeyF9, glfw.KeyF10: KeyF10, glfw.KeySpace: KeySpace,
 	glfw.KeyDown: KeyDown, glfw.KeyLeft: KeyLeft, glfw.KeyRight: KeyRight, glfw.KeyDelete: KeyDelete,
 }
 
 // InstallInput registers callbacks; call Frame once per frame.
 func (w *Window) InstallInput() *InputQueue {
 	q := &InputQueue{}
-	w.SetCharCallback(func(_ *glfw.Window, r rune) { q.cur.Chars = append(q.cur.Chars, r) })
+	w.SetCharCallback(func(_ *glfw.Window, r rune) {
+		if q.keypadChar && r >= '0' && r <= '9' {
+			q.keypadChar = false
+			q.cur.KeypadChars += string(r)
+		}
+		q.cur.Chars = append(q.cur.Chars, r)
+	})
 	w.SetKeyCallback(func(_ *glfw.Window, k glfw.Key, _ int, a glfw.Action, mods glfw.ModifierKey) {
 		q.cur.Shift = mods&glfw.ModShift != 0
-		if a == glfw.Release {
+		q.keypadChar = false
+		if k >= glfw.KeyKP0 && k <= glfw.KeyKP9 {
+			if a == glfw.Press {
+				digit := int(k - glfw.KeyKP0)
+				q.cur.Actions = append(q.cur.Actions, 10+(digit+9)%10)
+				q.keypadChar = true
+			}
 			return
 		}
-		if mk, ok := keyMap[k]; ok {
+		if a == glfw.Release {
+			if k >= glfw.KeyA && k <= glfw.KeyZ {
+				q.cur.Released += string(rune('A' + k - glfw.KeyA))
+			}
+			return
+		}
+		if k == glfw.KeyNumLock {
+			if a == glfw.Press {
+				q.cur.Keys = append(q.cur.Keys, KeyNumLock)
+			}
+			return
+		}
+		if mk, ok := keyMap[k]; ok && (a == glfw.Press || mk <= KeyDelete && mk != KeyTab) {
 			q.cur.Keys = append(q.cur.Keys, mk)
 		}
 	})
 	w.SetScrollCallback(func(_ *glfw.Window, _, dy float64) { q.cur.Wheel += dy * 120 })
 	w.SetMouseButtonCallback(func(_ *glfw.Window, b glfw.MouseButton, a glfw.Action, _ glfw.ModifierKey) {
+		if b == glfw.MouseButtonMiddle {
+			q.cur.MiddlePressed = a == glfw.Press
+			return
+		}
 		if b == glfw.MouseButtonRight {
 			q.cur.RightDown = a == glfw.Press
 			if a == glfw.Press {
@@ -87,8 +136,12 @@ func (w *Window) InstallInput() *InputQueue {
 }
 
 type InputQueue struct {
-	win *Window
-	cur Input
+	win              *Window
+	cur              Input
+	mouselook        bool
+	keypadChar       bool
+	anchorX, anchorY float64
+	lookX, lookY     float64
 }
 
 // Frame returns this frame's input and starts collecting the next one.
@@ -103,25 +156,54 @@ func (q *InputQueue) Frame() Input {
 	}
 	in := q.cur
 	in.MouseX, in.MouseY = int(x*scale), int(y*scale)
-	win := q.win
-	in.held = func(k rune) bool {
-		var key glfw.Key
-		switch {
-		case k >= 'A' && k <= 'Z':
-			key = glfw.Key(int(glfw.KeyA) + int(k-'A'))
-		case k == '<':
-			key = glfw.KeyLeft
-		case k == '>':
-			key = glfw.KeyRight
-		case k == '^':
-			key = glfw.KeyUp
-		case k == 'v':
-			key = glfw.KeyDown
-		default:
-			return false
+	if q.mouselook {
+		in.MouseLook = true
+		in.MouseDX, in.MouseDY = (x-q.lookX)*scale, (y-q.lookY)*scale
+		in.MouseX, in.MouseY = int(q.anchorX*scale), int(q.anchorY*scale)
+		q.lookX, q.lookY = x, y
+	}
+	if q.win.GetAttrib(glfw.Focused) == 0 {
+		in.RightDown, in.RightPressed, in.MouseDown = false, false, false
+		in.MouseDX, in.MouseDY = 0, 0
+	}
+	var down [32]byte
+	n := 0
+	for key := glfw.KeyA; key <= glfw.KeyZ; key++ {
+		if q.win.GetKey(key) == glfw.Press {
+			down[n] = byte('A' + key - glfw.KeyA)
+			n++
 		}
-		return win.GetKey(key) == glfw.Press
+	}
+	for i, key := range []glfw.Key{glfw.KeyLeft, glfw.KeyRight, glfw.KeyUp, glfw.KeyDown, glfw.KeyPageUp, glfw.KeyPageDown} {
+		if q.win.GetKey(key) == glfw.Press {
+			down[n] = "<>^v+-"[i]
+			n++
+		}
+	}
+	in.Down = string(down[:n])
+	in.Space = q.win.GetKey(glfw.KeySpace) == glfw.Press
+	if q.win.GetAttrib(glfw.Focused) == 0 {
+		in.Down, in.Space, in.SuppressAutoRun = "", false, true
+		in.Chars, in.Keys, in.Actions, in.Released = nil, nil, nil, ""
 	}
 	q.cur = Input{MouseDown: in.MouseDown, RightDown: in.RightDown, Shift: in.Shift}
 	return in
+}
+
+// SetMouseLook provides unbounded right-drag deltas and restores the original
+// pointer location on release, matching Game.exe 0x5316e0.
+func (q *InputQueue) SetMouseLook(active bool) {
+	active = active && q.win.GetAttrib(glfw.Focused) != 0
+	if active == q.mouselook {
+		return
+	}
+	q.mouselook = active
+	if active {
+		q.anchorX, q.anchorY = q.win.GetCursorPos()
+		q.win.SetInputMode(glfw.CursorMode, glfw.CursorDisabled)
+		q.lookX, q.lookY = q.win.GetCursorPos()
+	} else {
+		q.win.SetInputMode(glfw.CursorMode, glfw.CursorNormal)
+		q.win.SetCursorPos(q.anchorX, q.anchorY)
+	}
 }

@@ -1,55 +1,82 @@
-# Shaiya Go Client
+# Shaiya GX
 
-Cliente Shaiya EP5.4 en Go, 64 bits, OpenGL 4.5, para jugar contra
-Rapture (`~/Desktop/Rapture`). Proyecto privado. Directivas:
-[docs/directivas.md](docs/directivas.md).
+A native 64-bit Shaiya EP5.4 client written in Go, using OpenGL 4.5 and the Rapture protocol.
 
-## Estado (2026-11-11)
+Shaiya GX is an independent client implementation in active development. It reads your existing game archives locally. **This repository does not include game data, original executables, textures, models, audio, account databases, or credentials.**
 
-**Hito actual: M3 casi cerrado (falta la escena 3D del login y la creación de personaje); comienza M4 (mundo).**
+## Current status
 
-| Área | Estado |
+The Linux client supports login, character selection and creation, world rendering, character movement, combat, skills, inventory, equipment, chat, NPC services, and a growing set of social and gameplay interfaces. It connects to Rapture; the server remains authoritative for game rules and outcomes.
+
+Implemented systems include:
+
+- Original archive and asset readers, skinned characters, terrain and objects, map fog, effects, water and actor shadows.
+- Third-person and first-person cameras, jumping, evasive steps, walking, automatic movement and click-to-move.
+- Player/target HUD, draggable action bars, skill-book drag and drop, item/skill tooltips, inventory character preview, Status resource bars and Item Mall icons.
+- Draggable buff/debuff strips with native duration bars, minimap and full map, map information plate, and a resizable two-pane chat with channel selection and input history.
+- Nonmodal options, audio and mouse settings, party/raid, quests, trade, duels, guild interfaces, storage, blacksmith services and portals.
+- Action-panel auto attack and pickup that approach their selected nearby target before sending the request.
+
+This is a **development build**, not a finished replacement for the original client. Interface parity, navigation/collision, visual effects and several service variants remain incomplete. Windows is a planned target and is not currently validated. See [interface status](docs/interface.md) and [architecture](docs/architecture.md).
+
+## Build on Linux
+
+Requirements:
+
+- Go 1.27.3 and a C compiler; CGO must be enabled.
+- OpenGL 4.5-capable graphics drivers.
+- Development libraries for OpenGL, X11/GLFW and ALSA, plus `pkg-config`.
+- Your own compatible `data.sah` and `data.saf` archives, kept outside this repository.
+- A Tahoma-compatible TrueType font. Set `SHAIYA_FONT` to its local path; the default lookup also checks `fonts/tahoma.ttf` beside the executable and Wine's system font directory.
+
+```sh
+go build -o build/shaiya ./cmd/shaiya
+SHAIYA_DATA=/path/to/local/game-data \
+SHAIYA_FONT=/path/to/tahoma.ttf \
+./build/shaiya -login 127.0.0.1:30800
+```
+
+The graphical client asks for the account at login. Passwords are not persisted. The headless diagnostic client reads its password from `SHAIYA_PASSWORD`.
+
+Open Sans SemiBold is embedded for the interface elements that require it. Its [SIL Open Font License](internal/ui/fonts/OFL.txt) is included. No original game font is bundled.
+
+## Controls
+
+| Input | Action |
 |---|---|
-| Red (`netx`, `proto`, `session`) | **Funciona contra Rapture (N2).** RSA 0xA101, AES-CTR, login, lista de servidores, handshake de world, cambio a la tabla XOR tras 0x010B y vuelta a AES tras 0x0107 |
-| Cliente headless (`shaiyacli`) | **Funciona:** login → personajes → entrar al mapa → moverse → chat → logout |
-| Protocolo | 406 opcodes recibidos mapeados; 27 decodificados; 15 writers verificados en Ghidra. Ver [docs/protocolo.md](docs/protocolo.md) |
-| Datos | `data.sah`/`data.saf` (24.655 archivos), TGA/DDS/BMP: 11.867 texturas decodifican (N1) |
-| Ventana y render | GLFW + OpenGL 4.5 core, texturas DXT subidas comprimidas, batch 2D |
-| UI | **Login, lista de servidores y selección de personaje (2D) fieles**: layout, botones de 5 estados, checkbox, Tahoma 13, mensajes de `sysmsg-uni.txt`, nombres de mapa. Sin escena 3D todavía; el mundo es una pantalla provisoria de texto |
-| Cliente con ventana | **Funciona contra Rapture (N2):** login → servidores → personajes → mundo (`-autoplay`) |
-| 3D | **Selección de personaje completa**: terreno de campo (capas + máscaras + lightmap), objetos SMOD, cielo con nubes, personaje con skinning en GPU y animación ANI, equipo real vía `Item.SData` (SEED) + MLT |
-| Mundo de juego, efectos, VANI/MAni, audio | No empezado |
-| Windows | Sin compilar ni probar (se hará más adelante) |
+| W / S | Forward / backward |
+| A / D | Turn |
+| Q / E | Side step |
+| Right mouse | Steer; A / D become side steps |
+| Both mouse buttons | Move forward |
+| Mouse wheel | Zoom |
+| Space / C | Jump / sit or stand |
+| Tab / NumLock | Walk or run / automatic movement |
+| F / X / H | Attack selected target / stop attack / approach nearby loot |
+| I / T / K / B | Inventory / Status / skills / actions |
+| U / G / M | Quests / guild / map |
+| O / Escape | Options; Escape closes an active panel first |
+| Enter / Up / Down | Chat; navigate sent-message history while typing |
+| 1–9, 0 / numeric keypad | First / second action bar |
+| F9 / F10 | Reset camera / first-person view |
 
-Lo que **no** funciona todavía: escena 3D del login, creación de personaje,
-mundo de juego en 3D, combate, inventario y UI de juego.
+Drag window headers to move supported windows. Buff/debuff strips drag from their icons; drag the minimap rim or information plate, and the full-map header. Resize chat histories from their top edges. UI positions and supported settings are stored in the user's configuration directory.
 
-## Uso
-
-```sh
-./tools/build.sh                       # build/shaiya, build/shaiyacli, build/assets
-export SHAIYA_DATA="$HOME/Desktop/Client EP5"
-build/shaiya                           # cliente con ventana
-SHAIYA_PASSWORD=... build/shaiya -autoplay admin1 -screenshot w.png   # flujo completo oculto
-SHAIYA_PASSWORD=... build/shaiyacli -user admin1 -slot 0
-build/assets stats | ls interface | cat interface/login.tga | find .wld
-```
-
-## Pruebas
+## Validation
 
 ```sh
-go test ./...                                              # N0
-SHAIYA_DATA="$HOME/Desktop/Client EP5" go test ./internal/data/...   # N1
-SHAIYA_TEST_USER=admin1 SHAIYA_PASSWORD=... go test -tags integration ./cmd/shaiyacli  # N2 (Rapture levantado)
+go vet ./...
+go test ./...
+staticcheck ./...
+python3 tools/check_publication.py --history
 ```
 
-## Diferencias con el original
+Tests that require a graphics context, local game archives or a server are opt-in. [Building and testing](docs/building.md) describes these checks. Integration probes use disposable accounts and an isolated database; they must not be pointed at a production account or database.
 
-- Ninguna en el protocolo. Ver [docs/discrepancias.md](docs/discrepancias.md).
+## Repository contents
 
-## Herramientas de análisis
+`cmd/` contains the graphical client, headless client and archive-inspection utility. `internal/` contains networking, protocol, state, data readers, rendering, UI and audio. `tools/` contains local build, packaging and analysis helpers. `docs/` contains English public documentation.
 
-`tools/ghidra/` (proyecto en `work/ghidra`, fuera de git): `source
-tools/ghidra/env.sh` y `ghidra_run Script.java args`. Scripts: `DecompAt`,
-`Insns`, `FindOperand`, `FindStrings`, `OpcodeWriters`, `Refs`, `Sym`.
-`tools/protomap.py` regenera `docs/protocolo.md`.
+Game assets and generated files belong outside Git. See [.gitignore](.gitignore), [third-party notices](NOTICE), and the [protocol notes](docs/protocol.md).
+
+Shaiya and its original game content belong to their respective rights holders. Public source availability does not grant rights to the original game's assets or branding.

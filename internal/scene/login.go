@@ -3,7 +3,7 @@ package scene
 import (
 	"math"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // LoginScene is the login3 backdrop (0x4bcd60 load, 0x4ba650 render;
@@ -39,6 +39,7 @@ func LoadLoginScene(a *Assets) (*LoginScene, error) {
 }
 
 func (s *LoginScene) Update(dt float64) {
+	s.World.Update(float32(dt))
 	s.Camera.Update(dt)
 	s.smokeAngle = math.Mod(s.smokeAngle+dt*0.1, 2*math.Pi)
 }
@@ -60,29 +61,37 @@ func (s *LoginScene) smokeWorld() render.M4 {
 	return render.M4{row0[0], row0[1], row0[2], 0, 0.5, 0.8660254, 0, 0, row2[0], row2[1], row2[2], 0, t[0], t[1], t[2], 1}
 }
 
-// Draw renders sky plane, smoke, world, float rock and the rear effect.
+// Draw renders the extended backdrop, then the world and floating rock.
 func (s *LoginScene) Draw(r *render.Scene3D, aspect float32) {
 	eye := s.Camera.Eye
-	r.View = render.LookAtLH(eye, LoginTarget, render.V3{0, 1, 0})
+	r.SetCameraView(eye, LoginTarget, render.V3{0, 1, 0})
 	r.Proj = render.PerspectiveFovLH(math.Pi/4, aspect, 1, 400)
 	r.SkyProj = render.PerspectiveFovLH(math.Pi/4, aspect, 10, 100000)
 	r.FogStart, r.FogEnd = 0, 0 // the login draws without fog
 	r.LightDir = render.V3{-1, -1, -1}
 	r.Begin()
+	// Native 0x4ba919..0x4bad21: sky, smoke and rear effect share the
+	// extended projection with depth disabled, before the world pass.
+	r.BeginSky()
 	// Sky: vertical plane 20000x10000 at 8000 along the view (diffuse 0xbbbbbb).
 	if s.sky != nil {
 		fwd := LoginTarget.Sub(eye).Norm()
 		c := eye.Add(fwd.Scale(8000))
 		w := render.M4{10000, 0, 0, 0, 0, 5000, 0, 0, 0, 0, 1, 0, c[0], c[1], c[2], 1}
-		r.BeginSky()
 		r.DrawTinted(s.quad, s.sky, w, [4]float32{0xbb / 255.0, 0xbb / 255.0, 0xbb / 255.0, 1}, false, false)
-		r.EndSky()
 	}
 	if s.smoke != nil {
 		for _, p := range s.smoke.Parts {
 			r.DrawTinted(p.Mesh, p.Tex, s.smokeWorld(), [4]float32{1, 1, 1, 1}, true, true)
 		}
 	}
+	if s.back != nil {
+		back := translate(LoginTarget.Add(render.V3{0, 15, 250}))
+		for _, p := range s.back.Parts {
+			r.DrawTinted(p.Mesh, p.Tex, back, [4]float32{1, 1, 1, 1}, true, true)
+		}
+	}
+	r.EndSky()
 	s.World.Draw(r)
 	if s.rock != nil {
 		rock := translate(LoginTarget.Add(render.V3{3, -13, 10}))
@@ -90,11 +99,6 @@ func (s *LoginScene) Draw(r *render.Scene3D, aspect float32) {
 			r.DrawModel(p.Mesh, p.Tex, rock, 0.5, false)
 		}
 	}
-	if s.back != nil {
-		back := translate(LoginTarget.Add(render.V3{0, 15, 250}))
-		for _, p := range s.back.Parts {
-			r.DrawTinted(p.Mesh, p.Tex, back, [4]float32{1, 1, 1, 1}, true, false)
-		}
-	}
+	s.World.DrawMapEffects(r, eye)
 	r.End()
 }

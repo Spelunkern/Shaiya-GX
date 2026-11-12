@@ -69,6 +69,7 @@ const (
 	CharacterEnteredPortal    Opcode = 0x020A
 	CharacterMapTeleport      Opcode = 0x020B
 	UserKillCountUpdate       Opcode = 0x020E
+	CountryKillCount          Opcode = 0x020F
 	CharacterShape            Opcode = 0x0303
 	ChangeAppearance          Opcode = 0x0226
 	WorldDay                  Opcode = 0x0404
@@ -101,6 +102,7 @@ const (
 	SkillKeep                 Opcode = 0x050F
 	CharacterMaxHpMpSp        Opcode = 0x051F
 	CharacterCurrentHitpoints Opcode = 0x0521
+	CharacterPvPKills         Opcode = 0x0522
 	CharacterAdditionalStats  Opcode = 0x0526
 	TeleportSavePositionList  Opcode = 0x0225
 	BlessInit                 Opcode = 0x0211
@@ -120,7 +122,12 @@ const (
 	WarehouseItemList         Opcode = 0x0711
 	ShopSell                  Opcode = 0x0703
 	SkillUseNoTarget          Opcode = 0x0511
+	SkillUserDrain            Opcode = 0x0512
 	SkillPartyMember          Opcode = 0x0513
+	SkillUserExtraDamage      Opcode = 0x0514
+	SkillUserReflectedDamage  Opcode = 0x0515
+	SkillMobDrain             Opcode = 0x0518
+	SkillMobOther             Opcode = 0x0519
 	ResurrectRequest          Opcode = 0x0553
 	ItemRepair                Opcode = 0x0554
 	ReturnToTown              Opcode = 0x0556
@@ -164,6 +171,7 @@ const (
 	CharacterResurrect        Opcode = 0x0551
 	SkillUse                  Opcode = 0x0517
 	SkillExtraDamage          Opcode = 0x051A
+	SkillMobReflectedDamage   Opcode = 0x051B
 	CharacterMountShape       Opcode = 0x051D
 	CharacterDeathState       Opcode = 0x051C
 	AccountPoints             Opcode = 0x2601

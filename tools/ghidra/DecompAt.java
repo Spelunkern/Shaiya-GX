@@ -7,6 +7,11 @@ public class DecompAt extends GhidraScript {
     DecompInterface d = new DecompInterface(); d.openProgram(currentProgram);
     for (String a : getScriptArgs()) {
       Function f = getFunctionAt(toAddr(a));
+      if (f == null) f = getFunctionContaining(toAddr(a));
+      if (f == null) {
+        disassemble(toAddr(a));
+        f = createFunction(toAddr(a), null); // In-memory only with -readOnly.
+      }
       if (f == null) { println("==== no function at " + a); continue; }
       DecompileResults r = d.decompileFunction(f, 120, monitor);
       println("==== " + f.getName(true) + " @ " + f.getEntryPoint());

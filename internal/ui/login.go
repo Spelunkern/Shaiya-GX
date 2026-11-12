@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/Spelunkern/shaiya-go-client/internal/platform"
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/platform"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // Textures loads interface textures by file name.

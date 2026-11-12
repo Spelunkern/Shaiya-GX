@@ -16,31 +16,47 @@ type SkinVertex struct {
 	Bone1       float32
 }
 
-const MaxBones = 128
+const MaxBones = 256 // EP5 bone indices occupy one byte.
 
 const skinVS = `#version 450 core
 layout(location=0) in vec3 pos;
 layout(location=1) in vec3 nrm;
 layout(location=2) in vec2 uv;
 layout(location=3) in vec3 skin; // weight, bone0, bone1
-uniform mat4 bones[128];
+layout(std140, binding=0) uniform BonePalette { mat4 bones[256]; };
+uniform int boneCount;
 uniform mat4 world;
-uniform mat4 viewProj;
-uniform mat4 view;
+uniform mat4 worldViewProj;
+uniform mat4 worldView;
+uniform vec4 clipPlane;
 uniform vec3 lightDir;
 uniform float ambient;
 out vec2 vUV;
 out vec2 vUV2;
 out float vDiffuse;
 out float vDepth;
+out vec4 vEffectColor;
 void main() {
-	mat4 b0 = bones[int(skin.y)];
-	mat4 b1 = bones[int(skin.z)];
-	vec4 p = skin.x * (b0 * vec4(pos, 1.0)) + (1.0 - skin.x) * (b1 * vec4(pos, 1.0));
-	vec3 n = skin.x * (b0 * vec4(nrm, 0.0)).xyz + (1.0 - skin.x) * (b1 * vec4(nrm, 0.0)).xyz;
-	vec4 w = world * vec4(p.xyz, 1.0);
-	gl_Position = viewProj * w;
-	vDepth = (view * w).z;
+	vEffectColor = vec4(1.0);
+	vec4 p = vec4(pos, 1.0);
+	vec3 n = nrm;
+	if (boneCount > 0) {
+		p = vec4(0.0); n = vec3(0.0);
+		if (skin.x > 0.0) {
+			mat4 b = bones[clamp(int(skin.y), 0, boneCount-1)];
+			p += skin.x * (b * vec4(pos, 1.0));
+			n += skin.x * (b * vec4(nrm, 0.0)).xyz;
+		}
+		if (skin.x < 1.0) {
+			mat4 b = bones[clamp(int(skin.z), 0, boneCount-1)];
+			p += (1.0-skin.x) * (b * vec4(pos, 1.0));
+			n += (1.0-skin.x) * (b * vec4(nrm, 0.0)).xyz;
+		}
+	}
+	vec4 local = vec4(p.xyz, 1.0);
+	gl_Position = worldViewProj * local;
+	gl_ClipDistance[0] = dot(world * local, clipPlane);
+	vDepth = (worldView * local).z;
 	vUV = uv; vUV2 = vec2(0.0);
 	n = normalize((world * vec4(n, 0.0)).xyz);
 	vDiffuse = clamp(ambient + max(0.0, dot(n, -normalize(lightDir))), 0.0, 1.0);
@@ -50,6 +66,7 @@ void main() {
 type SkinMesh struct {
 	vao, vbo, ebo uint32
 	Count         int32
+	bytes         uint64
 }
 
 func NewSkinMesh(v []SkinVertex, idx []uint32) *SkinMesh {
@@ -62,6 +79,8 @@ func NewSkinMesh(v []SkinVertex, idx []uint32) *SkinMesh {
 	gl.NamedBufferStorage(m.vbo, len(v)*size, unsafe.Pointer(&v[0]), 0)
 	gl.CreateBuffers(1, &m.ebo)
 	gl.NamedBufferStorage(m.ebo, len(idx)*4, unsafe.Pointer(&idx[0]), 0)
+	m.bytes = uint64(len(v)*size + len(idx)*4)
+	addGPUBytes(m.bytes)
 	gl.CreateVertexArrays(1, &m.vao)
 	gl.VertexArrayVertexBuffer(m.vao, 0, m.vbo, 0, int32(size))
 	gl.VertexArrayElementBuffer(m.vao, m.ebo)
@@ -76,11 +95,26 @@ func NewSkinMesh(v []SkinVertex, idx []uint32) *SkinMesh {
 	return m
 }
 
+func (m *SkinMesh) Delete() {
+	if m == nil {
+		return
+	}
+	gl.DeleteVertexArrays(1, &m.vao)
+	gl.DeleteBuffers(1, &m.vbo)
+	gl.DeleteBuffers(1, &m.ebo)
+	removeGPUBytes(m.bytes)
+	*m = SkinMesh{}
+}
+
 // Skinner draws skinned meshes with the shared fragment stage.
 type Skinner struct {
-	prog                                           uint32
-	uBones, uWorld, uViewProj, uView, uLight, uAmb int32
-	uMode, uRef, uFogColor, uFogRange              int32
+	camera                                             *Scene3D
+	view, projection                                   M4
+	palette                                            uint32
+	prog                                               uint32
+	uBoneCount, uWorld, uViewProj, uView, uLight, uAmb int32
+	uMode, uRef, uFogColor, uFogRange                  int32
+	uClipPlane                                         int32
 }
 
 func NewSkinner() (*Skinner, error) {
@@ -89,30 +123,54 @@ func NewSkinner() (*Skinner, error) {
 		return nil, err
 	}
 	u := func(n string) int32 { return gl.GetUniformLocation(p, gl.Str(n+"\x00")) }
-	return &Skinner{prog: p, uBones: u("bones"), uWorld: u("world"), uViewProj: u("viewProj"), uView: u("view"),
+	var palette uint32
+	gl.CreateBuffers(1, &palette)
+	gl.NamedBufferStorage(palette, MaxBones*64, nil, gl.DYNAMIC_STORAGE_BIT)
+	addGPUBytes(MaxBones * 64)
+	return &Skinner{prog: p, palette: palette, uBoneCount: u("boneCount"), uWorld: u("world"), uViewProj: u("worldViewProj"), uView: u("worldView"),
 		uLight: u("lightDir"), uAmb: u("ambient"), uMode: u("mode"), uRef: u("alphaRef"),
-		uFogColor: u("fogColor"), uFogRange: u("fogRange")}, nil
+		uFogColor: u("fogColor"), uFogRange: u("fogRange"), uClipPlane: u("clipPlane")}, nil
 }
 
 // Begin binds the program with the scene's camera, light and fog.
 func (k *Skinner) Begin(s *Scene3D, ambient float32) {
 	gl.UseProgram(k.prog)
-	vp := s.View.Mul(s.Proj)
-	gl.UniformMatrix4fv(k.uViewProj, 1, false, &vp[0])
-	gl.UniformMatrix4fv(k.uView, 1, false, &s.View[0])
+	gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, k.palette)
+	gl.Uniform4fv(k.uClipPlane, 1, &s.ClipPlane[0])
+	k.view, k.projection = s.View, s.depthProjection(s.Proj)
+	k.camera = s
 	gl.Uniform3f(k.uLight, s.LightDir[0], s.LightDir[1], s.LightDir[2])
 	gl.Uniform1f(k.uAmb, ambient)
 	gl.Uniform3f(k.uFogColor, s.FogColor[0], s.FogColor[1], s.FogColor[2])
 	gl.Uniform2f(k.uFogRange, s.FogStart, s.FogEnd)
 	gl.Uniform1i(k.uMode, 0)
+	if s.Shadow {
+		gl.Uniform1i(k.uMode, 7)
+	}
 }
 
 // SetPose uploads the per-bone skin matrices (B*F, row-vector).
 func (k *Skinner) SetPose(world M4, bones []M4) {
 	gl.UniformMatrix4fv(k.uWorld, 1, false, &world[0])
-	if n := min(len(bones), MaxBones); n > 0 {
-		gl.UniformMatrix4fv(k.uBones, int32(n), false, &bones[0][0])
+	mv := k.camera.modelView(world)
+	mvp := mv.Mul(k.projection)
+	gl.UniformMatrix4fv(k.uView, 1, false, &mv[0])
+	gl.UniformMatrix4fv(k.uViewProj, 1, false, &mvp[0])
+	n := min(len(bones), MaxBones)
+	gl.Uniform1i(k.uBoneCount, int32(n))
+	if n > 0 {
+		gl.NamedBufferSubData(k.palette, 0, n*64, unsafe.Pointer(&bones[0][0]))
 	}
+}
+
+func (k *Skinner) Delete() {
+	if k == nil || k.palette == 0 {
+		return
+	}
+	gl.DeleteBuffers(1, &k.palette)
+	gl.DeleteProgram(k.prog)
+	removeGPUBytes(MaxBones * 64)
+	k.palette, k.prog = 0, 0
 }
 
 func (k *Skinner) Draw(m *SkinMesh, t *Texture, alphaRef float32) {
@@ -121,9 +179,8 @@ func (k *Skinner) Draw(m *SkinMesh, t *Texture, alphaRef float32) {
 	}
 	gl.Uniform1f(k.uRef, alphaRef)
 	gl.Disable(gl.BLEND)
-	if t != nil {
-		gl.BindTextureUnit(0, t.ID)
-	}
+	bindDiffuse(t)
 	gl.BindVertexArray(m.vao)
 	gl.DrawElements(gl.TRIANGLES, m.Count, gl.UNSIGNED_INT, nil)
+	drawCalls++
 }

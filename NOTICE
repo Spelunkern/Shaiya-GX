@@ -1,4 +1,4 @@
-Shaiya Go Client — third-party notices
+Shaiya GX — third-party notices
 
 Parsec (https://github.com/matigramirez/Parsec), MIT License.
 Ported: KISA SEED tables and SData decryption (internal/data/sdata),
@@ -7,3 +7,6 @@ and format layouts used throughout internal/data.
 Phoenix (local project of the same author): rendering conventions and
 recovered constants (login/selection cameras, EP5 material rules, terrain
 blending) were used as reference; no code is copied.
+
+Open Sans SemiBold, Copyright 2020 The Open Sans Project Authors.
+Embedded under the SIL Open Font License 1.1; see internal/ui/fonts/OFL.txt.

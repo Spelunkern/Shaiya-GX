@@ -13,9 +13,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/game"
-	"github.com/Spelunkern/shaiya-go-client/internal/proto"
-	"github.com/Spelunkern/shaiya-go-client/internal/session"
+	"github.com/Spelunkern/Shaiya-GX/internal/game"
+	"github.com/Spelunkern/Shaiya-GX/internal/proto"
+	"github.com/Spelunkern/Shaiya-GX/internal/session"
 )
 
 func main() {
@@ -127,7 +127,7 @@ func run(addr string, port int, user, password string, serverID, slot, faction i
 	}
 	// The original reports the map loaded after the initial state, whose
 	// last packet is 0x010B; then the server places us (0x020B, 0x0201).
-	if err := next("initial state", 15*time.Second, func() bool { return st.Unknown[proto.CharacterSkillBar] > 0 }); err != nil {
+	if err := next("initial state", 15*time.Second, func() bool { return st.SkillBarReady }); err != nil {
 		return err
 	}
 	log.Printf("-> map loaded")

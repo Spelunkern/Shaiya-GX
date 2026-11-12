@@ -1,6 +1,16 @@
 package proto
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
+
+func TestRestoreCharacterWriter(t *testing.T) {
+	want := []byte{0x0f, 0x01, 0x44, 0x33, 0x22, 0x11}
+	if got := RestoreCharacterPacket(0x11223344); !bytes.Equal(got, want) {
+		t.Fatalf("0x59c240 restore writer: %x, want %x", got, want)
+	}
+}
 
 // Sizes pinned to the original writers (Game.exe 0x597f60..0x59a000).
 func TestWriterSizes(t *testing.T) {
@@ -17,6 +27,7 @@ func TestWriterSizes(t *testing.T) {
 		"0109 0x598460": {FactionPacket(1), 3},
 		"0102 0x5980e0": {CreateCharacterPacket(NewCharacter{Name: "Abc"}), 3 + 0xb},
 		"0103 0x598180": {DeleteCharacterPacket(1), 6},
+		"010F 0x59c240": {RestoreCharacterPacket(1), 6},
 		"0104 0x5981b0": {SelectCharacterPacket(1), 6},
 		"0107 0x5981e0": {LogoutPacket(), 2},
 		"0201 0x598210": {MapLoadedPacket(), 2},
@@ -40,9 +51,34 @@ func FuzzDecoders(f *testing.F) {
 	f.Add([]byte{1, 1, 0, 0, 0, 0})
 	f.Fuzz(func(t *testing.T, b []byte) {
 		DecodeCharacterSlot(b)
+		DecodeUserShape(b)
+		DecodePools(b)
+		DecodeMobHealth(b)
+		DecodeAttackResult(b)
+		DecodeResurrection(b)
+		DecodeInventory(b)
+		DecodeItemMove(b)
+		DecodeItemAdd(b)
+		DecodeGroundItem(b)
+		DecodeSkills(b)
+		DecodeQuickSlots(b)
+		DecodeLearnResult(b)
+		DecodeSkillResult(b)
+		DecodeShopResult(b)
+		DecodeItemUse(b)
+		DecodeEquipment(b)
 		DecodeDetails(b)
 		DecodeServerList(b)
 		DecodeLoginHello(b)
 		DecodeChatByID(b)
 	})
+}
+
+func TestReviveChoicePackets(t *testing.T) {
+	for _, mode := range []ReviveMode{ReviveBind, ReviveParty, ReviveRuneBind, ReviveRuneHere} {
+		p := ReviveChoicePacket(mode)
+		if len(p) != 3 || p[0] != 0x53 || p[1] != 0x05 || p[2] != byte(mode) {
+			t.Fatalf("mode %d: %x", mode, p)
+		}
+	}
 }

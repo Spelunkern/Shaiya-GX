@@ -5,10 +5,9 @@ import (
 	"testing"
 )
 
-// Reference trajectory sampled from the native routine (Phoenix
-// ep5_login.json trajectory60Hz).
+// Phoenix scripts/login_camera.gd at its current ENTRY_PROGRESS_RATE = 0.01.
 func TestLoginCameraTrajectory(t *testing.T) {
-	want := map[int][2]float64{60: {441.8087, 415.2540}, 300: {443.5152, 334.7174}, 600: {444.6011, 265.8323}, 1200: {444.7440, 256.3700}}
+	want := map[int][2]float64{60: {442.0887, 377.7878}, 240: {444.5252, 256.8980}, 300: {444.6504, 255.6047}, 600: {444.7572, 255.2666}, 1200: {444.7623, 255.1319}}
 	c := NewLoginCamera()
 	for f := 1; f <= 1200; f++ {
 		c.step(1.0 / 60)

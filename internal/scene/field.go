@@ -5,29 +5,43 @@ import (
 	"path"
 	"strings"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/world"
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/world"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // Instance is a placed model.
 type Instance struct {
 	Model *Model
 	World render.M4
+	Mani  bool
 }
 
 // World is a drawable map.
 type World struct {
-	WLD      *world.WLD
-	Sections []Section
-	Objects  []Instance
-	Sky      *Sky
-	dg       []dgPart
-	FogColor render.V3
-	FogStart float32
-	FogEnd   float32
-	heights  []float32
-	side     int
-	step     float32
+	water                *waterSurface
+	elapsed              float64
+	stream               *fieldStream
+	WLD                  *world.WLD
+	Sections             []Section
+	Objects              []Instance
+	rotors               []maniRotor
+	vanis                []*vaniAsset
+	mapFX                *mapEffects
+	frameDT              float32
+	Sky                  *Sky
+	dg                   []dgPart
+	dgShadow             *dungeonShadowIndex
+	dgColliders          []world.CollisionMesh
+	cameraSeen           map[int]bool
+	objectShadowVertices []render.Vertex
+	objectShadowIndices  []uint32
+	objectShadowSeen     map[int]bool
+	FogColor             render.V3
+	FogStart             float32
+	FogEnd               float32
+	heights              []float32
+	side                 int
+	step                 float32
 }
 
 type TerrainLayer struct {
@@ -66,7 +80,7 @@ func LoadField(a *Assets, stem string) (*World, error) {
 		if strings.TrimSpace(l.Texture) == "" {
 			continue // unused layer slot
 		}
-		if tiles[i] = a.Texture("Terrain/Detail/" + DDSName(path.Base(l.Texture))); tiles[i] != nil {
+		if tiles[i] = a.worldTexture("Terrain/Detail/" + DDSName(path.Base(l.Texture))); tiles[i] != nil {
 			tiles[i].SetWrap(true)
 		}
 	}
@@ -83,7 +97,11 @@ func LoadField(a *Assets, stem string) (*World, error) {
 		}
 	}
 	out.addObjects(a)
+	out.addManis(a)
+	out.addVanis(a)
+	out.loadMapEffects(a)
 	out.Sky = LoadSky(a, w)
+	out.water = loadWater(a, out)
 	return out, nil
 }
 
@@ -142,26 +160,7 @@ func (w *World) buildTerrain() {
 	for sz := 0; sz < n; sz++ {
 		for sx := 0; sx < n; sx++ {
 			x0, z0 := sx*cells, sz*cells
-			cs := cells + 1
-			v := make([]render.Vertex, 0, cs*cs)
-			inv := 1 / float32(cells)
-			for z := 0; z < cs; z++ {
-				for x := 0; x < cs; x++ {
-					gx, gz := x0+x, z0+z
-					px, pz := float32(gx)*w.step, float32(gz)*w.step
-					v = append(v, render.Vertex{
-						Pos: render.V3{px, w.heights[gz*side+gx], pz}, Normal: render.V3{0, 1, 0},
-						UV: [2]float32{float32(x) * inv, float32(z) * inv}, UV2: [2]float32{px, pz}})
-				}
-			}
-			idx := make([]uint32, 0, cells*cells*6)
-			for z := 0; z < cells; z++ {
-				for x := 0; x < cells; x++ {
-					a, b := uint32(z*cs+x), uint32(z*cs+x+1)
-					c, d := uint32((z+1)*cs+x), uint32((z+1)*cs+x+1)
-					idx = append(idx, a, b, c, b, d, c)
-				}
-			}
+			v, idx := outTerrain(w, x0, z0, cells, cells, sx, sz)
 			w.Sections[sz*n+sx].Mesh = render.NewMesh(v, idx)
 		}
 	}
@@ -202,31 +201,49 @@ func (w *World) addObjects(a *Assets) {
 
 // Draw renders terrain passes, the lightmap and the objects.
 func (w *World) Draw(s *render.Scene3D) {
+	if w.stream != nil {
+		w.stream.draw(s)
+	}
 	for _, sec := range w.Sections {
-		first := true
-		for _, l := range sec.Layers {
-			if l.Mask == nil || l.Tile == nil || sec.Mesh == nil {
-				continue
-			}
-			s.DrawTerrainLayer(sec.Mesh, l.Mask, l.Tile, l.TileSize, first)
-			first = false
-		}
-		if sec.Lightmap != nil && sec.Mesh != nil && !first {
-			s.DrawLightmap(sec.Mesh, sec.Lightmap)
-		}
+		drawSection(s, sec)
 	}
 	for _, p := range w.dg {
 		if p.lightmap != nil {
 			s.DrawLightmapped(p.mesh, p.tex, p.lightmap)
 		} else {
 			// No lightmap pages: EP5 material (Phoenix draws it the same way).
-			s.DrawModel(p.mesh, p.tex, render.Identity(), 0.5, false)
+			s.DrawModel(p.mesh, p.tex, render.Identity(), render.NativeWorldAlphaRef(true), false)
 		}
 	}
-	for _, o := range w.Objects {
-		for _, p := range o.Model.Parts {
-			s.DrawModel(p.Mesh, p.Tex, o.World, 0.5, false)
+	for _, rotor := range w.rotors {
+		transform := rotor.transform(w.elapsed)
+		for _, p := range rotor.model.Parts {
+			s.DrawModel(p.Mesh, p.Tex, transform, render.NativeWorldAlphaRef(true), false)
 		}
+	}
+	// 0x447ef0 draws MAni before the normal SMOD pass.
+	for _, mani := range []bool{true, false} {
+		for _, o := range w.Objects {
+			if o.Mani != mani {
+				continue
+			}
+			for _, p := range o.Model.Parts {
+				s.DrawModel(p.Mesh, p.Tex, o.World, render.NativeWorldAlphaRef(mani), false)
+			}
+		}
+	}
+
+	for _, vani := range w.vanis {
+		vani.draw(s, w.elapsed)
+	}
+}
+
+// Update advances only visual world animation; server state is unaffected.
+func (w *World) Update(dt float32) {
+	w.frameDT = max(dt, 0)
+	w.elapsed += float64(max(dt, 0))
+	if w.Sky != nil {
+		w.Sky.Update(dt)
 	}
 }
 
