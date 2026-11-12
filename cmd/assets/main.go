@@ -15,16 +15,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/archive"
-	img "github.com/Spelunkern/shaiya-go-client/internal/data/image"
-	"github.com/Spelunkern/shaiya-go-client/internal/data/world"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/archive"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/effect"
+	img "github.com/Spelunkern/Shaiya-GX/internal/data/image"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/world"
 )
 
 func main() {
 	dataDir := flag.String("data", os.Getenv("SHAIYA_DATA"), "directory with data.sah and data.saf")
 	flag.Parse()
 	if *dataDir == "" || flag.NArg() == 0 {
-		log.Fatal("usage: assets -data DIR stats | ls [DIR] | cat FILE | png FILE OUT.png | find SUBSTR")
+		log.Fatal("usage: assets -data DIR stats | ls [DIR] | cat FILE | png FILE OUT.png | find SUBSTR | eft FILE | 3de FILE")
 	}
 	a, err := archive.Open(*dataDir)
 	if err != nil {
@@ -89,6 +90,43 @@ func main() {
 		defer f.Close()
 		if err := png.Encode(f, out); err != nil {
 			log.Fatal(err)
+		}
+	case "3de":
+		b, err := a.ReadFile(flag.Arg(1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		m, err := effect.Parse3DE(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("3DE: texture %q, %d vertices, %d triangles, maximum key %d, %d frames, %d unused bytes\n", m.Texture, len(m.Vertices), len(m.Indices)/3, m.MaxKeyframe, len(m.Frames), len(m.Trailing))
+		for i, f := range m.Frames {
+			fmt.Printf("frame %d: key %d, %d vertices\n", i, f.Key, len(f.Vertices))
+		}
+	case "eft":
+		b, err := a.ReadFile(flag.Arg(1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		lib, err := effect.ParseEFT(b)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("%s: %d meshes, %d textures, %d emitters, %d sequences\n", lib.Format, len(lib.Meshes), len(lib.Textures), len(lib.Effects), len(lib.Sequences))
+		for i, name := range lib.Meshes {
+			fmt.Printf("mesh %d: %s\n", i, name)
+		}
+		for i, name := range lib.Textures {
+			fmt.Printf("texture %d: %s\n", i, name)
+		}
+		for i, e := range lib.Effects {
+			fmt.Printf("native %d: %+v linear=%v\n", i, e.Parameters(), e.LinearSupported())
+			fmt.Printf("flags: mesh-loop=%d billboard=%d velocity=%d forces=%d/%d axis=%d rotation=%d/%g/%d initial=%d/%d/%d frames=%d\n", e.Unk08, e.Unk10, e.Unk06, e.Unk20, e.Unk21, e.BaseAxis, e.RotationEnabled, e.RotationMax, e.RotationAxis, e.Unk30, e.Unk31, e.Unk32, len(e.Opacity))
+			fmt.Printf("emitter %d %q: mesh=%d blend=%d/%d loop=%d position=%v delay=%g frame=%g textures=%v curves=%d/%d/%d\n", i, e.Name, e.Mesh, e.SrcBlend, e.DstBlend, e.Loop, e.Position, e.InitialDelay, e.FrameDelay, e.Textures, len(e.Colors), len(e.Opacity), len(e.Sub3))
+		}
+		for i, s := range lib.Sequences {
+			fmt.Printf("sequence %d %q: %v\n", i, s.Name, s.Records)
 		}
 	case "wld":
 		b, err := a.ReadFile(flag.Arg(1))

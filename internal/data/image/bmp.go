@@ -71,6 +71,9 @@ func Decode(b []byte) (Texture, error) {
 	case len(b) >= 4 && string(b[:4]) == "DDS ":
 		d, err := DecodeDDS(b)
 		return Texture{DDS: d}, err
+	case len(b) >= 2 && b[0] == 0xff && b[1] == 0xd8:
+		i, err := DecodeJPEG(b)
+		return Texture{RGBA: i}, err
 	case len(b) >= 2 && string(b[:2]) == "BM":
 		i, err := DecodeBMP(b)
 		return Texture{RGBA: i}, err

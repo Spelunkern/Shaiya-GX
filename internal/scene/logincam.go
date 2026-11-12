@@ -3,7 +3,7 @@ package scene
 import (
 	"math"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // LoginCamera is the login3 pull-back (0x4b8d60 / 0x4bd680; Phoenix
@@ -23,10 +23,8 @@ var (
 	loginSettledZ   = 255.0
 )
 
-// loginProgressRate is per second (ep5_login.json); with the Z feedback it
-// reproduces the
-// native trajectory exactly (logincam_test.go).
-const loginProgressRate = 0.0010000000474974513
+// Presentation timing from Phoenix scripts/login_camera.gd: approach in ~4 s.
+const loginProgressRate = 0.01
 
 func NewLoginCamera() *LoginCamera { return &LoginCamera{Eye: loginInitialEye} }
 

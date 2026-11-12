@@ -1,8 +1,8 @@
 package app
 
 import (
-	"github.com/Spelunkern/shaiya-go-client/internal/game"
-	"github.com/Spelunkern/shaiya-go-client/internal/platform"
+	"github.com/Spelunkern/Shaiya-GX/internal/game"
+	"github.com/Spelunkern/Shaiya-GX/internal/platform"
 )
 
 // Autoplay injects the input a player would type to go from the login
@@ -11,6 +11,8 @@ type Autoplay struct {
 	User, Password string
 	StopAtSelect   bool
 	Slot           int
+	CastSlot       uint8 // 0 disables; 1..10 activates an assigned slot.
+	WaitResult     bool  // Capture flight after 0x0511/0x0517 instead of preparation.
 	step           int
 	wait           float64
 }
@@ -48,6 +50,50 @@ func (p *Autoplay) Inject(a *App, in *platform.Input, dt float64) bool {
 	case p.step == 5:
 		return true
 	case a.state != nil && a.state.Phase == game.PhaseInWorld:
+		if !a.SceneReady() {
+			return false
+		}
+		if p.CastSlot > 0 && p.CastSlot <= 10 {
+			if p.step == 4 {
+				in.Keys = append(in.Keys, platform.KeyTarget)
+				p.step = 6
+				return false
+			}
+			if p.step == 6 {
+				e := a.state.Entities[a.state.Target]
+				if e == nil || e.Dead || e.HealthKnown && e.HP <= 0 {
+					in.Keys = append(in.Keys, platform.KeyTarget)
+					return false
+				}
+				if !e.HealthKnown {
+					return false
+				}
+				// A restored cooldown may still be running after the fixture's
+				// previous session. The server silently ignores an early cast request.
+				skill := a.skillBar()[p.CastSlot-1]
+				if skill == nil || a.skills.cooldowns[skill.ID] > a.clock {
+					return false
+				}
+				key := rune('0')
+				if p.CastSlot < 10 {
+					key = rune('0' + p.CastSlot)
+				}
+				in.Chars = append(in.Chars, key)
+				p.step = 7
+				if p.WaitResult {
+					p.wait = 0
+				}
+				return false
+			}
+			if p.WaitResult {
+				p.wait = 0
+				if a.state.LastSkill.Source != a.state.SelfID {
+					return false
+				}
+			} else if a.state.LastCast.Source != a.state.SelfID {
+				return false
+			}
+		}
 		return true
 	}
 	return false

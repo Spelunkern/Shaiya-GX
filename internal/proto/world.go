@@ -1,7 +1,7 @@
 package proto
 
-// Client -> server writers live at Game.exe 0x597f60..0x59a000 (the sender
-// FUN_00597f60 takes buffer + length); each builder cites its writer.
+// Client -> server: FUN_00597f60 takes buffer + length.
+// Each builder cites its writer in Game.exe.
 
 // FactionPacket is 0x0109 (writer 0x598460, 3 bytes).
 func FactionPacket(faction uint8) []byte {
@@ -40,10 +40,13 @@ func idPacket(op Opcode, id uint32) []byte {
 // 0x0104 (0x5981b0), NpcTalkPacket 0x0E04 (0x599a30), MobAttackPacket
 // 0x0503 (0x598b00), UserAttackPacket 0x0502 (0x598ab0): id:u32.
 func DeleteCharacterPacket(id uint32) []byte { return idPacket(DeleteCharacter, id) }
-func SelectCharacterPacket(id uint32) []byte { return idPacket(SelectCharacter, id) }
-func NpcTalkPacket(id uint32) []byte         { return idPacket(NpcTalk, id) }
-func MobAttackPacket(id uint32) []byte       { return idPacket(CharacterMobAutoAttack, id) }
-func UserAttackPacket(id uint32) []byte      { return idPacket(CharacterUserAutoAttack, id) }
+
+// RestoreCharacterPacket is writer 0x59c240: opcode 0x010F and character ID.
+func RestoreCharacterPacket(id uint32) []byte { return idPacket(RestoreCharacter, id) }
+func SelectCharacterPacket(id uint32) []byte  { return idPacket(SelectCharacter, id) }
+func NpcTalkPacket(id uint32) []byte          { return idPacket(NpcTalk, id) }
+func MobAttackPacket(id uint32) []byte        { return idPacket(CharacterMobAutoAttack, id) }
+func UserAttackPacket(id uint32) []byte       { return idPacket(CharacterUserAutoAttack, id) }
 
 // LogoutPacket 0x0107 (writer 0x5981e0) and MapLoadedPacket 0x0201
 // (writer 0x598210): opcode only.
@@ -102,6 +105,17 @@ func ChatPacket(channel uint8, admin bool, text string) []byte {
 	return w.Bytes()
 }
 
+// WhisperPacket is the 0x1102 request: target[21], followed by text.
+func WhisperPacket(target, text string) []byte {
+	if target == "" || text == "" || len(EncodeLatin1(target)) > 20 {
+		return nil
+	}
+	w := NewWriter(ChatWhisper)
+	w.Fixed(target, 21, true)
+	w.Text(text)
+	return w.Bytes()
+}
+
 // ---- server -> client ----
 
 // Faction is 0x0109: country and the highest creatable mode.
@@ -131,7 +145,11 @@ type CharacterSlot struct {
 
 func DecodeCharacterSlot(p []byte) (m CharacterSlot, err error) {
 	r := NewReader(p)
-	m.Slot, m.ID, m.Unk, m.Level = r.U8(), r.U32(), r.U32(), r.U16()
+	m.Slot, m.ID = r.U8(), r.U32()
+	if m.ID == 0 {
+		return m, r.Err()
+	}
+	m.Unk, m.Level = r.U32(), r.U16()
 	m.Race, m.Mode, m.Hair, m.Face, m.Height, m.Class, m.Gender = r.U8(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8()
 	m.MapID = r.U16()
 	m.Str, m.Rec, m.Int, m.Wis, m.Dex, m.Luc = r.U16(), r.U16(), r.U16(), r.U16(), r.U16(), r.U16()
@@ -264,12 +282,26 @@ func DecodeNpcEnter(p []byte) (m NpcSpawn, err error) {
 	return m, r.Err()
 }
 
+// NpcMotion is 0x0E03: id, motion and server position, without facing.
+type NpcMotion struct {
+	ID      uint32
+	Motion  uint8
+	X, Y, Z float32
+}
+
+func DecodeNpcMove(p []byte) (n NpcMotion, err error) {
+	r := NewReader(p)
+	n.ID, n.Motion, n.X, n.Y, n.Z = r.U32(), r.U8(), r.F32(), r.F32(), r.F32()
+	return n, r.Err()
+}
+
 // ChatByID is 0x1101-style (sender id + text); ChatByName is the
 // 0x1102/0x1107 shape (name[21] + text).
 type Chat struct {
-	SenderID uint32
-	Sender   string
-	Text     string
+	SenderID  uint32
+	Sender    string
+	Text      string
+	Direction uint8
 }
 
 func DecodeChatByID(p []byte) (m Chat, err error) {
@@ -281,6 +313,12 @@ func DecodeChatByID(p []byte) (m Chat, err error) {
 func DecodeChatByName(p []byte) (m Chat, err error) {
 	r := NewReader(p)
 	m.Sender, m.Text = r.Fixed(21), r.Text()
+	return m, r.Err()
+}
+
+func DecodeWhisper(p []byte) (m Chat, err error) {
+	r := NewReader(p)
+	m.Direction, m.Sender, m.Text = r.U8(), r.Fixed(21), r.Text()
 	return m, r.Err()
 }
 

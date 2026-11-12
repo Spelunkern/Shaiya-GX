@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/text"
-	"github.com/Spelunkern/shaiya-go-client/internal/platform"
-	"github.com/Spelunkern/shaiya-go-client/internal/proto"
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/text"
+	"github.com/Spelunkern/Shaiya-GX/internal/platform"
+	"github.com/Spelunkern/Shaiya-GX/internal/proto"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // CharSelect is the character window (constructor 0x46ce30, draw
 // 0x46a960 / 0x469870 / 0x4697d0). Layout floats at 0x708f80..0x70901c.
 type CharSelect struct {
-	panel, navBG, chain          *render.Texture
+	panel, chain                 *render.Texture
 	Slots                        [5]*Button
 	Create, Delete, Option, Exit *Button
 	Start                        *Button
-	Nav                          [6]*Button // rotate L/R, pause, stop, zoom +/-
+	Navigation                   PreviewNavigation
 	Chars                        [5]*proto.CharacterSlot
 	Selected                     int
 	Light                        bool // DAT_021fd8d6: picks the class name set
@@ -38,13 +38,12 @@ func NewCharSelect(t Textures, msg text.SysMsg) (*CharSelect, error) {
 	ld := &loader{t: t}
 	load := ld.get
 	c.panel = load("character_select.tga")
-	c.navBG = load("character_navi_bg.tga")
+	c.Navigation = newPreviewNavigation(ld)
 	c.chain = load("character_chain.tga")
 	{
 		slot := load("character_select_button2.tga")
 		btn := load("character_select_button.tga")
 		start := load("character_select_start.tga")
-		nav := load("character_navi.tga")
 		// Slots: (43, 244 + 36*i), drawn 256x32, clickable 162x25.
 		slotUV := [5]UV{{0, 0, 1, .25}, {0, .25, 1, .5}, {0, .5, 1, .75}, {0, .25, 1, .5}, {0, .75, 1, 1}}
 		for i := range c.Slots {
@@ -55,12 +54,6 @@ func NewCharSelect(t Textures, msg text.SysMsg) (*CharSelect, error) {
 		}
 		c.Create, c.Delete, c.Option, c.Exit = mk(29, 440, 0), mk(29, 478, 2), mk(136, 440, 1), mk(136, 478, 3)
 		c.Start = &Button{Tex: start, OffX: 62, OffY: 527, DrawW: 0x100, DrawH: 0x40, HitW: 131, HitH: 43, UV: FourRowUV}
-		pos := [6][2]int{{8, 38}, {99, 38}, {41, 39}, {69, 39}, {53, 7}, {53, 76}}
-		for i, p := range pos {
-			u0 := float32(i) * .125
-			uv := [5]UV{{u0, 0, u0 + .125, .25}, {u0, .25, u0 + .125, .5}, {u0, .5, u0 + .125, .75}, {u0, .5, u0 + .125, .75}, {u0, .75, u0 + .125, 1}}
-			c.Nav[i] = &Button{Tex: nav, OffX: p[0], OffY: p[1], DrawW: 32, DrawH: 32, HitW: 23, HitH: 23, UV: uv}
-		}
 	}
 	return c, ld.err
 }
@@ -98,6 +91,10 @@ const (
 
 // SetChars fills the slots from the 0x0101 list.
 func (c *CharSelect) SetChars(slots map[uint8]proto.CharacterSlot) {
+	var previousID uint32
+	if c.Selected >= 0 && c.Chars[c.Selected] != nil {
+		previousID = c.Chars[c.Selected].ID
+	}
 	for i := range c.Chars {
 		if s, ok := slots[uint8(i)]; ok {
 			s := s
@@ -115,27 +112,38 @@ func (c *CharSelect) SetChars(slots map[uint8]proto.CharacterSlot) {
 			}
 		}
 	}
+	if c.Selected < 0 || c.Chars[c.Selected].ID != previousID {
+		c.Navigation.Reset()
+	}
+}
+
+func (c *CharSelect) controls(w, h int) {
+	px, py := charPanelOrigin(w, h)
+	for _, b := range []*Button{c.Create, c.Delete, c.Option, c.Exit, c.Start} {
+		b.OriginX, b.OriginY, b.Disabled = px, py, c.Busy
+	}
+	c.Start.Disabled = c.Busy || c.Selected < 0 || c.Chars[c.Selected].PendingDelete
+	c.Delete.Disabled = c.Busy || c.Selected < 0
+	c.Option.Disabled = true // NO VERIFICADO: options window not ported
+	for i, b := range c.Slots {
+		b.OriginX, b.OriginY, b.Disabled = px, py, c.Busy || c.Chars[i] == nil
+		b.Checked = i == c.Selected
+	}
 }
 
 func (c *CharSelect) Update(in *platform.Input, w, h int, dt float64) CharAction {
 	c.clock += dt
-	px, py := charPanelOrigin(w, h)
+	c.controls(w, h)
 	nx, ny := charNavOrigin(w, h)
-	for _, b := range []*Button{c.Create, c.Delete, c.Option, c.Exit, c.Start} {
-		b.OriginX, b.OriginY, b.Disabled = px, py, c.Busy
-	}
-	for _, b := range c.Nav {
-		b.OriginX, b.OriginY = nx, ny
-	}
-	c.Start.Disabled = c.Busy || c.Selected < 0
-	c.Delete.Disabled = c.Busy || c.Selected < 0
-	c.Option.Disabled = true // NO VERIFICADO: options window not ported
+	c.Navigation.Update(in, nx, ny, !c.Busy && c.Selected >= 0, false)
 	act := CharNone
 	for i, b := range c.Slots {
-		b.OriginX, b.OriginY, b.Disabled = px, py, c.Busy || c.Chars[i] == nil
 		if b.Update(in) {
-			if i == c.Selected && c.clock-c.lastClick < 0.4 {
+			if i == c.Selected && c.clock-c.lastClick < 0.4 && !c.Chars[i].PendingDelete {
 				act = CharStart // NO VERIFICADO: double click enters
+			}
+			if c.Selected != i {
+				c.Navigation.Reset()
 			}
 			c.Selected, c.lastClick = i, c.clock
 		}
@@ -154,24 +162,25 @@ func (c *CharSelect) Update(in *platform.Input, w, h int, dt float64) CharAction
 	if c.Exit.Update(in) {
 		act = CharExit
 	}
-	for _, b := range c.Nav {
-		b.Update(in)
-	}
-	if !c.Busy && in.HasKey(platform.KeyEnter) && c.Selected >= 0 {
+	if !c.Start.Disabled && in.HasKey(platform.KeyEnter) {
 		act = CharStart
 	}
 	return act
 }
 
 func (c *CharSelect) className(class uint8) string {
+	return ClassName(c.msg, c.Light, class)
+}
+
+func ClassName(msg text.SysMsg, lightSide bool, class uint8) string {
 	light := []int{0x13ba, 0x13bb, 0x13c0, 0x13c1, 0x13c2, 0x13bc}
 	fury := []int{0x13b7, 0x13b8, 0x13bd, 0x13b9, 0x13be, 0x13bf}
 	set := fury
-	if c.Light {
+	if lightSide {
 		set = light
 	}
 	if int(class) < len(set) {
-		return c.msg.Get(set[class])
+		return msg.Get(set[class])
 	}
 	return ""
 }
@@ -184,6 +193,7 @@ func (c *CharSelect) mapName(id uint16) string {
 }
 
 func (c *CharSelect) Draw(s *render.Sprites, f *Font, w, h int) {
+	c.controls(w, h)
 	px, py := charPanelOrigin(w, h)
 	// Chains hanging the panel (0x46aacf..0x46ab0b).
 	for _, p := range [][2]int{{0x20, -0x136}, {0xd0, -0x136}, {0x20, -0x9b}, {0xd0, -0x9b}} {
@@ -217,8 +227,5 @@ func (c *CharSelect) Draw(s *render.Sprites, f *Font, w, h int) {
 		b.Draw(s)
 	}
 	nx, ny := charNavOrigin(w, h)
-	s.DrawImage(c.navBG, float32(nx), float32(ny))
-	for _, b := range c.Nav {
-		b.Draw(s)
-	}
+	c.Navigation.Draw(s, nx, ny)
 }

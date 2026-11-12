@@ -11,3 +11,67 @@
 *.pcap
 *.packetlog
 shaiya-go.toml
+
+# Local Python bytecode.
+__pycache__/
+*.pyc
+
+# Private workstation configuration, credentials and local runtime databases.
+.env
+.env.*
+*.env
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.pem
+*.key
+/runtime/
+/fonts/
+
+# Original game art/audio/models must stay outside this source repository.
+*.dds
+*.tga
+*.bmp
+*.3dc
+*.3do
+*.smod
+*.ani
+*.wld
+*.svmap
+*.wav
+*.mp3
+*.7z
+*.zip
+
+# Local Spanish research/handoff notes. Public documentation is English.
+/docs/directivas.md
+/docs/continuar.md
+/docs/discrepancias.md
+/docs/ui.md
+/docs/controles.md
+/docs/protocolo.md
+/docs/apariencia.md
+/docs/efectos.md
+/docs/reconstruccion-ui.md
+
+# Case variants used by original archives.
+*.SAH
+*.SAF
+*.sdata
+*.DDS
+*.TGA
+*.WLD
+*.SVMAP
+
+/data/
+*.EXE
+*.DLL
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.eft
+*.3de
+*.mlt

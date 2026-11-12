@@ -11,9 +11,16 @@ layout(location=0) in vec3 pos;
 layout(location=1) in vec3 nrm;
 layout(location=2) in vec2 uv;
 layout(location=3) in vec2 uv2;
+layout(location=4) in mat4 instanceWorld;
+layout(location=8) in mat4 instanceWorldView;
+layout(location=12) in mat4 instanceWorldViewProj;
+layout(std430, binding=3) readonly buffer EffectColors { vec4 colors[]; };
+uniform int instanced;
+uniform int effectColorsEnabled;
 uniform mat4 world;
-uniform mat4 viewProj;
-uniform mat4 view;
+uniform mat4 worldViewProj;
+uniform mat4 worldView;
+uniform vec4 clipPlane;
 uniform vec3 lightDir;   // raw direction the light travels
 uniform float ambient;
 uniform int lit;
@@ -21,12 +28,18 @@ out vec2 vUV;
 out vec2 vUV2;
 out float vDiffuse;
 out float vDepth;
+out vec4 vEffectColor;
 void main() {
-	vec4 w = world * vec4(pos, 1.0); // == D3D v*M (see M4)
-	gl_Position = viewProj * w;
-	vDepth = (view * w).z;
+	vec4 local = vec4(pos, 1.0);
+	mat4 wm = instanced != 0 ? instanceWorld : world;
+	mat4 mv = instanced != 0 ? instanceWorldView : worldView;
+	mat4 mvp = instanced != 0 ? instanceWorldViewProj : worldViewProj;
+	gl_Position = mvp * local;
+	gl_ClipDistance[0] = dot(wm * local, clipPlane);
+	vDepth = (mv * local).z;
 	vUV = uv; vUV2 = uv2;
-	vec3 n = normalize((world * vec4(nrm, 0.0)).xyz);
+	vEffectColor = effectColorsEnabled != 0 ? colors[gl_InstanceID] : vec4(1.0);
+	vec3 n = normalize((wm * vec4(nrm, 0.0)).xyz);
 	vDiffuse = lit == 1 ? clamp(ambient + max(0.0, dot(n, -normalize(lightDir))), 0.0, 1.0) : 1.0;
 }`
 
@@ -36,6 +49,12 @@ void main() {
 const sceneFS = `#version 450 core
 layout(binding=0) uniform sampler2D tex0;
 layout(binding=1) uniform sampler2D tex1;
+layout(binding=2) uniform sampler2D terrainLight;
+layout(binding=3) uniform sampler2D waterReflection;
+layout(binding=4) uniform sampler2D waterBackground;
+layout(binding=5) uniform sampler2D waterNormalA;
+layout(binding=6) uniform sampler2D waterNormalB;
+uniform int hasTerrainLight;
 uniform int mode;
 uniform float alphaRef;
 uniform vec3 fogColor;
@@ -43,20 +62,63 @@ uniform vec2 fogRange; // start, end; end <= start disables
 uniform float tileSize; // terrain layer tiling (world units per repeat)
 uniform vec4 tint;      // mode 3 colour (sky, clouds)
 uniform vec2 uvOffset;
+uniform int hasWaterReflection;
+uniform vec4 waterViewport;
+uniform int hasWaterNormals;
+uniform int waterBelow;
+uniform float waterTime;
 in vec2 vUV;
 in vec2 vUV2;
 in float vDiffuse;
 in float vDepth;
+in vec4 vEffectColor;
 out vec4 frag;
 void main() {
 	vec4 c;
-	if (mode == 1) {
+	if (mode == 7) {
+		float a = alphaRef < 0.0 ? 1.0 : texture(tex0, vUV).a;
+		if (a <= alphaRef) discard;
+		frag = vec4(0, 0, 0, a);
+		return;
+	} else if (mode == 8) {
+		c = texture(tex0, vUV) * vEffectColor;
+	} else if (mode == 6) {
+		c = texture(tex0, vUV2 / tileSize) * tint;
+		if (hasWaterReflection != 0) {
+			vec2 uv = (gl_FragCoord.xy - waterViewport.xy) / waterViewport.zw;
+			if (hasWaterNormals != 0) {
+				vec2 base = vUV2 * (2000.0 / 4096.0);
+				vec2 n = texture(waterNormalA, base*.15 + vec2(0, waterTime*.045)).xy*.65;
+				n += texture(waterNormalA, base*.17 + vec2(0, waterTime*.015)).xy*.45;
+				n += texture(waterNormalB, base*.50 + vec2(0, waterTime*.090)).xy*.16;
+				n += texture(waterNormalB, base*.55 + vec2(0, waterTime*.030)).xy*.14;
+				n -= vec2(.7);
+				float divisor = max(vDepth, .1);
+				vec2 reflectedUV = uv + (n + vec2(0,-.25)) * (-.128 / divisor);
+				vec2 refractedUV = uv + n * (.07 / divisor);
+				vec3 water;
+				if (waterBelow != 0) {
+					water = texture(waterReflection, refractedUV).rgb;
+				} else {
+					vec3 refraction = texture(waterBackground, refractedUV).rgb;
+					vec3 reflection = texture(waterReflection, reflectedUV).rgb;
+					water = mix(mix(refraction, reflection, .5), vec3(.25,.62,.40), .05);
+				}
+				c.rgb = mix(c.rgb, water, .5);
+			} else {
+				c.rgb = mix(c.rgb, texture(waterReflection, uv).rgb, waterBelow != 0 ? .5 : .1);
+			}
+		}
+	} else if (mode == 5) {
+		c = tint;
+	} else if (mode == 1) {
 		c = vec4(texture(tex1, vUV2 / tileSize).rgb, texture(tex0, vUV).a);
+		if (hasTerrainLight != 0) c.rgb *= texture(terrainLight, vUV).rgb;
 	} else if (mode == 4) {
 		c = texture(tex0, vUV);
 		c.rgb *= texture(tex1, vUV2).rgb;
 	} else if (mode == 3) {
-		frag = texture(tex0, vUV + uvOffset) * tint;
+		frag = texture(tex0, vUV + uvOffset) * tint * vEffectColor;
 		return;
 	} else if (mode == 2) {
 		frag = vec4(texture(tex0, vUV).rgb, 1.0);
@@ -75,14 +137,43 @@ void main() {
 
 // Scene3D holds the shared 3D program and per-frame camera state.
 type Scene3D struct {
+	ReverseDepth                                              bool
+	cameraView                                                M4
+	cameraEye                                                 V3
+	cameraValid                                               bool
+	instanceBuffer                                            uint32
+	effectColorBuffer                                         uint32
+	effectColorBytes                                          uint64
+	instanceBytes                                             uint64
+	instanceCount                                             int
+	instanceData                                              []M4
+	uInstanced                                                int32
+	uEffectColors                                             int32
+	projection                                                M4 // current main/sky projection, combined before vertex transformation
+	uTerrainLight                                             int32
+	Shadow                                                    bool // native black silhouette capture, preserving texture alpha
+	effectStream                                              *Mesh
 	prog                                                      uint32
 	uWorld, uViewProj, uView, uLight, uAmb, uLit, uMode, uRef int32
 	uFogColor, uFogRange, uTile, uTint, uUVOff                int32
+	uClipPlane                                                int32
+	uWaterReflection, uWaterViewport                          int32
+	uWaterNormals, uWaterTime                                 int32
+	uWaterBelow                                               int32
+	terrainIndirect                                           uint32
+	terrainIndirectBytes                                      uint64
+	terrainCommands                                           []terrainCommand
 	View, Proj, SkyProj                                       M4
 	LightDir                                                  V3
 	Ambient                                                   float32
 	FogColor                                                  V3
 	FogStart, FogEnd                                          float32
+	ClipPlane                                                 [4]float32 // world-space half-plane; zero disables clipping
+	WaterReflection                                           *WaterTarget
+	WaterNormals                                              [2]*Texture
+	WaterTime                                                 float32
+	WaterBelow                                                bool
+	waterBackground                                           *Texture
 }
 
 func NewScene3D() (*Scene3D, error) {
@@ -91,8 +182,8 @@ func NewScene3D() (*Scene3D, error) {
 		return nil, err
 	}
 	u := func(n string) int32 { return gl.GetUniformLocation(p, gl.Str(n+"\x00")) }
-	return &Scene3D{prog: p, uWorld: u("world"), uViewProj: u("viewProj"), uView: u("view"), uLight: u("lightDir"),
-		uAmb: u("ambient"), uLit: u("lit"), uMode: u("mode"), uRef: u("alphaRef"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uTile: u("tileSize"), uTint: u("tint"), uUVOff: u("uvOffset"),
+	return &Scene3D{prog: p, uInstanced: u("instanced"), uEffectColors: u("effectColorsEnabled"), uTerrainLight: u("hasTerrainLight"), uWorld: u("world"), uViewProj: u("worldViewProj"), uView: u("worldView"), uLight: u("lightDir"),
+		uAmb: u("ambient"), uLit: u("lit"), uMode: u("mode"), uRef: u("alphaRef"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uTile: u("tileSize"), uTint: u("tint"), uUVOff: u("uvOffset"), uClipPlane: u("clipPlane"), uWaterReflection: u("hasWaterReflection"), uWaterViewport: u("waterViewport"), uWaterNormals: u("hasWaterNormals"), uWaterTime: u("waterTime"), uWaterBelow: u("waterBelow"),
 		LightDir: V3{-1, -1, -1}, Ambient: 128.0 / 255}, nil
 }
 
@@ -101,13 +192,17 @@ func NewScene3D() (*Scene3D, error) {
 func (s *Scene3D) Begin() {
 	gl.ClipControl(gl.LOWER_LEFT, gl.ZERO_TO_ONE)
 	gl.Enable(gl.DEPTH_TEST)
-	gl.DepthFunc(gl.LEQUAL)
+	s.applyDepthMode()
 	gl.DepthMask(true)
 	gl.Disable(gl.CULL_FACE)
 	gl.UseProgram(s.prog)
-	vp := s.View.Mul(s.Proj)
-	gl.UniformMatrix4fv(s.uViewProj, 1, false, &vp[0])
-	gl.UniformMatrix4fv(s.uView, 1, false, &s.View[0])
+	if s.ClipPlane != [4]float32{} {
+		gl.Enable(gl.CLIP_DISTANCE0)
+	} else {
+		gl.Disable(gl.CLIP_DISTANCE0)
+	}
+	gl.Uniform4fv(s.uClipPlane, 1, &s.ClipPlane[0])
+	s.projection = s.depthProjection(s.Proj)
 	gl.Uniform3f(s.uLight, s.LightDir[0], s.LightDir[1], s.LightDir[2])
 	gl.Uniform1f(s.uAmb, s.Ambient)
 	gl.Uniform3f(s.uFogColor, s.FogColor[0], s.FogColor[1], s.FogColor[2])
@@ -116,29 +211,92 @@ func (s *Scene3D) Begin() {
 
 // End restores the 2D state.
 func (s *Scene3D) End() {
+	gl.Disable(gl.CLIP_DISTANCE0)
 	gl.Disable(gl.DEPTH_TEST)
+	gl.DepthMask(true)
+	gl.Disable(gl.BLEND)
+}
+
+// DrawSolid draws a static coloured surface with the world's depth and fog.
+func (s *Scene3D) DrawSolid(m *Mesh, tint [4]float32) {
+	id := Identity()
+	s.setWorld(id)
+	gl.Uniform1i(s.uMode, 5)
+	gl.Uniform1i(s.uLit, 0)
+	gl.Uniform1f(s.uRef, -1)
+	gl.Uniform4f(s.uTint, tint[0], tint[1], tint[2], tint[3])
+	s.blend(false)
+	m.Draw()
+}
+
+// DrawWater is the native WTR flipbook surface: tiled albedo * ARGB,
+// alpha blending, fog and read-only scene depth.
+func (s *Scene3D) DrawWater(m *Mesh, t *Texture, tileSize float32, tint [4]float32) {
+	id := Identity()
+	s.setWorld(id)
+	gl.Uniform1i(s.uMode, 6)
+	gl.Uniform1i(s.uLit, 0)
+	gl.Uniform1f(s.uRef, 0)
+	gl.Uniform1f(s.uTile, tileSize)
+	gl.Uniform4f(s.uTint, tint[0], tint[1], tint[2], tint[3])
+	if s.WaterReflection != nil && s.WaterReflection.color != 0 {
+		var viewport [4]int32
+		gl.GetIntegerv(gl.VIEWPORT, &viewport[0])
+		gl.Uniform1i(s.uWaterReflection, 1)
+		below := int32(0)
+		if s.WaterBelow {
+			below = 1
+		}
+		gl.Uniform1i(s.uWaterBelow, below)
+		gl.Uniform4f(s.uWaterViewport, float32(viewport[0]), float32(viewport[1]), float32(viewport[2]), float32(viewport[3]))
+		gl.BindTextureUnit(3, s.WaterReflection.color)
+		if (s.WaterBelow || s.waterBackground != nil) && s.WaterNormals[0] != nil && s.WaterNormals[1] != nil {
+			gl.Uniform1i(s.uWaterNormals, 1)
+			gl.Uniform1f(s.uWaterTime, s.WaterTime)
+			if !s.WaterBelow {
+				gl.BindTextureUnit(4, s.waterBackground.ID)
+			}
+			gl.BindTextureUnit(5, s.WaterNormals[0].ID)
+			gl.BindTextureUnit(6, s.WaterNormals[1].ID)
+		} else {
+			gl.Uniform1i(s.uWaterNormals, 0)
+		}
+	} else {
+		gl.Uniform1i(s.uWaterReflection, 0)
+	}
+	gl.BindTextureUnit(0, t.ID)
+	s.blend(true)
+	gl.DepthMask(false)
+	m.Draw()
 	gl.DepthMask(true)
 	gl.Disable(gl.BLEND)
 }
 
 // DrawModel draws a mesh with texture * clamped Gouraud diffuse.
 func (s *Scene3D) DrawModel(m *Mesh, t *Texture, world M4, alphaRef float32, blend bool) {
-	gl.UniformMatrix4fv(s.uWorld, 1, false, &world[0])
+	s.setWorld(world)
 	gl.Uniform1i(s.uMode, 0)
+	if s.Shadow {
+		gl.Uniform1i(s.uMode, 7)
+		blend = false
+	}
 	gl.Uniform1i(s.uLit, 1)
 	gl.Uniform1f(s.uRef, alphaRef)
 	s.blend(blend)
-	if t != nil {
-		gl.BindTextureUnit(0, t.ID)
-	}
+	bindDiffuse(t)
 	m.Draw()
 }
 
 // DrawTerrainLayer draws one layer pass: first opaque, later alpha-blended.
-func (s *Scene3D) DrawTerrainLayer(m *Mesh, mask, tile *Texture, tileSize float32, first bool) {
+func (s *Scene3D) DrawTerrainLayer(m *Mesh, mask, tile, lightmap *Texture, tileSize float32, first bool) {
+	s.terrainLayerState(mask, tile, lightmap, tileSize, first)
+	m.Draw()
+}
+
+func (s *Scene3D) terrainLayerState(mask, tile, lightmap *Texture, tileSize float32, first bool) {
 	gl.Uniform1f(s.uTile, tileSize)
 	id := Identity()
-	gl.UniformMatrix4fv(s.uWorld, 1, false, &id[0])
+	s.setWorld(id)
 	gl.Uniform1i(s.uMode, 1)
 	gl.Uniform1i(s.uLit, 0)
 	if first {
@@ -150,13 +308,17 @@ func (s *Scene3D) DrawTerrainLayer(m *Mesh, mask, tile *Texture, tileSize float3
 	}
 	gl.BindTextureUnit(0, mask.ID)
 	gl.BindTextureUnit(1, tile.ID)
-	m.Draw()
+	gl.Uniform1i(s.uTerrainLight, 0)
+	if lightmap != nil {
+		gl.BindTextureUnit(2, lightmap.ID)
+		gl.Uniform1i(s.uTerrainLight, 1)
+	}
 }
 
 // DrawLightmap multiplies the frame by the terrain lightmap.
 func (s *Scene3D) DrawLightmap(m *Mesh, lm *Texture) {
 	id := Identity()
-	gl.UniformMatrix4fv(s.uWorld, 1, false, &id[0])
+	s.setWorld(id)
 	gl.Uniform1i(s.uMode, 2)
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.DST_COLOR, gl.ZERO)
@@ -187,15 +349,17 @@ func (t *Texture) SetWrap(repeat bool) {
 // BeginSky switches to the sky projection (near 10, far 100000) without
 // depth; EndSky restores the scene projection and depth.
 func (s *Scene3D) BeginSky() {
-	vp := s.View.Mul(s.SkyProj)
-	gl.UniformMatrix4fv(s.uViewProj, 1, false, &vp[0])
+	gl.Disable(gl.CLIP_DISTANCE0)
+	s.projection = s.depthProjection(s.SkyProj)
 	gl.Disable(gl.DEPTH_TEST)
 	gl.DepthMask(false)
 }
 
 func (s *Scene3D) EndSky() {
-	vp := s.View.Mul(s.Proj)
-	gl.UniformMatrix4fv(s.uViewProj, 1, false, &vp[0])
+	if s.ClipPlane != [4]float32{} {
+		gl.Enable(gl.CLIP_DISTANCE0)
+	}
+	s.projection = s.depthProjection(s.Proj)
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthMask(true)
 	gl.Disable(gl.BLEND)
@@ -203,25 +367,23 @@ func (s *Scene3D) EndSky() {
 
 // DrawUnlit draws texture * (1,1,1,alpha) with alpha blending.
 func (s *Scene3D) DrawUnlit(m *Mesh, t *Texture, world M4, alpha float32, uvOff [2]float32) {
-	gl.UniformMatrix4fv(s.uWorld, 1, false, &world[0])
+	s.setWorld(world)
 	gl.Uniform1i(s.uMode, 3)
 	gl.Uniform4f(s.uTint, 1, 1, 1, alpha)
 	gl.Uniform2f(s.uUVOff, uvOff[0], uvOff[1])
 	s.blend(true)
-	gl.BindTextureUnit(0, t.ID)
+	bindDiffuse(t)
 	m.Draw()
 }
 
 // DrawLightmapped draws DG geometry: texture * lightmap (clamp), unlit.
 func (s *Scene3D) DrawLightmapped(m *Mesh, t, lm *Texture) {
 	id := Identity()
-	gl.UniformMatrix4fv(s.uWorld, 1, false, &id[0])
+	s.setWorld(id)
 	gl.Uniform1i(s.uMode, 4)
-	gl.Uniform1f(s.uRef, 0.5)
+	gl.Uniform1f(s.uRef, NativeWorldAlphaRef(true))
 	s.blend(false)
-	if t != nil {
-		gl.BindTextureUnit(0, t.ID)
-	}
+	bindDiffuse(t)
 	gl.BindTextureUnit(1, lm.ID)
 	m.Draw()
 }
@@ -232,7 +394,7 @@ func (s *Scene3D) DrawTinted(m *Mesh, t *Texture, world M4, tint [4]float32, ble
 	if t == nil {
 		return
 	}
-	gl.UniformMatrix4fv(s.uWorld, 1, false, &world[0])
+	s.setWorld(world)
 	gl.Uniform1i(s.uMode, 3)
 	gl.Uniform4f(s.uTint, tint[0], tint[1], tint[2], tint[3])
 	gl.Uniform2f(s.uUVOff, 0, 0)
@@ -251,4 +413,64 @@ func (s *Scene3D) DrawTinted(m *Mesh, t *Texture, world M4, tint [4]float32, ble
 	m.Draw()
 	gl.DepthMask(true)
 	gl.Disable(gl.BLEND)
+}
+
+// Combine model and camera transforms before the shader adds small local
+// positions. This avoids float cancellation at map coordinates, as Godot's
+// MODELVIEW_MATRIX, while retaining the native LH camera and projection.
+func (s *Scene3D) setWorld(world M4) {
+	gl.Uniform1i(s.uInstanced, 0)
+	mv := s.modelView(world)
+	mvp := mv.Mul(s.projection)
+	gl.UniformMatrix4fv(s.uWorld, 1, false, &world[0])
+	gl.UniformMatrix4fv(s.uView, 1, false, &mv[0])
+	gl.UniformMatrix4fv(s.uViewProj, 1, false, &mvp[0])
+}
+
+// SetCameraView retains the eye independently of the rounded view translation.
+func (s *Scene3D) SetCameraView(eye, target, up V3) {
+	s.View = LookAtLH(eye, target, up)
+	s.cameraView, s.cameraEye, s.cameraValid = s.View, eye, true
+}
+
+func (s *Scene3D) modelView(world M4) M4 {
+	mv := world.Mul(s.View)
+	if s.cameraValid && s.View == s.cameraView {
+		// Subtract large positions before rotating, instead of cancelling two
+		// separately rounded world-space dot products.
+		for j := 0; j < 3; j++ {
+			var t float64
+			for i := 0; i < 3; i++ {
+				t += (float64(world[12+i]) - float64(s.cameraEye[i])) * float64(s.View[i*4+j])
+			}
+			mv[12+j] = float32(t)
+		}
+	}
+	return mv
+}
+
+// Keep CPU projection/frustum coordinates native; invert only the GPU depth.
+func (s *Scene3D) depthProjection(p M4) M4 {
+	if s.ReverseDepth && !s.Shadow {
+		for i := 0; i < 4; i++ {
+			p[i*4+2] = p[i*4+3] - p[i*4+2]
+		}
+	}
+	return p
+}
+
+func (s *Scene3D) applyDepthMode() {
+	if s.ReverseDepth && !s.Shadow {
+		gl.DepthFunc(gl.GEQUAL)
+		gl.ClearDepth(0)
+	} else {
+		gl.DepthFunc(gl.LEQUAL)
+		gl.ClearDepth(1)
+	}
+}
+
+// SetReverseDepth scopes depth state without rebinding the drawing program.
+func (s *Scene3D) SetReverseDepth(enabled bool) {
+	s.ReverseDepth = enabled
+	s.applyDepthMode()
 }

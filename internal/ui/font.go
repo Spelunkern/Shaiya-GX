@@ -8,13 +8,14 @@ import (
 	"image"
 	"image/draw"
 	"os"
+	"path/filepath"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
 
-	img "github.com/Spelunkern/shaiya-go-client/internal/data/image"
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	img "github.com/Spelunkern/Shaiya-GX/internal/data/image"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // Font is a Latin-1 glyph atlas. Height follows D3DXCreateFont with a
@@ -39,6 +40,12 @@ func DefaultFontPath() string {
 	if p := os.Getenv("SHAIYA_FONT"); p != "" {
 		return p
 	}
+	if exe, err := os.Executable(); err == nil {
+		p := filepath.Join(filepath.Dir(exe), "fonts", "tahoma.ttf")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
 	return "/usr/share/wine/fonts/tahoma.ttf"
 }
 
@@ -48,9 +55,13 @@ func LoadFont(path string, cellHeight int) (*Font, error) {
 	if err != nil {
 		return nil, fmt.Errorf("font: %w", err)
 	}
+	return loadFontData(data, cellHeight, false)
+}
+
+func loadFontData(data []byte, cellHeight int, pixelSize bool) (*Font, error) {
 	ft, err := opentype.Parse(data)
 	if err != nil {
-		return nil, fmt.Errorf("font %s: %w", path, err)
+		return nil, fmt.Errorf("font: %w", err)
 	}
 	// Scale so ascent+descent == cellHeight (GDI cell height).
 	probe, err := opentype.NewFace(ft, &opentype.FaceOptions{Size: 100, DPI: 72})
@@ -61,12 +72,19 @@ func LoadFont(path string, cellHeight int) (*Font, error) {
 	probe.Close()
 	cell := float64(m.Ascent+m.Descent) / 64
 	size := 100 * float64(cellHeight) / cell
+	if pixelSize {
+		size = float64(cellHeight)
+	}
 	face, err := opentype.NewFace(ft, &opentype.FaceOptions{Size: size, DPI: 72, Hinting: font.HintingFull})
 	if err != nil {
 		return nil, err
 	}
 	defer face.Close()
-	f := &Font{Height: cellHeight, Ascent: face.Metrics().Ascent.Round()}
+	height := cellHeight
+	if pixelSize {
+		height = (face.Metrics().Ascent + face.Metrics().Descent).Round()
+	}
+	f := &Font{Height: height, Ascent: face.Metrics().Ascent.Round()}
 	const aw, ah = 512, 256
 	atlas := image.NewAlpha(image.Rect(0, 0, aw, ah))
 	px, py, rowH := 1, 1, 0
@@ -111,22 +129,41 @@ func (f *Font) Width(s string) int {
 	return w
 }
 
+// DrawOutlined follows Phoenix's black-outlined fixed-pixel nameplates.
+func (f *Font) DrawOutlined(s *render.Sprites, text string, x, y int, tint [4]float32) {
+	for _, offset := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+		f.Draw(s, text, x+offset[0], y+offset[1], [4]float32{0, 0, 0, tint[3]}, 0)
+	}
+	f.Draw(s, text, x, y, tint, 0)
+}
+
 // Draw renders Latin-1 text with its cell top-left at (x, y), clipped to
 // maxW pixels when maxW > 0.
 func (f *Font) Draw(s *render.Sprites, text string, x, y int, rgba [4]float32, maxW int) {
-	pen := x
+	f.DrawScaled(s, text, float32(x), float32(y), 1, rgba, maxW)
+}
+
+// DrawScaled keeps tooltip text and frame together on small viewports.
+func (f *Font) DrawScaled(s *render.Sprites, text string, x, y, scale float32, rgba [4]float32, maxW int) {
+	pen := 0
 	for _, r := range text {
 		if r >= 256 {
 			r = '?'
 		}
 		g := f.glyphs[r]
-		if maxW > 0 && pen+g.adv-x > maxW {
+		if maxW > 0 && pen+g.adv > maxW {
 			return
 		}
 		if g.w > 0 {
-			s.Draw(f.tex, float32(pen+g.ox), float32(y+g.oy), float32(g.w), float32(g.h),
-				float32(g.x)/f.atlasW, float32(g.y)/f.atlasH, float32(g.x+g.w)/f.atlasW, float32(g.y+g.h)/f.atlasH, rgba)
+			s.Draw(f.tex, x+float32(pen+g.ox)*scale, y+float32(g.oy)*scale, float32(g.w)*scale, float32(g.h)*scale, float32(g.x)/f.atlasW, float32(g.y)/f.atlasH, float32(g.x+g.w)/f.atlasW, float32(g.y+g.h)/f.atlasH, rgba)
 		}
 		pen += g.adv
+	}
+}
+
+func (f *Font) Delete() {
+	if f != nil && f.tex != nil {
+		f.tex.Delete()
+		f.tex = nil
 	}
 }

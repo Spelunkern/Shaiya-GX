@@ -3,10 +3,10 @@ package ui
 import (
 	"fmt"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/text"
-	"github.com/Spelunkern/shaiya-go-client/internal/platform"
-	"github.com/Spelunkern/shaiya-go-client/internal/proto"
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/text"
+	"github.com/Spelunkern/Shaiya-GX/internal/platform"
+	"github.com/Spelunkern/Shaiya-GX/internal/proto"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 // ServerList is the server window (constructor 0x4eb520, draw 0x4ea5d0).

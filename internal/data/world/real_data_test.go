@@ -1,11 +1,12 @@
 package world
 
 import (
+	"math"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/archive"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/archive"
 )
 
 func openArchive(t *testing.T) *archive.Archive {
@@ -48,6 +49,51 @@ func eachFile(t *testing.T, a *archive.Archive, ext string, fn func(path string,
 func TestRealWLD(t *testing.T) {
 	a := openArchive(t)
 	eachFile(t, a, ".wld", func(_ string, b []byte) error { _, err := ParseWLD(b); return err })
+}
+
+func TestRealMani(t *testing.T) {
+	a := openArchive(t)
+	eachFile(t, a, ".mani", func(_ string, b []byte) error { _, err := ParseMani(b); return err })
+}
+
+func TestRealVANI(t *testing.T) {
+	a := openArchive(t)
+	eachFile(t, a, ".vani", func(_ string, b []byte) error { _, err := ParseVANI(b); return err })
+}
+
+func TestRealVANIHeaderBounds(t *testing.T) {
+	a := openArchive(t)
+	count, outside := 0, 0
+	eachFile(t, a, ".vani", func(name string, b []byte) error {
+		v, err := ParseVANI(b)
+		if err != nil {
+			return err
+		}
+		count++
+		maximum := float64(0)
+		for _, mesh := range v.Meshes {
+			for _, frame := range mesh.Frames {
+				for _, vertex := range frame {
+					dx, dy, dz := float64(vertex.Pos[0]-v.Center[0]), float64(vertex.Pos[1]-v.Center[1]), float64(vertex.Pos[2]-v.Center[2])
+					maximum = math.Max(maximum, math.Sqrt(dx*dx+dy*dy+dz*dz))
+				}
+			}
+		}
+		if maximum > float64(v.Radius)+.001 {
+			outside++
+			if outside <= 8 {
+				t.Logf("%s: header radius %.2f, vertex radius %.2f", name, v.Radius, maximum)
+			}
+		}
+		return nil
+	})
+	if count == 0 {
+		t.Fatal("no original VANI assets")
+	}
+	if outside != 0 {
+		t.Errorf("%d VANI assets exceed their header sphere", outside)
+	}
+	t.Logf("%d/%d VANI assets have frames outside the header sphere", outside, count)
 }
 
 // brokenSMOD are truncated files no WLD references (leftovers in the

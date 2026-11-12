@@ -16,8 +16,11 @@ const vertexSize = int(unsafe.Sizeof(Vertex{}))
 
 // Mesh is an indexed triangle list on the GPU.
 type Mesh struct {
-	vao, vbo, ebo uint32
-	Count         int32
+	instanceBuffer uint32
+	bytes          uint64
+	vao, vbo, ebo  uint32
+	Count          int32
+	vertexCapacity int
 }
 
 func NewMesh(v []Vertex, idx []uint32) *Mesh {
@@ -29,6 +32,39 @@ func NewMesh(v []Vertex, idx []uint32) *Mesh {
 	gl.NamedBufferStorage(m.vbo, len(v)*vertexSize, unsafe.Pointer(&v[0]), 0)
 	gl.CreateBuffers(1, &m.ebo)
 	gl.NamedBufferStorage(m.ebo, len(idx)*4, unsafe.Pointer(&idx[0]), 0)
+	m.bindLayout()
+	m.bytes = uint64(len(v)*vertexSize + len(idx)*4)
+	addGPUBytes(m.bytes)
+	return m
+}
+
+// NewAnimatedMesh stores the topology once and reserves a fixed vertex
+// buffer for successive poses of the same mesh.
+func NewAnimatedMesh(vertices int, idx []uint32) *Mesh {
+	m := &Mesh{Count: int32(len(idx)), vertexCapacity: vertices}
+	if vertices <= 0 || len(idx) == 0 {
+		m.Count = 0
+		return m
+	}
+	gl.CreateBuffers(1, &m.vbo)
+	gl.NamedBufferStorage(m.vbo, vertices*vertexSize, nil, gl.DYNAMIC_STORAGE_BIT)
+	gl.CreateBuffers(1, &m.ebo)
+	gl.NamedBufferStorage(m.ebo, len(idx)*4, unsafe.Pointer(&idx[0]), 0)
+	m.bindLayout()
+	m.bytes = uint64(vertices*vertexSize + len(idx)*4)
+	addGPUBytes(m.bytes)
+	return m
+}
+
+// UpdateVertices changes only the pose; indices and storage remain intact.
+func (m *Mesh) UpdateVertices(v []Vertex) {
+	if m == nil || m.vbo == 0 || len(v) != m.vertexCapacity || len(v) == 0 {
+		return
+	}
+	gl.NamedBufferSubData(m.vbo, 0, len(v)*vertexSize, unsafe.Pointer(&v[0]))
+}
+
+func (m *Mesh) bindLayout() {
 	gl.CreateVertexArrays(1, &m.vao)
 	gl.VertexArrayVertexBuffer(m.vao, 0, m.vbo, 0, int32(vertexSize))
 	gl.VertexArrayElementBuffer(m.vao, m.ebo)
@@ -41,7 +77,29 @@ func NewMesh(v []Vertex, idx []uint32) *Mesh {
 		gl.VertexArrayAttribFormat(m.vao, uint32(i), a.n, gl.FLOAT, false, a.off)
 		gl.VertexArrayAttribBinding(m.vao, uint32(i), 0)
 	}
+}
+
+// NewStreamMesh creates a reusable triangle stream; it owns no immutable storage.
+func NewStreamMesh() *Mesh {
+	m := &Mesh{}
+	gl.CreateBuffers(1, &m.vbo)
+	gl.CreateBuffers(1, &m.ebo)
+	m.bindLayout()
 	return m
+}
+
+// Stream replaces the buffers of a mesh created by NewStreamMesh.
+func (m *Mesh) Stream(v []Vertex, idx []uint32) {
+	m.Count = int32(len(idx))
+	if len(v) == 0 || len(idx) == 0 {
+		m.Count = 0
+		return
+	}
+	gl.NamedBufferData(m.vbo, len(v)*vertexSize, unsafe.Pointer(&v[0]), gl.STREAM_DRAW)
+	gl.NamedBufferData(m.ebo, len(idx)*4, unsafe.Pointer(&idx[0]), gl.STREAM_DRAW)
+	removeGPUBytes(m.bytes)
+	m.bytes = uint64(len(v)*vertexSize + len(idx)*4)
+	addGPUBytes(m.bytes)
 }
 
 func (m *Mesh) Draw() {
@@ -50,4 +108,19 @@ func (m *Mesh) Draw() {
 	}
 	gl.BindVertexArray(m.vao)
 	gl.DrawElements(gl.TRIANGLES, m.Count, gl.UNSIGNED_INT, nil)
+	drawCalls++
+}
+
+// Delete releases owned GPU storage; meshes referenced by shared assets must
+// only be deleted after their last resident world cell is gone.
+func (m *Mesh) Delete() {
+	if m == nil {
+		return
+	}
+	gl.DeleteVertexArrays(1, &m.vao)
+	gl.DeleteBuffers(1, &m.vbo)
+	gl.DeleteBuffers(1, &m.ebo)
+	removeGPUBytes(m.bytes)
+	m.bytes = 0
+	m.vao, m.vbo, m.ebo, m.Count = 0, 0, 0, 0
 }

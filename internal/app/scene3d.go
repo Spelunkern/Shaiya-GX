@@ -4,11 +4,11 @@ import (
 	"log"
 	"math"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/sdata"
-	"github.com/Spelunkern/shaiya-go-client/internal/proto"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
+	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
-	"github.com/Spelunkern/shaiya-go-client/internal/scene"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/scene"
 )
 
 // Character select camera (0x46a5a0, full-body case; Phoenix
@@ -44,7 +44,16 @@ func (a *App) drawWorld(w *scene.World, eye, target render.V3, width, height int
 		return
 	}
 	s := a.scene3d
-	s.View = render.LookAtLH(eye, target, render.V3{0, 1, 0})
+	nav := &a.chars.Navigation
+	if !a.chars.Busy {
+		nav.Advance(a.frameDT, 1)
+	}
+	if nav.Face && a.chars.Selected >= 0 {
+		if ch := a.chars.Chars[a.chars.Selected]; ch != nil {
+			eye, target = selectionFaceCamera(ch.Race, ch.Height)
+		}
+	}
+	s.SetCameraView(eye, target, render.V3{0, 1, 0})
 	aspect := projectionAspect(width, height)
 	s.Proj = render.PerspectiveFovLH(math.Pi/4, aspect, 0.1, 400)
 	s.SkyProj = render.PerspectiveFovLH(math.Pi/4, aspect, 10, 100000)
@@ -52,14 +61,54 @@ func (a *App) drawWorld(w *scene.World, eye, target render.V3, width, height int
 	// Select maps light (Phoenix account_ep5_render, X mirrored back to raw).
 	s.LightDir = render.V3{-0.513, -1, 0.858}
 	s.Begin()
-	w.Sky.Update(float32(a.frameDT))
+	w.Update(float32(a.frameDT))
 	w.Sky.Draw(s, eye)
 	w.Draw(s)
 	if actor := a.selectActor(w); actor != nil {
+		// Selection rotates the actor while the scenery camera stays fixed.
+		pos := selectActorPos
+		pos[1] = w.Height(pos[0], pos[2])
+		scale := a.actorAppearance.HeightScale()
+		m := render.Identity()
+		m[0], m[5], m[10] = scale, scale, scale
+		actor.World = m.Mul(render.Basis(pos, rotatePreview(selectActorFwd.Scale(-1), nav.Angle), render.V3{0, 1, 0}))
 		actor.Update(float32(a.frameDT))
+		if !actor.ActionActive() {
+			actor.SetClip("000_normal")
+		}
 		actor.Draw(a.skinner, s)
 	}
+	w.DrawWater(s)
+	w.DrawMapEffects(s, eye)
 	s.End()
+}
+
+// Face pose from 0x46a5a0; family and height adjust the native eye level.
+func selectionFaceCamera(race, height uint8) (render.V3, render.V3) {
+	y := float32(2.406)
+	if height < 5 {
+		y += [5]float32{-.1, -.05, 0, .05, .1}[height]
+	}
+	if race == 3 {
+		y += .3
+	}
+	return render.V3{273.0897, y, 179.83809}, render.V3{272.1887, y, 179.40509}
+}
+
+func creationFaceHeight(race, height uint8) float32 {
+	y := float32(0)
+	if height < 5 {
+		y = [5]float32{-.05, -.02, 0, .05, .1}[height]
+	}
+	if race == 3 {
+		y += .2
+	}
+	return y
+}
+
+func rotatePreview(v render.V3, angle float64) render.V3 {
+	c, s := float32(math.Cos(angle)), float32(math.Sin(angle))
+	return render.V3{v[0]*c - v[2]*s, v[1], v[0]*s + v[2]*c}
 }
 
 // Actor placement in the select maps (0x46b020; Phoenix reference).
@@ -68,9 +117,9 @@ var (
 	selectActorFwd = render.V3{1.301, 0, 0.233}
 )
 
-func (a *App) itemModel(typ, id uint8) (uint8, bool) {
+func (a *App) itemsItem(typ, id uint8) *sdata.Item {
 	if typ == 0 {
-		return 0, false
+		return nil
 	}
 	if a.items == nil {
 		a.items = map[sdata.ItemKey]*sdata.Item{}
@@ -82,7 +131,11 @@ func (a *App) itemModel(typ, id uint8) (uint8, bool) {
 			}
 		}
 	}
-	it := a.items[sdata.ItemKey{Type: typ, TypeID: id}]
+	return a.items[sdata.ItemKey{Type: typ, TypeID: id}]
+}
+
+func (a *App) itemModel(typ, id uint8) (uint8, bool) {
+	it := a.itemsItem(typ, id)
 	if it == nil {
 		return 0, false
 	}
@@ -99,6 +152,8 @@ func (a *App) appearance(c *proto.CharacterSlot) scene.Appearance {
 		ap.Helmet = int(v)
 	}
 	ap.Upper, ap.Lower, ap.Hand, ap.Foot = m(1), m(2), m(3), m(4)
+	ap.WeaponType, ap.WeaponModel = c.EquipType[5], m(5)
+	ap.ShieldType, ap.ShieldModel = c.EquipType[6], m(6)
 	return ap
 }
 
@@ -109,26 +164,21 @@ func (a *App) selectActor(w *scene.World) *scene.Character {
 		return nil
 	}
 	ch := a.chars.Chars[sel]
-	if a.actor != nil && a.actorID == ch.ID {
+	ap := a.appearance(ch)
+	if a.actor != nil && a.actorID == ch.ID && a.actorAppearance == ap {
 		return a.actor
 	}
-	ap := a.appearance(ch)
-	c, err := scene.BuildCharacter(a.assets, ap, "019_select")
+	c, err := scene.BuildCharacter(a.assets, ap, "000_normal")
 	if err != nil {
 		log.Printf("character %s: %v", ch.Name, err)
 	}
+	c.PlayAction(19, false) // 0x46b020: selection entrance, followed by idle.
 	for f := range a.assets.Missing {
 		log.Printf("character %s: missing %s", ch.Name, f)
 		delete(a.assets.Missing, f)
 	}
-	pos := selectActorPos
-	pos[1] = w.Height(pos[0], pos[2])
-	sc := ap.HeightScale()
-	scale := render.M4{sc, 0, 0, 0, 0, sc, 0, 0, 0, 0, sc, 0, 0, 0, 0, 1}
-	// Character meshes face -Z in model space: point that axis along the
-	// actor direction (0x46b020 stores it at +0x1c).
-	c.World = scale.Mul(render.Basis(pos, selectActorFwd.Scale(-1), render.V3{0, 1, 0}))
 	a.actor, a.actorID = c, ch.ID
+	a.actorAppearance = ap
 	return c
 }
 

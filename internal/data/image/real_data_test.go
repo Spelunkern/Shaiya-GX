@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Spelunkern/shaiya-go-client/internal/data/archive"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/archive"
 )
 
-// N1: every TGA and DDS of the real archive decodes (SHAIYA_DATA=dir).
+// N1: every TGA, DDS and JPEG of the real archive decodes (SHAIYA_DATA=dir).
 func TestRealArchiveTextures(t *testing.T) {
 	dir := os.Getenv("SHAIYA_DATA")
 	if dir == "" {
@@ -24,7 +24,8 @@ func TestRealArchiveTextures(t *testing.T) {
 	a.Walk(func(p string, f *archive.File) {
 		lp := strings.ToLower(p)
 		isTGA, isDDS := strings.HasSuffix(lp, ".tga"), strings.HasSuffix(lp, ".dds")
-		if !isTGA && !isDDS {
+		isJPEG := strings.HasSuffix(lp, ".jpg") || strings.HasSuffix(lp, ".jpeg")
+		if !isTGA && !isDDS && !isJPEG {
 			return
 		}
 		b, err := a.Read(f)

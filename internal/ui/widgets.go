@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"github.com/Spelunkern/shaiya-go-client/internal/platform"
-	"github.com/Spelunkern/shaiya-go-client/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/platform"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
 var white = [4]float32{1, 1, 1, 1}
@@ -50,6 +50,7 @@ func (b *Button) hit(in *platform.Input) bool {
 // Update returns true when the button was clicked this frame.
 func (b *Button) Update(in *platform.Input) bool {
 	if b.Disabled {
+		b.held = false
 		b.state = StateDisabled
 		return false
 	}
@@ -81,6 +82,9 @@ func (b *Button) Draw(s *render.Sprites) {
 		return
 	}
 	st := b.state
+	if b.Disabled {
+		st = StateDisabled
+	}
 	if b.Toggle && b.Checked && st != StateDisabled {
 		st = StateChecked
 	}
@@ -120,4 +124,13 @@ func (t *TextField) Shown() string {
 		b[i] = '*'
 	}
 	return string(b)
+}
+
+// nativeClose is the shared 22px control on a 128x32 atlas.
+func nativeClose(tex *render.Texture, x, y int) Button {
+	b := Button{Tex: tex, OffX: x, OffY: y, DrawW: 22, DrawH: 22, HitW: 22, HitH: 22}
+	for i, state := range []int{0, 1, 2, 2, 0} {
+		b.UV[i] = UV{float32(state*32) / 128, 0, float32(state*32+22) / 128, 22.0 / 32}
+	}
+	return b
 }

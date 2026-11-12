@@ -29,12 +29,6 @@ func (r *reader) take(n int) []byte {
 	return p
 }
 
-func (r *reader) u8() uint8 {
-	if p := r.take(1); p != nil {
-		return p[0]
-	}
-	return 0
-}
 func (r *reader) u16() uint16 {
 	if p := r.take(2); p != nil {
 		return binary.LittleEndian.Uint16(p)

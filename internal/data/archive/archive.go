@@ -240,3 +240,17 @@ func (r *reader) dir(depth int) *Dir {
 	}
 	return d
 }
+
+// ReadPrefix reads at most n bytes without allocating the complete asset.
+func (a *Archive) ReadPrefix(path string, n int) ([]byte, error) {
+	if n < 0 {
+		return nil, fmt.Errorf("archive: negative prefix length")
+	}
+	f, ok := a.Lookup(path)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, path)
+	}
+	prefix := *f
+	prefix.Length = uint32(min(uint64(f.Length), uint64(n)))
+	return a.Read(&prefix)
+}
