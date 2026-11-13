@@ -13,6 +13,10 @@ func (s *Scene3D) DrawEffectBatch(m *Mesh, t *Texture, worlds []M4, colors [][4]
 	if !ok || t == nil || m == nil || m.Count == 0 || len(worlds) == 0 || len(worlds) != len(colors) {
 		return
 	}
+	worlds, colors = s.visibleEffectInstances(m, worlds, colors)
+	if len(worlds) == 0 {
+		return
+	}
 	s.SetInstances(worlds)
 	s.setInstanceColors(colors)
 	gl.Uniform1i(s.uInstanced, 1)
@@ -47,6 +51,10 @@ func (s *Scene3D) setInstanceColors(colors [][4]float32) {
 // scene fog and depth. Independent factors share a single instanced draw.
 func (s *Scene3D) DrawGroundItems(m *Mesh, t *Texture, worlds []M4, colors [][4]float32) {
 	if m == nil || m.Count == 0 || t == nil || len(worlds) == 0 || len(worlds) != len(colors) {
+		return
+	}
+	worlds, colors = s.visibleEffectInstances(m, worlds, colors)
+	if len(worlds) == 0 {
 		return
 	}
 	s.SetInstances(worlds)
@@ -108,7 +116,7 @@ func EFTBlend(source, destination int32) (uint32, uint32, bool) {
 // depth writes (0x55cb10, native_effect_ports.cpp and native_controller_state.cpp).
 func (s *Scene3D) DrawEffect(m *Mesh, t *Texture, world M4, color [4]float32, source, destination int32, clampTexture ...bool) {
 	src, dst, ok := EFTBlend(source, destination)
-	if !ok || t == nil {
+	if !ok || t == nil || s.meshOccluded(m, world) {
 		return
 	}
 	s.setWorld(world)

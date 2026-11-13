@@ -11,7 +11,7 @@ server=Path(os.environ.get('GX_SERVER_DIR',os.environ.get('RAPTURE_DIR',client/'
 children=[]
 with tempfile.TemporaryDirectory(prefix='rapture-sqlite-n2-') as temp:
  temp=Path(temp);db=temp/'rapture.sqlite';shutil.copyfile(server/'data/rapture.sqlite',db)
- env=dict(os.environ,RAPTURE_DB_PATH=str(db),RAPTURE_DATA_DIR=str(server/'data'),RAPTURE_LOGIN_LISTEN='127.0.0.1:40800',RAPTURE_WORLD_LISTEN='127.0.0.1:40810',RAPTURE_PUBLIC_IP='127.0.0.1',SHAIYA_TEST_LOGIN_ADDR='127.0.0.1:40800',SHAIYA_TEST_WORLD_PORT='40810',SHAIYA_TEST_DISPOSABLE='1',SHAIYA_TEST_RENDER='1',SHAIYA_TEST_NATIVE_CONTROLS='1',SHAIYA_TEST_ACTIONS='1',SHAIYA_TEST_ARTIFACTS=str(client/'work'),SHAIYA_DATA=os.environ.get('SHAIYA_DATA',str(Path.home()/'Desktop/Go project/data')),GOTOOLCHAIN='local')
+ env=dict(os.environ,RAPTURE_DB_PATH=str(db),RAPTURE_DATA_DIR=str(server/'data'),RAPTURE_LOGIN_LISTEN='127.0.0.1:40800',RAPTURE_WORLD_LISTEN='127.0.0.1:40810',RAPTURE_PUBLIC_IP='127.0.0.1',SHAIYA_TEST_LOGIN_ADDR='127.0.0.1:40800',SHAIYA_TEST_WORLD_PORT='40810',SHAIYA_TEST_DISPOSABLE='1',SHAIYA_TEST_RENDER='1',SHAIYA_TEST_NATIVE_CONTROLS='1',SHAIYA_TEST_ACTIONS='1',SHAIYA_TEST_ARTIFACTS=str(client/'work'),SHAIYA_DATA=os.environ.get('SHAIYA_DATA',str(Path.home()/'Desktop/Shaiya GX/data')),GOTOOLCHAIN='local')
  env['PATH']=str(Path.home()/'.local/opt/go-1.27.3/bin')+':'+env['PATH']
  for port in (40800,40810):
   with socket.socket() as check:
@@ -19,7 +19,7 @@ with tempfile.TemporaryDirectory(prefix='rapture-sqlite-n2-') as temp:
  users=[]
  with sqlite3.connect(db) as c:
   for _ in range(2):
-   name='gop'+secrets.token_hex(5);password=secrets.token_hex(6);uid=c.execute('SELECT MAX(UserUID)+1 FROM PS_UserData_Users_Master').fetchone()[0]
+   name='測'+secrets.token_hex(5);password='密'+secrets.token_hex(5);uid=c.execute('SELECT MAX(UserUID)+1 FROM PS_UserData_Users_Master').fetchone()[0]
    c.execute("INSERT INTO PS_UserData_Users_Master(UserUID,UserID,Pw,Admin,AdminLevel,UseQueue,Status,Leave,UserType,Point) VALUES(?,?,?,0,0,0,0,0,'N',0)",(uid,name,password));users.append((name,password,uid))
  try:
   for name,port in [('gx_login',40800),('gx_world',40810)]:
@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='rapture-sqlite-n2-') as temp:
     time.sleep(.1)
   for name,password,uid in users:
    account_env=dict(env,SHAIYA_TEST_USER=name,SHAIYA_PASSWORD=password)
-   for test,extra in [('TestFactionAgainstRapture',{'SHAIYA_TEST_FACTION':'1'}),('TestCreationAgainstRapture',{'SHAIYA_TEST_CREATE':'Go'+secrets.token_hex(5)})]:
+   for test,extra in [('TestFactionAgainstRapture',{'SHAIYA_TEST_FACTION':'1'}),('TestCreationAgainstRapture',{'SHAIYA_TEST_CREATE':'試🧙'+secrets.token_hex(4)})]:
     subprocess.run(['nice','go','test','-tags','integration','./internal/app','-run','^'+test+'$','-count=1','-v'],cwd=client,env=dict(account_env,**extra),check=True,timeout=60)
   with sqlite3.connect(db) as c:
    for n,(_,_,uid) in enumerate(users):
@@ -92,6 +92,11 @@ with tempfile.TemporaryDirectory(prefix='rapture-sqlite-n2-') as temp:
   with sqlite3.connect(db) as c:
    c.execute('UPDATE PS_GameData_Chars SET Map=1,PosX=943,PosY=13,PosZ=777,Money=50000 WHERE UserUID=?',(users[0][2],))
   subprocess.run(['nice','go','test','-tags','integration','./internal/app','-run','^TestGatekeeperCrossMapAgainstRapture$','-count=1','-v'],cwd=client,env=dict(env,SHAIYA_TEST_GATEKEEPER_PAID='1'),check=True,timeout=90)
+  # A real duel uses only these temporary fixtures and verifies live 0x020E counters.
+  with sqlite3.connect(db) as c:
+   for n,(_,_,uid) in enumerate(users):
+    c.execute('UPDATE PS_GameData_Chars SET Map=1,PosX=?,PosY=78,PosZ=1762,Family=0,Job=0,Level=40,Str=2000,Dex=2000,HP=?,MP=1000,SP=500,Money=50000 WHERE UserUID=?',(578+n*2,500 if n==0 else 1,uid))
+  subprocess.run(['nice','go','test','-tags','integration','./internal/app','-run','^TestDuelVictoryWagersAgainstRapture$','-count=1','-v'],cwd=client,env=env,check=True,timeout=90)
  finally:
   for process in reversed(children):
    process.terminate()

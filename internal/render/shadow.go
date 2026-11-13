@@ -86,12 +86,14 @@ func (m *ShadowMap) Capture(draw func()) {
 	var fbo, read int32
 	var viewport, scissor [4]int32
 	var clear [4]float32
+	var colorMask [4]bool
 	var depth float64
 	gl.GetIntegerv(gl.DRAW_FRAMEBUFFER_BINDING, &fbo)
 	gl.GetIntegerv(gl.READ_FRAMEBUFFER_BINDING, &read)
 	gl.GetIntegerv(gl.VIEWPORT, &viewport[0])
 	gl.GetIntegerv(gl.SCISSOR_BOX, &scissor[0])
 	gl.GetFloatv(gl.COLOR_CLEAR_VALUE, &clear[0])
+	gl.GetBooleanv(gl.COLOR_WRITEMASK, &colorMask[0])
 	gl.GetDoublev(gl.DEPTH_CLEAR_VALUE, &depth)
 	scissored := gl.IsEnabled(gl.SCISSOR_TEST)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, m.fbo)
@@ -99,10 +101,13 @@ func (m *ShadowMap) Capture(draw func()) {
 	gl.Disable(gl.SCISSOR_TEST)
 	gl.Disable(gl.BLEND)
 	gl.DepthMask(true)
+	// This target stores silhouette coverage, unlike the opaque scene target.
+	gl.ColorMask(true, true, true, true)
 	gl.ClearColor(0, 0, 0, 0)
 	gl.ClearDepth(1)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	draw()
+	gl.ColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3])
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, uint32(fbo))
 	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, uint32(read))
 	gl.Viewport(viewport[0], viewport[1], viewport[2], viewport[3])

@@ -538,7 +538,7 @@ func fixedText(p []byte, at, n int) string {
 			break
 		}
 	}
-	return string(b)
+	return packet.FixedText(b)
 }
 
 // guildCreateRequest (0x0D21): name[25], remark[65] (64 characters).

@@ -22,7 +22,7 @@ for file in ['LICENSE', 'NOTICE']:
     shutil.copy2(ROOT/file, stage/file)
 licenses = stage/'licenses'
 licenses.mkdir()
-for file in ['OFL.txt', 'Tahoma-NOTICE.txt', 'LGPL-2.1-or-later.txt']:
+for file in ['OFL.txt', 'Tahoma-NOTICE.txt', 'LGPL-2.1-or-later.txt', 'LiberationSans-OFL.txt']:
     shutil.copy2(ROOT/'internal/ui/fonts'/file, licenses/file)
 for file in (ROOT/'licenses').glob('*.txt'):
     shutil.copy2(file, licenses/file.name)

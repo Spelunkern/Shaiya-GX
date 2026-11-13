@@ -1,6 +1,7 @@
 package render
 
 import (
+	"math"
 	"unsafe"
 
 	"github.com/go-gl/gl/v4.5-core/gl"
@@ -16,15 +17,18 @@ const vertexSize = int(unsafe.Sizeof(Vertex{}))
 
 // Mesh is an indexed triangle list on the GPU.
 type Mesh struct {
-	instanceBuffer uint32
-	bytes          uint64
-	vao, vbo, ebo  uint32
-	Count          int32
-	vertexCapacity int
+	minimum, maximum V3
+	boundsValid      bool
+	instanceBuffer   uint32
+	bytes            uint64
+	vao, vbo, ebo    uint32
+	Count            int32
+	vertexCapacity   int
 }
 
 func NewMesh(v []Vertex, idx []uint32) *Mesh {
 	m := &Mesh{Count: int32(len(idx))}
+	m.updateBounds(v)
 	if len(v) == 0 || len(idx) == 0 {
 		return m
 	}
@@ -61,6 +65,7 @@ func (m *Mesh) UpdateVertices(v []Vertex) {
 	if m == nil || m.vbo == 0 || len(v) != m.vertexCapacity || len(v) == 0 {
 		return
 	}
+	m.updateBounds(v)
 	gl.NamedBufferSubData(m.vbo, 0, len(v)*vertexSize, unsafe.Pointer(&v[0]))
 }
 
@@ -90,6 +95,7 @@ func NewStreamMesh() *Mesh {
 
 // Stream replaces the buffers of a mesh created by NewStreamMesh.
 func (m *Mesh) Stream(v []Vertex, idx []uint32) {
+	m.updateBounds(v)
 	m.Count = int32(len(idx))
 	if len(v) == 0 || len(idx) == 0 {
 		m.Count = 0
@@ -123,4 +129,22 @@ func (m *Mesh) Delete() {
 	removeGPUBytes(m.bytes)
 	m.bytes = 0
 	m.vao, m.vbo, m.ebo, m.Count = 0, 0, 0, 0
+}
+
+func (m *Mesh) updateBounds(v []Vertex) {
+	m.boundsValid = false
+	if len(v) == 0 {
+		return
+	}
+	lo, hi := v[0].Pos, v[0].Pos
+	for _, p := range v {
+		for axis, x := range p.Pos {
+			if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
+				return
+			}
+			lo[axis] = min(lo[axis], x)
+			hi[axis] = max(hi[axis], x)
+		}
+	}
+	m.minimum, m.maximum, m.boundsValid = lo, hi, true
 }

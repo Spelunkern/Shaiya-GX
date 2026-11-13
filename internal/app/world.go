@@ -547,6 +547,8 @@ func (a *App) drawWorldView(w, h int) {
 		eye, target = v.cameraEye, v.cameraTarget
 	}
 	s := a.scene3d
+	s.StaticObjectLOD = true
+	s.ViewportW, s.ViewportH = w, h
 	s.HideWeaponEffects = !a.clientSettings().SkillEffects
 	s.DetailBias = float32(2 - a.clientSettings().Details)
 	s.SetCameraView(eye, target, render.V3{0, 1, 0})
@@ -556,9 +558,13 @@ func (a *App) drawWorldView(w, h int) {
 	// Enclose every frustum corner, including wide viewports and pitched cameras.
 	tangent := float32(math.Tan(nativeWorldFOV / 2))
 	radius := far * float32(math.Sqrt(float64(1+tangent*tangent*(1+aspect*aspect))))
+	if a.world != nil {
+		v.world.EnableAsyncStreaming()
+	}
 	v.world.UpdateVisible(eye, radius)
 	s.Proj = render.PerspectiveFovLH(nativeWorldFOV, aspect, 0.1, far)
 	s.SkyProj = render.PerspectiveFovLH(nativeWorldFOV, aspect, 10, 100000)
+	v.world.PrepareTerrainOcclusion(s, eye)
 	s.FogColor, s.FogStart, s.FogEnd = v.world.FogColor, v.world.FogStart*distanceScale, v.world.FogEnd*distanceScale
 	underwaterColor, underwater := v.world.UnderwaterFogAt(eye)
 	if underwater {
@@ -635,9 +641,8 @@ func (a *App) drawWorldView(w, h int) {
 	if s.WaterReflection != nil && !s.WaterBelow && v.world.HasWaterNormals() {
 		s.CaptureWaterBackground()
 	}
-	if a.clientSettings().Water {
-		v.world.DrawWater(s)
-	}
+	// Water Surface Effect controls reflection/refraction, not water visibility.
+	v.world.DrawWater(s)
 	v.world.RenderMapEffects(s)
 	s.WaterReflection = nil
 	s.WaterBelow = false

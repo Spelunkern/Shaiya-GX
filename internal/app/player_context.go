@@ -196,11 +196,21 @@ func (a *App) updatePlayerContext(in *platform.Input, w, h int) bool {
 		}
 	}
 	id := uint32(0)
-	if pointInside(in, 8, 8, 213, 114) && a.state.Party.Member(a.state.SelfID) != nil {
+	hx, hy := 8, 8
+	if a.hud != nil {
+		hx, hy = a.hud.Origin(w, h)
+	}
+	if pointInside(in, hx, hy, 213, 114) && a.state.Party.Member(a.state.SelfID) != nil {
 		id = a.state.SelfID
 	}
-	if in.MouseX >= 256 && in.MouseX < 512 && in.MouseY >= 0 && in.MouseY < 64 {
-		if e := a.state.Entities[a.state.Target]; e != nil && e.Kind == game.KindUser {
+	tx, ty := 256, 0
+	if a.hud != nil {
+		tx, ty = a.hud.TargetOrigin(w, h)
+	}
+	if pointInside(in, tx, ty, 256, 64) {
+		if a.state.Target == a.state.SelfID {
+			id = a.state.SelfID
+		} else if e := a.state.Entities[a.state.Target]; e != nil && e.Kind == game.KindUser {
 			id = e.ID
 		}
 	}

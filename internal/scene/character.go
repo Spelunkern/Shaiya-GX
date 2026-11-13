@@ -76,6 +76,7 @@ type Character struct {
 	actionID             uint64
 	actionSlot           int
 	castLeft             float32
+	castTotal            float32
 	castLoop             int
 	parts                []*skinPart
 	head                 *skinPart
@@ -440,7 +441,7 @@ func (c *Character) ReleaseAction() {
 }
 
 func (c *Character) PlayCast(ready int, seconds float32) bool {
-	if seconds < 0 || !c.PlayAction(ready, false) {
+	if seconds < 0 || math.IsNaN(float64(seconds)) || !c.PlayAction(ready, false) {
 		return false
 	}
 	// A server cast-start has no duration on the wire. If local data gives
@@ -449,7 +450,7 @@ func (c *Character) PlayCast(ready int, seconds float32) bool {
 	if seconds == 0 {
 		seconds = float32(math.Inf(1))
 	}
-	c.castLeft, c.castLoop = seconds, ready+1
+	c.castLeft, c.castTotal, c.castLoop = seconds, seconds, ready+1
 	return true
 }
 
@@ -555,6 +556,19 @@ func (c *Character) Draw(k *render.Skinner, s *render.Scene3D) {
 	if c.cloak != nil {
 		c.cloak.update(c.World, finals)
 	}
+	if lo, hi, valid := c.WorldBounds(); valid {
+		if c.cloak != nil {
+			for _, p := range c.cloak.physics.positions {
+				for axis := 0; axis < 3; axis++ {
+					lo[axis] = min(lo[axis], p[axis])
+					hi[axis] = max(hi[axis], p[axis])
+				}
+			}
+		}
+		if s.OccludedBox(lo, hi) {
+			return
+		}
+	}
 	k.Begin(s, 0.8) // character ambient (Phoenix account_ep5_render)
 	for _, p := range c.parts {
 		k.SetPose(c.World, p.pose)
@@ -607,4 +621,12 @@ func (c *Character) InventoryFrame(fov, heightScale float32) (center, distance f
 	center = (lo + hi) * heightScale / 2
 	distance = (hi - lo) * heightScale / 2 / float32(math.Tan(float64(fov)/2)) * 1.03
 	return
+}
+
+// CastTiming shares the actor's server-started preparation clock with the UI.
+func (c *Character) CastTiming() (remaining, total float32, active bool) {
+	if c == nil || c.castLeft <= 0 {
+		return 0, 0, false
+	}
+	return c.castLeft, c.castTotal, true
 }

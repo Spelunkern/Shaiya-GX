@@ -99,3 +99,9 @@ __pycache__/
 !/gallery/2026-11-13-login.png
 !/gallery/2026-11-13-character-selection.png
 !/gallery/2026-11-13-in-game.png
+
+# Cumulative draft patch notes, published only on request.
+/docs/patch-notes-local.md
+
+# Private font experiments are never included in source or release builds.
+/internal/ui/fonts/local/*

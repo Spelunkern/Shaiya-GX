@@ -36,7 +36,7 @@ func (a *App) drawGroundItems() {
 			continue
 		}
 		pos := groundItemPosition(v.world, item)
-		if !render.ClipSphereVisible(s.ClipPlane, pos, model.Radius) || !frustum.SphereVisible(pos, model.Radius) {
+		if !render.ClipSphereVisible(s.ClipPlane, pos, model.Radius) || !frustum.SphereVisible(pos, model.Radius) || s.OccludedSphere(pos, model.Radius) {
 			continue
 		}
 		world := render.Identity()

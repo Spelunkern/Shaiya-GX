@@ -1,5 +1,7 @@
 package proto
 
+import "github.com/Spelunkern/Shaiya-GX/internal/textwire"
+
 // Client -> server: FUN_00597f60 takes buffer + length.
 // Each builder cites its writer in Game.exe.
 
@@ -22,9 +24,9 @@ func CreateCharacterPacket(c NewCharacter) []byte {
 	for _, v := range []uint8{c.Slot, c.Race, c.Mode, c.Hair, c.Face, c.Height, c.Class, c.Gender} {
 		w.U8(v)
 	}
-	name := EncodeLatin1(c.Name)
+	name := EncodeText(c.Name)
 	if len(name) > 18 {
-		name = name[:18]
+		name = []byte(textwire.Prefix(string(name), 18))
 	}
 	w.Raw(append(name, 0))
 	return w.Bytes()
@@ -107,7 +109,7 @@ func ChatPacket(channel uint8, admin bool, text string) []byte {
 
 // WhisperPacket is the 0x1102 request: target[21], followed by text.
 func WhisperPacket(target, text string) []byte {
-	if target == "" || text == "" || len(EncodeLatin1(target)) > 20 {
+	if target == "" || text == "" || len(EncodeText(target)) > 20 {
 		return nil
 	}
 	w := NewWriter(ChatWhisper)

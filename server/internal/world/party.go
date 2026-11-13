@@ -239,7 +239,7 @@ func (s *Session) handlePartyInvite(op packet.Opcode, p []byte) {
 		if len(p) < 23 {
 			return
 		}
-		if t := FindPlayerByName(strings.TrimRight(packet.FixedASCII(p[2:23]), " ")); t != nil && t != me && t.MapID() == me.MapID() {
+		if t := FindPlayerByName(strings.TrimRight(packet.FixedText(p[2:23]), " ")); t != nil && t != me && t.MapID() == me.MapID() {
 			target, targetID = t, t.CharacterID
 		}
 	}

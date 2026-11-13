@@ -57,10 +57,16 @@ func (a *App) updateBottom(in *platform.Input, w, h int) bool {
 	return captured
 }
 
-func (a *App) updateHUDPointer(in *platform.Input, _, _ int) bool {
+func (a *App) updateHUDPointer(in *platform.Input, w, h int) bool {
+	x, y := 8, 8
+	tx, ty := 256, 0
+	if a.hud != nil {
+		x, y = a.hud.Origin(w, h)
+		tx, ty = a.hud.TargetOrigin(w, h)
+	}
 	// Native status window 0x509f10; target window 0x50a2e0.
-	if in.Clicked && in.MouseX >= 25 && in.MouseX < 80 && in.MouseY >= 34 && in.MouseY < 87 {
+	if in.Clicked && in.MouseX >= x+17 && in.MouseX < x+72 && in.MouseY >= y+26 && in.MouseY < y+79 {
 		a.selectSelf()
 	}
-	return panelPointer(in, 8, 8, 213, 114) || a.state.Target != 0 && panelPointer(in, 256, 0, 256, 64)
+	return panelPointer(in, x, y, 213, 114) || a.state.Target != 0 && panelPointer(in, tx, ty, 256, 64)
 }

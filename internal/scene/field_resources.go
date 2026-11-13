@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
@@ -30,41 +29,49 @@ func (s *fieldStream) loadMaterial(sx, sz int) Section {
 // trim keeps only resources reachable from resident cells (plus the sky).
 // It runs after a residency change, never while issuing draw calls.
 func (s *fieldStream) trim() {
-	ids := map[int]bool{}
+	clear(s.objectMarks)
 	for _, id := range s.global {
-		ids[id] = true
+		s.objectMarks[id] = true
 	}
 	sections := map[int]bool{}
 	for _, c := range s.cells {
 		for _, id := range c.objects {
-			ids[id] = true
+			s.objectMarks[id] = true
 		}
 		for _, p := range c.parts {
 			sections[p.section] = true
 		}
 	}
 	s.drawObjects = s.drawObjects[:0]
-	alive := map[string]bool{}
-	for id := range ids {
-		s.drawObjects = append(s.drawObjects, id)
-		alive[s.objects[id].file] = true
+	clear(s.resourceMarks)
+	for id, marked := range s.objectMarks {
+		if marked {
+			s.drawObjects = append(s.drawObjects, id)
+			s.resourceMarks[s.objects[id].resourceID] = true
+		}
 	}
-	sort.Ints(s.drawObjects)
+	if s.loader != nil {
+		for k := range s.loader.pinned {
+			if k.kind != fieldTexture {
+				if id, ok := s.resourceIndex[k.file]; ok {
+					s.resourceMarks[id] = true
+				}
+			}
+		}
+	}
 	for file, m := range s.assets.models {
-		if alive[file] {
+		if s.resourceAlive(file) {
 			continue
 		}
 		if m != nil {
-			for _, p := range m.Parts {
-				p.Mesh.Delete()
-			}
+			m.delete()
 		}
 		delete(s.assets.models, file)
 		delete(s.batches, modelBatchKey{file: file})
 		delete(s.batches, modelBatchKey{file: file, mani: true})
 	}
 	for file, v := range s.vanis {
-		if !alive[file] {
+		if !s.resourceAlive(file) {
 			if v != nil {
 				v.close()
 			}
@@ -109,7 +116,17 @@ func (s *fieldStream) trim() {
 			keep(l.Mask)
 		}
 	}
+	if s.loader != nil {
+		for k := range s.loader.pinned {
+			if k.kind == fieldTexture {
+				keep(s.assets.textures["world:"+k.file])
+			}
+		}
+	}
 	for file, t := range s.assets.textures {
+		if s.loader != nil && strings.HasPrefix(file, "world:") && s.loader.pinned[fieldAssetKey{fieldTexture, strings.TrimPrefix(file, "world:")}] {
+			continue
+		}
 		if t != nil && used[t] {
 			continue
 		}
@@ -118,7 +135,91 @@ func (s *fieldStream) trim() {
 		}
 		delete(s.assets.textures, file)
 	}
+	s.prepareDrawEntries()
 }
+
+// prepareDrawEntries resolves resources and static bounds once per residency
+// change. Rendering does not hash asset paths or sort model keys per placement.
+func (s *fieldStream) prepareDrawEntries() {
+	if s.batches == nil {
+		s.batches = map[modelBatchKey]*fieldModelBatch{}
+	}
+	for _, b := range s.batches {
+		b.worlds = b.worlds[:0]
+	}
+	clear(s.drawEntries)
+	clear(s.modelBatches)
+	s.drawEntries = s.drawEntries[:0]
+	s.modelBatches = s.modelBatches[:0]
+	s.batchPreparation++
+	if s.resourceIndex == nil || s.resourceObjectCount != len(s.objects) {
+		s.indexResources()
+	}
+	for i := range s.resources {
+		resource := &s.resources[i]
+		resource.model, resource.vani = s.assets.models[resource.file], s.vanis[resource.file]
+		if resource.model == nil {
+			resource.batches = [2]*fieldModelBatch{}
+		}
+		if resource.model != nil {
+			for pass := range 2 {
+				key := modelBatchKey{file: resource.file, mani: pass == 1}
+				batch := s.batches[key]
+				if batch == nil {
+					batch = &fieldModelBatch{key: key}
+					s.batches[key] = batch
+				}
+				batch.model = resource.model
+				resource.batches[pass] = batch
+			}
+		}
+	}
+	for _, id := range s.drawObjects {
+		o := &s.objects[id]
+		entry := fieldDrawEntry{object: o}
+		resource := &s.resources[o.resourceID]
+		if o.vani {
+			entry.vani = resource.vani
+			if entry.vani == nil {
+				continue
+			}
+			entry.center, entry.radius = transformPoint(o.center, o.world), o.radius*o.scale
+		} else {
+			m := resource.model
+			if m == nil {
+				continue
+			}
+			pass := 0
+			if o.mani {
+				pass = 1
+			}
+			batch := resource.batches[pass]
+			entry.batch = batch
+			if !o.drawBoundsValid {
+				o.drawCenter = transformPoint(m.center, o.world)
+				o.drawRadius = m.radius * o.scale
+				o.drawBoundsValid = true
+			}
+			entry.center, entry.radius = o.drawCenter, o.drawRadius
+			if batch.prepared != s.batchPreparation {
+				batch.prepared = s.batchPreparation
+				s.modelBatches = append(s.modelBatches, batch)
+			}
+		}
+		s.drawEntries = append(s.drawEntries, entry)
+	}
+	s.prepareSectors()
+	slices.SortFunc(s.modelBatches, func(a, b *fieldModelBatch) int {
+		if a.key.mani != b.key.mani {
+			if a.key.mani {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(a.key.file, b.key.file)
+	})
+}
+
 func (s *fieldStream) draw(r *render.Scene3D) {
 	s.drawWithClipCulling(r, true)
 }
@@ -132,7 +233,7 @@ func (s *fieldStream) drawWithClipCulling(r *render.Scene3D, clipCulling bool) {
 	for _, key := range s.order {
 		if c := s.cells[key]; c != nil {
 			for _, p := range c.parts {
-				if (!clipCulling || render.ClipBoxVisible(r.ClipPlane, p.minimum, p.maximum)) && frustum.SphereVisible(p.center, p.radius) {
+				if (!clipCulling || render.ClipBoxVisible(r.ClipPlane, p.minimum, p.maximum)) && frustum.SphereVisible(p.center, p.radius) && !r.OccludedBox(p.minimum, p.maximum) {
 					if batch := s.terrainBatches[p.batch]; batch != nil {
 						if len(batch.ranges) == 0 {
 							s.visibleTerrain = append(s.visibleTerrain, batch)
@@ -146,67 +247,70 @@ func (s *fieldStream) drawWithClipCulling(r *render.Scene3D, clipCulling bool) {
 	for _, batch := range s.visibleTerrain {
 		drawTerrainBatch(r, batch)
 	}
-	if s.batches == nil {
-		s.batches = map[modelBatchKey][]render.M4{}
-	}
-	for file, worlds := range s.batches {
-		s.batches[file] = worlds[:0]
+
+	s.lodInstances, s.submittedTriangles = 0, 0
+	for _, batch := range s.modelBatches {
+		batch.worlds = batch.worlds[:0]
+		for i := range batch.lodWorlds {
+			batch.lodWorlds[i] = batch.lodWorlds[i][:0]
+		}
 	}
 	for _, asset := range s.vanis {
 		if asset != nil {
 			asset.worlds = asset.worlds[:0]
 		}
 	}
-	s.batchFiles = s.batchFiles[:0]
-	for _, id := range s.drawObjects {
-		o := s.objects[id]
-		if o.vani {
-			if asset := s.vanis[o.file]; asset != nil && (!clipCulling || render.ClipSphereVisible(r.ClipPlane, transformPoint(o.center, o.world), o.radius*o.scale)) && frustum.SphereVisible(transformPoint(o.center, o.world), o.radius*o.scale) {
-				asset.worlds = append(asset.worlds, o.world)
-			}
+	s.updateSectors(r, frustum, clipCulling)
+	for i := range s.drawEntries {
+		entry := &s.drawEntries[i]
+		if !s.disableSectors && !s.drawSectors[entry.sector].visible {
 			continue
 		}
-		m := s.assets.models[o.file]
-		if m == nil {
-			continue
-		}
-		transform := o.world
+		s.objectTests++
+		o := entry.object
+		center, radius, transform := entry.center, entry.radius, o.world
 		if o.rotor != nil {
 			transform = o.rotor.transform(s.world.elapsed)
+			center = transformPoint(entry.batch.model.center, transform)
 		}
-		center, radius := transformPoint(m.center, transform), m.radius*o.scale
-		if clipCulling && !render.ClipSphereVisible(r.ClipPlane, center, radius) || !frustum.SphereVisible(center, radius) {
+		if clipCulling && !render.ClipSphereVisible(r.ClipPlane, center, radius) || !frustum.SphereVisible(center, radius) || r.OccludedSphere(center, radius) {
 			continue
 		}
-		key := modelBatchKey{file: o.file, mani: o.mani}
-		worlds := s.batches[key]
-		if len(worlds) == 0 {
-			s.batchFiles = append(s.batchFiles, key)
+		if entry.vani != nil {
+			entry.vani.worlds = append(entry.vani.worlds, transform)
+		} else {
+			entry.lod = entry.chooseLOD(r, center, radius)
+			if r.StaticObjectLOD && !r.Shadow && r.ClipPlane == [4]float32{} {
+				o.drawLOD = entry.lod
+			}
+			if entry.lod == 0 {
+				entry.batch.worlds = append(entry.batch.worlds, transform)
+			} else {
+				entry.batch.lodWorlds[entry.lod-1] = append(entry.batch.lodWorlds[entry.lod-1], transform)
+				s.lodInstances++
+			}
 		}
-		s.batches[key] = append(worlds, transform)
 	}
-	// Visibility of the first placement must not reorder entire model batches:
-	// equal-depth surfaces otherwise swap materials when unrelated copies cull.
-	slices.SortFunc(s.batchFiles, func(a, b modelBatchKey) int {
-		if a.mani != b.mani {
-			if a.mani {
-				return -1
+	// Stable native material order, precomputed when residency changes.
+	for _, batch := range s.modelBatches {
+		groups := [3][]render.M4{batch.worlds, batch.lodWorlds[0], batch.lodWorlds[1]}
+		for level, worlds := range groups {
+			if len(worlds) == 0 {
+				continue
 			}
-			return 1
-		}
-		return strings.Compare(a.file, b.file)
-	})
-	for _, file := range s.batchFiles {
-		m, worlds := s.assets.models[file.file], s.batches[file]
-		if len(worlds) == 1 {
-			for _, p := range m.Parts {
-				r.DrawModel(p.Mesh, p.Tex, worlds[0], render.NativeWorldAlphaRef(file.mani), false)
+			if len(worlds) > 1 {
+				r.SetInstances(worlds)
 			}
-			continue
-		}
-		r.SetInstances(worlds)
-		for _, p := range m.Parts {
-			r.DrawInstanced(p.Mesh, p.Tex, render.NativeWorldAlphaRef(file.mani))
+			for i := range batch.model.Parts {
+				p := &batch.model.Parts[i]
+				mesh := p.meshAtLOD(level)
+				s.submittedTriangles += int(mesh.Count) / 3 * len(worlds)
+				if len(worlds) == 1 {
+					r.DrawModel(mesh, p.Tex, worlds[0], render.NativeWorldAlphaRef(batch.key.mani), false)
+				} else {
+					r.DrawInstanced(mesh, p.Tex, render.NativeWorldAlphaRef(batch.key.mani))
+				}
+			}
 		}
 	}
 	for _, asset := range s.vanis {
@@ -238,6 +342,9 @@ func (w *World) Close() {
 		return
 	}
 	s := w.stream
+	if s.loader != nil {
+		s.loader.close()
+	}
 	for _, v := range s.vanis {
 		if v != nil {
 			v.close()
@@ -248,9 +355,7 @@ func (w *World) Close() {
 	}
 	for _, m := range s.assets.models {
 		if m != nil {
-			for _, p := range m.Parts {
-				p.Mesh.Delete()
-			}
+			m.delete()
 		}
 	}
 	if w.Sky != nil {

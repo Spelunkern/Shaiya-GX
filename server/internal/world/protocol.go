@@ -3,6 +3,7 @@ package world
 import (
 	"errors"
 
+	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"github.com/Spelunkern/Shaiya-GX/server/internal/packet"
 )
 
@@ -103,27 +104,9 @@ func buildPing() []byte {
 	return w.MustFinish()
 }
 
-// Chat text is the client's single-byte ANSI codepage, mapped 1:1 to
-// Latin-1 code points.
-func decodeLatin1(b []byte) string {
-	r := make([]rune, len(b))
-	for i, c := range b {
-		r[i] = rune(c)
-	}
-	return string(r)
-}
-
-func encodeLatin1(s string) []byte {
-	out := make([]byte, 0, len(s))
-	for _, r := range s {
-		if r <= 0xFF {
-			out = append(out, byte(r))
-		} else {
-			out = append(out, '?')
-		}
-	}
-	return out
-}
+// GX chat uses UTF-8; legacy original ANSI packets remain readable.
+func decodeText(b []byte) string { return textwire.Decode(b) }
+func encodeText(s string) []byte { return textwire.Encode(s) }
 
 const maxChatMessageLen = 127
 
@@ -145,13 +128,13 @@ func readChatMessage(payload []byte) (string, error) {
 			break
 		}
 	}
-	return decodeLatin1(b), nil
+	return decodeText(b), nil
 }
 
 func writeChatText(w *packet.Writer, message string) {
-	b := encodeLatin1(message)
+	b := encodeText(message)
 	if len(b) > maxChatMessageLen {
-		b = b[:maxChatMessageLen]
+		b = []byte(textwire.Prefix(string(b), maxChatMessageLen))
 	}
 	b = append(b, 0)
 	w.U8(uint8(len(b)))
@@ -173,7 +156,7 @@ func buildChatByName(op packet.Opcode, sender, message string) []byte {
 	w := packet.New(op)
 	name := sender
 	if len(name) > 21 {
-		name = name[:21]
+		name = textwire.Prefix(name, 21)
 	}
 	w.FixedString(name, 21)
 	writeChatText(w, message)

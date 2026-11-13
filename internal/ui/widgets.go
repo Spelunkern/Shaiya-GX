@@ -3,6 +3,9 @@ package ui
 import (
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
+	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
+	"unicode"
+	"unicode/utf8"
 )
 
 var white = [4]float32{1, 1, 1, 1}
@@ -92,7 +95,7 @@ func (b *Button) Draw(s *render.Sprites) {
 	s.Draw(b.Tex, float32(b.X()), float32(b.Y()), float32(b.DrawW), float32(b.DrawH), uv.U0, uv.V0, uv.U1, uv.V1, white)
 }
 
-// TextField is a single-line Latin-1 input.
+// TextField is a single-line UTF-8 input with a byte budget.
 type TextField struct {
 	Text   string
 	Max    int
@@ -103,15 +106,15 @@ type TextField struct {
 func (t *TextField) Edit(in *platform.Input) {
 	rs := []rune(t.Text)
 	for _, r := range in.Chars {
-		if r < 32 || r > 0xFF || len(rs) >= t.Max {
+		if unicode.IsControl(r) || !utf8.ValidRune(r) {
 			continue
 		}
 		rs = append(rs, r)
 	}
 	if in.HasKey(platform.KeyBackspace) && len(rs) > 0 {
-		rs = rs[:len(rs)-1]
+		rs = []rune(textwire.DropLast(string(rs)))
 	}
-	t.Text = string(rs)
+	t.Text = textwire.Prefix(string(rs), t.Max)
 }
 
 // Shown is the text as drawn (asterisks when masked).

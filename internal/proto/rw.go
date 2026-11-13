@@ -8,6 +8,7 @@ package proto
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"math"
 )
 
@@ -73,37 +74,15 @@ func (r *Reader) U64() uint64 {
 // Bytes returns a copy of n bytes.
 func (r *Reader) Bytes(n int) []byte { return append([]byte(nil), r.take(n)...) }
 
-// Fixed reads a null-padded string of n bytes (client ANSI codepage,
-// mapped 1:1 to Latin-1).
-func (r *Reader) Fixed(n int) string { return Latin1(r.take(n)) }
+// Fixed reads a null-padded string of n bytes (UTF-8 with a legacy ANSI fallback).
+func (r *Reader) Fixed(n int) string { return DecodeText(r.take(n)) }
 
 // Text reads length:u8 (terminator included) + text, the chat shape.
-func (r *Reader) Text() string { return Latin1(r.take(int(r.U8()))) }
+func (r *Reader) Text() string { return DecodeText(r.take(int(r.U8()))) }
 
-// Latin1 decodes a null-terminated single-byte string.
-func Latin1(b []byte) string {
-	rs := make([]rune, 0, len(b))
-	for _, c := range b {
-		if c == 0 {
-			break
-		}
-		rs = append(rs, rune(c))
-	}
-	return string(rs)
-}
-
-// EncodeLatin1 maps runes above 0xFF to '?'.
-func EncodeLatin1(s string) []byte {
-	out := make([]byte, 0, len(s))
-	for _, c := range s {
-		if c <= 0xFF {
-			out = append(out, byte(c))
-		} else {
-			out = append(out, '?')
-		}
-	}
-	return out
-}
+// DecodeText reads UTF-8, with a legacy ANSI fallback for original resources.
+func DecodeText(b []byte) string { return textwire.Decode(b) }
+func EncodeText(s string) []byte { return textwire.Encode(s) }
 
 // Writer builds a payload starting with its opcode.
 type Writer struct{ b []byte }
@@ -132,23 +111,23 @@ func (w *Writer) Raw(p []byte) { w.b = append(w.b, p...) }
 // Fixed writes s null-padded (or truncated) to exactly n bytes, always
 // leaving at least one terminator when keepNul is set.
 func (w *Writer) Fixed(s string, n int, keepNul bool) {
-	b := EncodeLatin1(s)
+	b := EncodeText(s)
 	max := n
 	if keepNul {
 		max = n - 1
 	}
 	if len(b) > max {
-		b = b[:max]
+		b = []byte(textwire.Prefix(string(b), max))
 	}
 	w.b = append(w.b, b...)
 	w.b = append(w.b, make([]byte, n-len(b))...)
 }
 
-// Text writes length:u8 (terminator included) + text + NUL, max 127 chars.
+// Text writes length:u8 (terminator included) + text + NUL, max 127 bytes.
 func (w *Writer) Text(s string) {
-	b := EncodeLatin1(s)
+	b := EncodeText(s)
 	if len(b) > 127 {
-		b = b[:127]
+		b = []byte(textwire.Prefix(string(b), 127))
 	}
 	w.U8(uint8(len(b) + 1))
 	w.b = append(append(w.b, b...), 0)

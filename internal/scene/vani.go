@@ -28,6 +28,9 @@ func loadVani(a *Assets, file string) (*vaniAsset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", file, err)
 	}
+	return uploadVani(a, file, parsed)
+}
+func uploadVani(a *Assets, file string, parsed *world.VANI) (*vaniAsset, error) {
 	asset := &vaniAsset{frame: -1, count: parsed.FrameCount, frameMilliseconds: parsed.FrameMilliseconds, center: render.V3(parsed.Center), radius: parsed.Radius}
 	asset.cascade = strings.EqualFold(path.Base(file), "Login_effect_water01a.VANI")
 	for _, m := range parsed.Meshes {

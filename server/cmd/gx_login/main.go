@@ -189,8 +189,8 @@ func (c *client) frame(frame []byte, remote string) error {
 		if len(payload) < 50 {
 			return nil
 		}
-		username := packet.FixedASCII(payload[2:21])
-		password := packet.FixedASCII(payload[34:50]) // never logged
+		username := packet.FixedText(payload[2:21])
+		password := packet.FixedText(payload[34:50]) // never logged
 		c.log.Printf("GX Server Login request username=%q", username)
 		c.sessionID = session.NewSessionID()
 		login, err := db.TryGameLogin(username, password, c.sessionID, remote)

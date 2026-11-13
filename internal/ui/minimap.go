@@ -50,7 +50,7 @@ type MapAction struct {
 
 type Minimap struct {
 	Position, FullPosition                                              WindowPosition
-	Caption                                                             string
+	Caption, MapName                                                    string
 	plate                                                               *render.Texture
 	frame, arrow, party, questStart, questEnd, top, bottom, left, right *render.Texture
 	buttons                                                             [3]Button
@@ -161,7 +161,7 @@ func (m *Minimap) Draw(s *render.Sprites, f *Font, image, solid *render.Texture,
 	}
 	label := m.Caption
 	if label == "" {
-		label = fmt.Sprintf("Map %d", mapID)
+		label = "--:--"
 	}
 	f.Draw(s, label, x+17+max(0, (134-f.Width(label))/2), y+168, [4]float32{.95, .87, .66, 1}, 134)
 }
@@ -186,7 +186,11 @@ func (m *Minimap) DrawFull(s *render.Sprites, f *Font, image, solid *render.Text
 	m.close.OriginX, m.close.OriginY = x+int(515*scale), y+int(scale)
 	m.close.DrawW, m.close.DrawH = int(22*scale), int(22*scale)
 	m.close.Draw(s)
-	f.Draw(s, fmt.Sprintf("Map %d", mapID), x+int(24*scale), y+int(14*scale), white, max(1, int(450*scale)))
+	label := m.MapName
+	if label == "" {
+		label = fmt.Sprintf("Map %d", mapID)
+	}
+	f.Draw(s, label, x+int(24*scale), y+int(14*scale), white, max(1, int(450*scale)))
 }
 
 func (m *Minimap) Origin(w, h int) (int, int) {

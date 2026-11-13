@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
@@ -208,7 +209,7 @@ func (a *App) drawCombat(w, h int) {
 	if a.clock < a.combatNoticeUntil {
 		a.font.Draw(a.sprites, a.combatNotice, w/2-45, h/2-80, white, 0)
 	}
-	view := ui.HUDState{
+	view := ui.HUDState{ViewportW: w, ViewportH: h,
 		Portrait: a.hudPortrait(w, h),
 		HP:       ui.Resource{Current: s.Pools.HP, Max: s.Details.MaxHP},
 		MP:       ui.Resource{Current: s.Pools.MP, Max: s.Details.MaxMP},
@@ -262,6 +263,16 @@ func (a *App) drawCombat(w, h int) {
 		}
 	}
 	a.hud.Draw(a.sprites, a.font, view)
+	if a.wv != nil && a.wv.self != nil {
+		left, total, active := a.wv.self.CastTiming()
+		if active {
+			// Native 0x004c02d0 projects player position plus half a world
+			// unit along camera-right; this is not a fixed HUD element.
+			if x, y, ok := castBarOrigin(a.wv.pos, a.scene3d.View, a.scene3d.Proj, w, h); ok {
+				a.hud.DrawCast(a.sprites, a.white, x, y, left, total)
+			}
+		}
+	}
 	a.bottom.QuestOpen, a.bottom.GuildOpen = a.questLog.open, a.guild.open
 	a.bottom.Draw(a.sprites, a.font, a.white, w, h, view, a.inventory.open, a.skills.open, a.status.open, a.subActionsOpen)
 }
@@ -282,4 +293,18 @@ func (a *App) selectSelf() {
 		a.wv.approachSkill = nil
 		a.wv.mobClick = mobClick{}
 	}
+}
+
+// castBarOrigin follows 0x004c02d0 and the native FISTP rounding of screen pixels.
+func castBarOrigin(pos render.V3, view, proj render.M4, w, h int) (int, int, bool) {
+	p := pos.Add(render.V3{view[0] * .5, view[4] * .5, view[8] * .5})
+	vp := view.Mul(proj)
+	cw := p[0]*vp[3] + p[1]*vp[7] + p[2]*vp[11] + vp[15]
+	z := p[0]*vp[2] + p[1]*vp[6] + p[2]*vp[10] + vp[14]
+	if cw <= 0 || z < 0 || z > cw {
+		return 0, 0, false
+	}
+	x := (1 + (p[0]*vp[0]+p[1]*vp[4]+p[2]*vp[8]+vp[12])/cw) * float32(w) * .5
+	y := (1 - (p[0]*vp[1]+p[1]*vp[5]+p[2]*vp[9]+vp[13])/cw) * float32(h) * .5
+	return int(math.RoundToEven(float64(x))), int(math.RoundToEven(float64(y))), true
 }

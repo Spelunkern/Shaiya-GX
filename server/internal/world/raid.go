@@ -260,7 +260,7 @@ func (s *Session) handleRaidInvite(op packet.Opcode, p []byte) {
 		if len(p) < 23 {
 			return
 		}
-		if t := FindPlayerByName(strings.TrimRight(packet.FixedASCII(p[2:23]), " ")); t != nil && t != me && t.MapID() == me.MapID() {
+		if t := FindPlayerByName(strings.TrimRight(packet.FixedText(p[2:23]), " ")); t != nil && t != me && t.MapID() == me.MapID() {
 			target, id = t, t.CharacterID
 		}
 	}
@@ -341,7 +341,7 @@ func (s *Session) handleRaidAutoJoin(p []byte) {
 	if partyOf(me) != nil {
 		return
 	}
-	found := FindPlayerByName(strings.TrimRight(packet.FixedASCII(p[2:23]), " "))
+	found := FindPlayerByName(strings.TrimRight(packet.FixedText(p[2:23]), " "))
 	if found == nil || partyOf(found) == nil || !partyOf(found).isRaid() || found.faction != me.faction {
 		raidError(me, raidErrNoRaid, 0)
 		return

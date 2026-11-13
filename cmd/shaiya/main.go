@@ -82,6 +82,8 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 		cfg.Volume = 0
 	}
 	cfg.RememberLayout = shot == "" && autoUser == ""
+	cfg.DisplayModes, cfg.ApplyDisplayMode = win.DisplayModes, win.ApplyDisplayMode
+	cfg.OverrideDisplay = !restoreSize
 	a, err := app.New(cfg, arc)
 	if err != nil {
 		return err
@@ -102,6 +104,7 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 			inWorld = true
 		}
 		a.Update(&in, fw, fh, dt)
+		fw, fh = win.GetFramebufferSize() // display changes preserve context but resize its targets
 		queue.SetMouseLook(a.MouseLookActive())
 		gl.Viewport(0, 0, int32(fw), int32(fh))
 		gl.ClearColor(0, 0, 0, 1)

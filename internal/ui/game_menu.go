@@ -25,22 +25,31 @@ const MenuNone, MenuClose, MenuCharacters, MenuExit, MenuChanged, MenuSave = 0, 
 // Game.exe 0x4fbbb0 constructs the widgets and 0x4fa800 places subpage
 // controls. These coordinates take precedence over Phoenix's compact menu.
 type GameMenu struct {
-	Position          WindowPosition
-	Page              MenuPage
-	frames            [7]*render.Texture
-	buttons           [8]Button
-	close, back       Button
-	ok, cancel, reset Button
-	slider, check     *render.Texture
-	dragSlider        int
-	pressedCheck      *bool
-	Settings          ClientSettings
-	original          ClientSettings
+	displayButton              Button
+	displayScroll              panelScroll
+	displayHover               int
+	displayOpen                bool
+	displayOffset, displayHeld int
+	DisplayModes               []platform.DisplayMode
+	DisplayError               string
+	displayPopup               *PlayerMenu
+	Position                   WindowPosition
+	Page                       MenuPage
+	frames                     [7]*render.Texture
+	buttons                    [8]Button
+	close, back                Button
+	ok, cancel, reset          Button
+	slider, check              *render.Texture
+	dragSlider                 int
+	pressedCheck               *bool
+	Settings                   ClientSettings
+	original                   ClientSettings
 }
 
 // Only settings with a runtime consumer are editable. Other original controls
 // remain visible in their original art until their subsystems are implemented.
 type ClientSettings struct {
+	DisplayMode                               platform.DisplayMode
 	ChatRows                                  [2]int
 	ChatChannel                               uint8
 	Music, Effects                            float64
@@ -63,7 +72,7 @@ func (c ClientSettings) Valid() bool {
 			return false
 		}
 	}
-	return c.Glow >= 0 && c.Glow <= 2 && c.Brightness >= 0 && c.Brightness <= 4 && c.Details >= 0 && c.Details <= 2 && c.VisualDistance >= 0 && c.VisualDistance <= 2 && c.ChatChannel <= 6 && !math.IsNaN(c.Music) && !math.IsNaN(c.Effects) && c.Music >= 0 && c.Music <= 1 && c.Effects >= 0 && c.Effects <= 1 && c.MouseSensitivity >= 0 && c.MouseSensitivity <= 6
+	return c.DisplayMode.Valid() && c.Glow >= 0 && c.Glow <= 2 && c.Brightness >= 0 && c.Brightness <= 4 && c.Details >= 0 && c.Details <= 2 && c.VisualDistance >= 0 && c.VisualDistance <= 2 && c.ChatChannel <= 6 && !math.IsNaN(c.Music) && !math.IsNaN(c.Effects) && c.Music >= 0 && c.Music <= 1 && c.Effects >= 0 && c.Effects <= 1 && c.MouseSensitivity >= 0 && c.MouseSensitivity <= 6
 }
 
 func NewGameMenu(t Textures) (*GameMenu, error) {
@@ -86,6 +95,13 @@ func NewGameMenu(t Textures) (*GameMenu, error) {
 	m.ok = Button{Tex: ld.get("ok_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	m.cancel = Button{Tex: ld.get("cancel_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	m.reset = Button{Tex: ld.get("option_reset_button.png"), DrawW: 128, DrawH: 32, HitW: 81, HitH: 25, UV: FourRowUV}
+	m.DisplayModes = []platform.DisplayMode{{}}
+	m.displayPopup = &PlayerMenu{frame: ld.get("TipBox.png")}
+	m.displayScroll = newPanelScroll(ld.get("scrollbar.png"), 90, 8, displayModeRows*PlayerMenuRowHeight+8)
+	m.displayButton = Button{Tex: ld.get("option_graphic_resol.png"), OffX: 135, OffY: 81, DrawW: 32, DrawH: 32, HitW: 20, HitH: 20}
+	for i, state := range []int{0, 1, 2, 2, 3} {
+		m.displayButton.UV[i] = UV{float32(state) / 4, 0, float32(state+1) / 4, 1}
+	}
 	m.slider, m.check = ld.get("option_graphic_slider.png"), ld.get("chat_check.png")
 	return m, ld.err
 }
@@ -117,6 +133,14 @@ func (m *GameMenu) Open(page MenuPage) {
 		m.original = m.Settings
 	}
 	m.Page = page
+	m.displayOpen = false
+	m.displayHeld = -1
+	m.displayButton.held = false
+	m.displayHover = -1
+	m.displayScroll.dragging = false
+	for i := range m.displayScroll.arrows {
+		m.displayScroll.arrows[i].held = false
+	}
 	m.dragSlider = -1
 	m.pressedCheck = nil
 	for i := range m.buttons {
@@ -165,6 +189,8 @@ func (m *GameMenu) controls(w, h int) (int, int, int, int) {
 		b.OriginX, b.OriginY = x, y
 		b.OffX, b.OffY = positions[i][0], positions[i][1]
 	}
+	m.displayButton.OriginX, m.displayButton.OriginY = x, y
+	m.displayButton.Disabled = len(m.DisplayModes) < 2
 	m.reset.Disabled = m.Page == MenuKeys || m.Page == MenuExtraKeys
 	for i := range m.buttons {
 		m.buttons[i].OriginX, m.buttons[i].OriginY = x, y
@@ -174,6 +200,11 @@ func (m *GameMenu) controls(w, h int) (int, int, int, int) {
 
 func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 	x, y, _, _ := m.controls(w, h)
+	if m.Page == MenuGraphics {
+		if handled, result := m.updateDisplayModes(in, w, h, x, y); handled {
+			return result
+		}
+	}
 	if in.Pressed {
 		m.pressedCheck = nil
 		m.dragSlider = -1
@@ -226,6 +257,7 @@ func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 			m.Settings.Shadows, m.Settings.Water, m.Settings.SkillEffects = true, true, true
 			m.Settings.Glow, m.Settings.Brightness, m.Settings.Details, m.Settings.VisualDistance = 2, 2, 2, 2
 			m.Settings.HideCloak, m.Settings.HideHelmet = false, false
+			m.Settings.DisplayMode = platform.DisplayMode{}
 		}
 		return MenuChanged
 	}
@@ -313,7 +345,7 @@ func (m *GameMenu) checks() []menuCheck {
 	return nil
 }
 
-func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int) {
+func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int, solid ...*render.Texture) {
 	x, y, width, height := m.controls(w, h)
 	tex := m.frames[m.Page]
 	if tex != nil {
@@ -347,7 +379,11 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int) {
 			limit := []int{2, 4, 2, 2}[i]
 			knob(35, 184+i*50, float64(v)/float64(limit), 240)
 		}
-		f.Draw(s, "Window", x+74, y+87, white, 65)
+		f.Draw(s, m.Settings.DisplayMode.Label(), x+74, y+87, white, 65)
+		m.displayButton.Draw(s)
+		if m.DisplayError != "" {
+			f.Draw(s, m.DisplayError, x+16, y+110, RGBColor(0xffa080), 275)
+		}
 		f.Draw(s, "32 bit", x+211, y+87, white, 64)
 	case MenuKeys:
 		keys := [][2]string{{"A", "D"}, {"W", "S"}, {"Q", "E"}, {"Tab", "NumLock"}, {"C", "Space"}, {"T", "I"}, {"K", "B"}, {"U", "G"}, {"O", "M"}, {"", "Esc"}}
@@ -371,6 +407,9 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int) {
 		if c.value != nil && *c.value {
 			s.Draw(m.check, float32(x+c.x), float32(y+c.y), 16, 16, 0, 0, 1, 1, white)
 		}
+	}
+	if len(solid) > 0 {
+		m.drawDisplayModes(s, f, solid[0], x, y)
 	}
 }
 

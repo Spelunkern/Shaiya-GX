@@ -259,7 +259,12 @@ func TestStreamedFieldVANIResidencyGL(t *testing.T) {
 		renderer.View, renderer.Proj = render.Identity(), render.Identity()
 		renderer.Begin()
 		asset.worlds = append(asset.worlds, object.world)
-		asset.draw(renderer, .2)
+		// Use this asset's authored pose interval, not an assumed 100ms.
+		interval := asset.frameMilliseconds
+		if interval <= 0 {
+			interval = 33
+		}
+		asset.draw(renderer, float64(interval)*2.25/1000)
 		if asset.frame != 2%asset.count {
 			w.Close()
 			t.Fatal("VANI did not animate")

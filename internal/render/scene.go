@@ -138,6 +138,13 @@ void main() {
 
 // Scene3D holds the shared 3D program and per-frame camera state.
 type Scene3D struct {
+	StaticObjectLOD                                           bool
+	ViewportW, ViewportH                                      int
+	uniformWorld, uniformView, uniformVP                      M4
+	worldUniformsValid                                        bool
+	Occlusion                                                 *TerrainOcclusion
+	occlusionWorlds                                           []M4
+	occlusionColors                                           [][4]float32
 	HideWeaponEffects                                         bool
 	DetailBias                                                float32
 	uDetailBias                                               int32
@@ -194,6 +201,7 @@ func NewScene3D() (*Scene3D, error) {
 // Begin sets the frame state: D3D depth range, no culling (EP5 draws
 // two-sided), depth test on.
 func (s *Scene3D) Begin() {
+	s.worldUniformsValid = false
 	gl.ClipControl(gl.LOWER_LEFT, gl.ZERO_TO_ONE)
 	gl.Enable(gl.DEPTH_TEST)
 	s.applyDepthMode()
@@ -279,6 +287,9 @@ func (s *Scene3D) DrawWater(m *Mesh, t *Texture, tileSize float32, tint [4]float
 
 // DrawModel draws a mesh with texture * clamped Gouraud diffuse.
 func (s *Scene3D) DrawModel(m *Mesh, t *Texture, world M4, alphaRef float32, blend bool) {
+	if s.meshOccluded(m, world) {
+		return
+	}
 	s.setWorld(world)
 	gl.Uniform1i(s.uMode, 0)
 	if s.Shadow {
@@ -383,6 +394,9 @@ func (s *Scene3D) DrawUnlit(m *Mesh, t *Texture, world M4, alpha float32, uvOff 
 
 // DrawLightmapped draws DG geometry: texture * lightmap (clamp), unlit.
 func (s *Scene3D) DrawLightmapped(m *Mesh, t, lm *Texture) {
+	if s.meshOccluded(m, Identity()) {
+		return
+	}
 	id := Identity()
 	s.setWorld(id)
 	gl.Uniform1i(s.uMode, 4)
@@ -427,9 +441,14 @@ func (s *Scene3D) setWorld(world M4) {
 	gl.Uniform1i(s.uInstanced, 0)
 	mv := s.modelView(world)
 	mvp := mv.Mul(s.projection)
-	gl.UniformMatrix4fv(s.uWorld, 1, false, &world[0])
-	gl.UniformMatrix4fv(s.uView, 1, false, &mv[0])
-	gl.UniformMatrix4fv(s.uViewProj, 1, false, &mvp[0])
+	if s.worldUniformsValid && s.uniformWorld == world && s.uniformView == mv && s.uniformVP == mvp {
+		return
+	}
+	s.uniformWorld, s.uniformView, s.uniformVP = world, mv, mvp
+	s.worldUniformsValid = true
+	gl.UniformMatrix4fv(s.uWorld, 1, false, &s.uniformWorld[0])
+	gl.UniformMatrix4fv(s.uView, 1, false, &s.uniformView[0])
+	gl.UniformMatrix4fv(s.uViewProj, 1, false, &s.uniformVP[0])
 }
 
 // SetCameraView retains the eye independently of the rounded view translation.

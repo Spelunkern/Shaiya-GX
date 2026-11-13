@@ -203,7 +203,7 @@ func (a *App) updateCharacters(in *platform.Input, w, h int, dt float64) {
 			a.updateWorld(&platform.Input{MouseX: in.MouseX, MouseY: in.MouseY, SuppressAutoRun: true}, dt)
 			return
 		}
-		if a.menuOpen && (a.menuPending || a.menuConfirm != nil && a.menuConfirm.Visible) {
+		if a.menuOpen && (a.menuPending || a.menuConfirm != nil && a.menuConfirm.Visible || a.gameMenu.DisplayPopupOpen()) {
 			controls := a.worldControls(in, w, h)
 			if a.wv != nil && a.world != nil && a.state != nil {
 				a.updateWorld(&controls, dt)
@@ -334,7 +334,7 @@ func (a *App) drawCharacters(w, h int) {
 		a.drawShortcutDrag()
 		a.drawLocalActionDrag()
 		if a.menuOpen && a.gameMenu != nil {
-			a.gameMenu.Draw(a.sprites, a.font, w, h)
+			a.gameMenu.Draw(a.sprites, a.font, w, h, a.white)
 			a.menuConfirm.Draw(a.sprites, a.font, w, h)
 		}
 		if a.state.Self.Dead {

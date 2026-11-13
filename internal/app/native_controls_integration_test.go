@@ -275,11 +275,11 @@ func TestNativeControlsAgainstRapture(t *testing.T) {
 	}
 	a.chatOpen = true
 	a.chatUI.Channel = proto.ChannelNormal
-	a.chatInput = ui.TextField{Text: "Phoenix control probe chat", Max: 120}
+	a.chatInput = ui.TextField{Text: "GX UTF-8: 你好 مرحبا नमस्ते 👨‍👩‍👧‍👦 🇦🇷", Max: 120}
 	a.updateChat(&platform.Input{Keys: []platform.Key{platform.KeyEnter}})
 	pump(func() bool {
 		for _, line := range other.Chat {
-			if line.Text == "Phoenix control probe chat" {
+			if line.Text == "GX UTF-8: 你好 مرحبا नमस्ते 👨‍👩‍👧‍👦 🇦🇷" {
 				return true
 			}
 		}
@@ -308,6 +308,22 @@ func TestNativeControlsAgainstRapture(t *testing.T) {
 	}
 	v.autoRun = false
 	a.updateCharacters(&platform.Input{}, 1024, 734, .01)
+	// Mode selection is pending until OK; dropdown navigation must not open chat.
+	a.gameMenu.SetDisplayModes([]platform.DisplayMode{{Width: 800, Height: 600}, {Width: 1024, Height: 768}})
+	a.gameMenu.Open(ui.MenuGraphics)
+	mx, my := a.gameMenu.Origin(1024, 734)
+	for _, in := range []platform.Input{{MouseX: mx + 145, MouseY: my + 90, Pressed: true, MouseDown: true}, {MouseX: mx + 145, MouseY: my + 90, Clicked: true}, {Keys: []platform.Key{platform.KeyDown}}, {Keys: []platform.Key{platform.KeyEnter}}} {
+		a.updateCharacters(&in, 1024, 734, .01)
+	}
+	if a.chatOpen || a.gameMenu.DisplayPopupOpen() || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) {
+		t.Fatal("resolution dropdown leaked keyboard input")
+	}
+	for _, in := range []platform.Input{{MouseX: mx + 230, MouseY: my + 500, Pressed: true, MouseDown: true}, {MouseX: mx + 230, MouseY: my + 500, Clicked: true}} {
+		a.updateCharacters(&in, 1024, 734, .01)
+	}
+	if a.gameMenu.Page != ui.MenuMain || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{}) {
+		t.Fatal("display selection did not cancel")
+	}
 	x, y = a.gameMenu.Origin(1024, 734)
 	a.updateGameMenu(&platform.Input{MouseX: x + 70, MouseY: y + 80 + 6*32, Pressed: true, MouseDown: true}, 1024, 734)
 	a.updateGameMenu(&platform.Input{MouseX: x + 70, MouseY: y + 80 + 6*32, Clicked: true}, 1024, 734)

@@ -49,7 +49,13 @@ func (a *App) CursorIndex(w, h int) int {
 	if a.actionBar != nil && a.actionBar.SlotAt(in.MouseX, in.MouseY, w, h) >= 0 {
 		return 3
 	}
-	if in.MouseY >= h-64 || in.MouseX < 220 && in.MouseY < 100 {
+	x, y := 8, 8
+	tx, ty := 256, 0
+	if a.hud != nil {
+		x, y = a.hud.Origin(w, h)
+		tx, ty = a.hud.TargetOrigin(w, h)
+	}
+	if in.MouseY >= h-64 || pointInside(in, x, y, 213, 114) || a.state.Target != 0 && pointInside(in, tx, ty, 256, 64) {
 		return 0
 	}
 	if a.minimap != nil {

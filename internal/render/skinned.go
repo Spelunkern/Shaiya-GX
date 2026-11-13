@@ -108,6 +108,7 @@ func (m *SkinMesh) Delete() {
 
 // Skinner draws skinned meshes with the shared fragment stage.
 type Skinner struct {
+	uniformWorld, uniformView, uniformVP               M4
 	camera                                             *Scene3D
 	view, projection                                   M4
 	palette                                            uint32
@@ -153,11 +154,12 @@ func (k *Skinner) Begin(s *Scene3D, ambient float32) {
 
 // SetPose uploads the per-bone skin matrices (B*F, row-vector).
 func (k *Skinner) SetPose(world M4, bones []M4) {
-	gl.UniformMatrix4fv(k.uWorld, 1, false, &world[0])
 	mv := k.camera.modelView(world)
 	mvp := mv.Mul(k.projection)
-	gl.UniformMatrix4fv(k.uView, 1, false, &mv[0])
-	gl.UniformMatrix4fv(k.uViewProj, 1, false, &mvp[0])
+	k.uniformWorld, k.uniformView, k.uniformVP = world, mv, mvp
+	gl.UniformMatrix4fv(k.uWorld, 1, false, &k.uniformWorld[0])
+	gl.UniformMatrix4fv(k.uView, 1, false, &k.uniformView[0])
+	gl.UniformMatrix4fv(k.uViewProj, 1, false, &k.uniformVP[0])
 	n := min(len(bones), MaxBones)
 	gl.Uniform1i(k.uBoneCount, int32(n))
 	if n > 0 {

@@ -7,9 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Spelunkern/Shaiya-GX/internal/data/archive"
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 	"github.com/Spelunkern/Shaiya-GX/internal/testworld"
 	"github.com/Spelunkern/Shaiya-GX/internal/ui"
 )
@@ -163,6 +165,16 @@ func TestDuelVictoryWagersAgainstRapture(t *testing.T) {
 	appA, appB := inputApp(), inputApp()
 	appA.state, appA.world = a, wa
 	appB.state, appB.world = b, wb
+	arc, err := archive.Open(os.Getenv("SHAIYA_DATA"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer arc.Close()
+	appA.arc, appB.arc = arc, arc
+	appA.wv.pos = render.V3{a.Self.X, a.Self.Y, a.Self.Z}
+	appB.wv.pos = render.V3{b.Self.X, b.Self.Y, b.Self.Z}
+	appA.deathUI, _ = ui.NewDeathDialog(inputTextures{})
+	appB.deathUI, _ = ui.NewDeathDialog(inputTextures{})
 	waitA(func() bool { return a.Entities[b.SelfID] != nil })
 	waitB(func() bool { return b.Entities[a.SelfID] != nil })
 	var key [2]uint8
@@ -176,6 +188,7 @@ func TestDuelVictoryWagersAgainstRapture(t *testing.T) {
 	if item.Count < 2 || b.Details.Money < 1 {
 		t.Fatal("wager fixture unavailable")
 	}
+	wins, losses, kills, deaths := a.Details.Wins, b.Details.Losses, a.Details.Kills, b.Details.Deaths
 	initialMoney, winnerMoney := b.Details.Money, a.Details.Money
 	sendA(proto.DuelRequestPacket(b.SelfID))
 	waitB(func() bool { return b.Duel.Phase == game.DuelIncoming })
@@ -221,6 +234,11 @@ func TestDuelVictoryWagersAgainstRapture(t *testing.T) {
 	if a.Duel.Outcome != 1 || b.Duel.Outcome != 2 {
 		t.Fatalf("wrong duel outcome %d/%d", a.Duel.Outcome, b.Duel.Outcome)
 	}
+	waitA(func() bool { return a.Details.Wins == wins+1 })
+	waitB(func() bool { return b.Details.Losses == losses+1 })
+	if a.Details.Kills != kills || b.Details.Deaths != deaths {
+		t.Fatal("duel affected ordinary PvP counts")
+	}
 	var itemDrop, moneyDrop uint32
 	waitA(func() bool {
 		for id, drop := range a.GroundItems {
@@ -245,5 +263,5 @@ func TestDuelVictoryWagersAgainstRapture(t *testing.T) {
 	waitA(func() bool { return a.Inventory[key].Count == item.Count && a.Details.Money == winnerMoney+1 })
 	sendB(proto.RevivePacket())
 	waitB(func() bool { return !b.Self.Dead })
-	t.Log("real PvP victory and both wager drops recovered by the winner")
+	t.Log("real duel victory updates both counters before reconnect; ordinary PvP counts unchanged; both wager drops recovered")
 }

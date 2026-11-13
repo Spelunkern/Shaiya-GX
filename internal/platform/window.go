@@ -15,6 +15,8 @@ import (
 func LockMainThread() { runtime.LockOSThread() }
 
 type Window struct {
+	windowedX, windowedY int
+	windowedMaximized    bool
 	*glfw.Window
 	rememberSize bool
 	normalSize   windowState
@@ -33,6 +35,7 @@ type Config struct {
 
 // Open initializes GLFW and creates a window with a GL 4.5 core context.
 func Open(c Config) (*Window, error) {
+	prepareGPU() // driver selection must precede GLFW/context initialization
 	var saved windowState
 	if c.RememberSize && c.RestoreSize && !c.Hidden {
 		var err error
@@ -72,7 +75,7 @@ func Open(c Config) (*Window, error) {
 		normalSize: windowState{Width: c.Width, Height: c.Height}}
 	if win.rememberSize {
 		w.SetSizeCallback(func(_ *glfw.Window, width, height int) {
-			if width >= 320 && height >= 240 && w.GetAttrib(glfw.Maximized) == glfw.False && w.GetAttrib(glfw.Iconified) == glfw.False {
+			if w.GetMonitor() == nil && width >= 320 && height >= 240 && w.GetAttrib(glfw.Maximized) == glfw.False && w.GetAttrib(glfw.Iconified) == glfw.False {
 				win.normalSize.Width, win.normalSize.Height = width, height
 			}
 		})

@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/world"
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
@@ -15,14 +16,19 @@ const cellsPerFrame = 8
 
 type cellKey struct{ x, z int }
 type cellObject struct {
-	file   string
-	world  render.M4
-	rotor  *maniRotor
-	vani   bool
-	mani   bool
-	center render.V3
-	radius float32
-	scale  float32
+	resourceID      int
+	drawCenter      [3]float32
+	drawRadius      float32
+	drawBoundsValid bool
+	drawLOD         int
+	file            string
+	world           render.M4
+	rotor           *maniRotor
+	vani            bool
+	mani            bool
+	center          render.V3
+	radius          float32
+	scale           float32
 }
 type cellPart struct {
 	center               render.V3
@@ -50,28 +56,59 @@ type modelBatchKey struct {
 	mani bool
 }
 
+type fieldDrawEntry struct {
+	lod    int
+	sector int
+	object *cellObject
+	batch  *fieldModelBatch
+	vani   *vaniAsset
+	center render.V3
+	radius float32
+}
+type fieldModelBatch struct {
+	prepared  uint64
+	lodWorlds [2][]render.M4
+	key       modelBatchKey
+	model     *Model
+	worlds    []render.M4
+}
+
 type fieldStream struct {
-	batches         map[modelBatchKey][]render.M4
-	batchFiles      []modelBatchKey
-	world           *World
-	assets          *Assets // owns static field resources, independent of avatars/login scenes
-	stem            string
-	index           map[cellKey][]int
-	objects         []cellObject
-	vanis           map[string]*vaniAsset
-	global          []int
-	cells           map[cellKey]*fieldCell
-	materials       map[int]Section
-	terrainBatches  map[terrainBatchKey]*terrainBatch
-	visibleTerrain  []*terrainBatch
-	terrainVertices []render.Vertex
-	terrainIndices  []uint32
-	order, pending  []cellKey
-	drawObjects     []int
-	center          cellKey
-	radius          float32
-	available       []cellKey
-	planned         bool
+	resources                          []fieldResource
+	resourceIndex                      map[string]int
+	resourceObjectCount                int
+	objectMarks, resourceMarks         []bool
+	batchPreparation                   uint64
+	lastPrepare, lastTerrain, lastTrim time.Duration
+	lodInstances                       int
+	submittedTriangles                 int
+	drawSectors                        []fieldDrawSector
+	objectTests                        int
+	disableSectors                     bool // reference path for image/performance comparisons
+	loader                             *fieldLoader
+	revision                           uint64
+	drawEntries                        []fieldDrawEntry
+	modelBatches                       []*fieldModelBatch
+	batches                            map[modelBatchKey]*fieldModelBatch
+	world                              *World
+	assets                             *Assets // owns static field resources, independent of avatars/login scenes
+	stem                               string
+	index                              map[cellKey][]int
+	objects                            []cellObject
+	vanis                              map[string]*vaniAsset
+	global                             []int
+	cells                              map[cellKey]*fieldCell
+	materials                          map[int]Section
+	terrainBatches                     map[terrainBatchKey]*terrainBatch
+	visibleTerrain                     []*terrainBatch
+	terrainVertices                    []render.Vertex
+	terrainIndices                     []uint32
+	order, pending                     []cellKey
+	drawObjects                        []int
+	center                             cellKey
+	radius                             float32
+	available                          []cellKey
+	planned                            bool
 }
 
 func loadStreamedField(parent *Assets, stem string) (*World, error) {
@@ -90,6 +127,7 @@ func loadStreamedField(parent *Assets, stem string) (*World, error) {
 	s := &fieldStream{world: w, assets: NewAssets(parent.Arc), stem: stem, index: map[cellKey][]int{}, cells: map[cellKey]*fieldCell{}, materials: map[int]Section{}, vanis: map[string]*vaniAsset{}, terrainBatches: map[terrainBatchKey]*terrainBatch{}}
 	w.stream = s
 	s.indexObjects()
+	s.indexResources()
 	w.loadMapEffects(parent)
 	available := map[cellKey]bool{}
 	side := (w.side-2)/terrainCellSamples + 1
@@ -146,6 +184,9 @@ func (w *World) UpdateVisible(eye render.V3, radius float32) {
 	changed := !s.planned || center != s.center || radius != s.radius
 	dirtyTerrain := make(map[terrainBatchKey]bool)
 	if changed {
+		if s.loader != nil {
+			s.loader.reset()
+		}
 		s.center, s.radius, s.planned = center, radius, true
 		s.order, s.pending = nil, nil
 		wanted := map[cellKey]bool{}
@@ -169,7 +210,15 @@ func (w *World) UpdateVisible(eye render.V3, radius float32) {
 			}
 		}
 	}
+	workStart := time.Now()
+	deadline := workStart.Add(2 * time.Millisecond)
+	if s.loader != nil {
+		s.pollAssets(deadline)
+	}
 	for i := 0; i < cellsPerFrame && len(s.pending) > 0; i++ {
+		if s.loader != nil && (!s.prepareCellAssets(s.pending[0], deadline) || !time.Now().Before(deadline)) {
+			break
+		}
 		key := s.pending[0]
 		s.pending = s.pending[1:]
 		s.cells[key] = s.loadCell(key)
@@ -178,9 +227,15 @@ func (w *World) UpdateVisible(eye render.V3, radius float32) {
 		}
 		changed = true
 	}
+	s.lastPrepare = time.Since(workStart)
 	if changed {
+		s.revision++
+		t := time.Now()
 		s.rebuildTerrainBatches(dirtyTerrain)
+		s.lastTerrain = time.Since(t)
+		t = time.Now()
 		s.trim()
+		s.lastTrim = time.Since(t)
 	}
 	for file := range s.assets.Missing {
 		log.Printf("field %s: missing %s", s.stem, file)

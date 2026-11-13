@@ -10,29 +10,38 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
-// FindTexture resolves a texture by base name anywhere in the archive
-// (DG textures live under Entity/Texture or the dungeon folders), .tga
-// names loading the .dds file.
-func (s *Assets) FindTexture(name string) *render.Texture {
-	if s.byStem == nil {
-		s.byStem = map[string]string{}
-		s.Arc.Walk(func(p string, f *archive.File) {
-			l := strings.ToLower(p)
-			if strings.HasSuffix(l, ".dds") {
-				stem := strings.TrimSuffix(path.Base(l), ".dds")
-				old, dup := s.byStem[stem]
-				// Loose directories have a different traversal order than SAH.
-				// Preserve the original canonical dungeon lightmaps over copies
-				// nested below world/<map>/dungeon, and keep entity priority.
-				if !dup || strings.HasPrefix(l, "entity/texture/") ||
-					strings.HasPrefix(l, "world/dungeon/") && !strings.HasPrefix(strings.ToLower(old), "entity/texture/") {
-					s.byStem[stem] = p
-				}
+// textureFileIndex resolves native names without GL calls or Assets mutations.
+// Live field loaders can build this index on a CPU worker.
+func textureFileIndex(arc *archive.Archive) map[string]string {
+	index := map[string]string{}
+	arc.Walk(func(p string, f *archive.File) {
+		l := strings.ToLower(p)
+		if strings.HasSuffix(l, ".dds") {
+			stem := strings.TrimSuffix(path.Base(l), ".dds")
+			old, dup := index[stem]
+			// Loose directories have a different traversal order than SAH.
+			// Preserve the original canonical dungeon lightmaps over copies
+			// nested below world/<map>/dungeon, and keep entity priority.
+			if !dup || strings.HasPrefix(l, "entity/texture/") ||
+				strings.HasPrefix(l, "world/dungeon/") && !strings.HasPrefix(strings.ToLower(old), "entity/texture/") {
+				index[stem] = p
 			}
-		})
+		}
+	})
+	return index
+}
+func (s *Assets) findTextureFile(name string) (string, bool) {
+	if s.byStem == nil {
+		s.byStem = textureFileIndex(s.Arc)
 	}
 	stem := strings.ToLower(strings.TrimSuffix(DDSName(path.Base(strings.ReplaceAll(name, `\`, "/"))), ".dds"))
 	if p, ok := s.byStem[stem]; ok {
+		return p, true
+	}
+	return "", false
+}
+func (s *Assets) FindTexture(name string) *render.Texture {
+	if p, ok := s.findTextureFile(name); ok {
 		return s.worldTexture(p)
 	}
 	s.Missing[name] = true

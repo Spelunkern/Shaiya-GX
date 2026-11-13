@@ -76,7 +76,7 @@ func (s *Session) handlePointBuy(p []byte) {
 	}
 	code := ""
 	if len(p) > 2 {
-		code = packet.FixedASCII(p[2:])
+		code = packet.FixedText(p[2:])
 	}
 	prod := db.MustDefs().Products[code]
 	if prod == nil {
@@ -141,7 +141,7 @@ func (s *Session) handleGiftSend(p []byte) {
 	if len(p) < 44 || s.char == nil {
 		return
 	}
-	code, target := packet.FixedASCII(p[2:23]), packet.FixedASCII(p[23:44])
+	code, target := packet.FixedText(p[2:23]), packet.FixedText(p[23:44])
 	reply := func(result uint8, cost uint32) {
 		s.send(buildGiftSendResult(result, target, s.points, code, cost), "0x2603 gift send result")
 	}

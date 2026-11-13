@@ -235,6 +235,7 @@ func (a *App) drawMinimap(w, h int, full bool) {
 	var storage [32]ui.MapMarker
 	markers := partyMapMarkers(a.state, float32(a.wv.world.WLD.MapSize), storage[:0])
 	markers = a.questMapMarkers(float32(a.wv.world.WLD.MapSize), markers)
+	a.minimap.MapName = ui.MapName(a.msg, a.wv.mapID)
 	if full {
 		a.minimap.DrawFull(a.sprites, a.font, v.image, a.white, w, h, ui.MapWindow(v.u, v.v, 1/v.zoom), u, z, heading, a.wv.mapID, markers)
 		return
@@ -243,11 +244,6 @@ func (a *App) drawMinimap(w, h int, full bool) {
 	if size := a.wv.world.WLD.MapSize; size > 0 {
 		span = v.diameter / float32(size)
 	}
-	name := []rune(ui.MapName(a.msg, a.wv.mapID))
-	suffix := " - " + time.Now().Format("15:04")
-	for len(name) > 1 && a.font.Width(string(name)+suffix) > 134 {
-		name = name[:len(name)-1]
-	}
-	a.minimap.Caption = string(name) + suffix
+	a.minimap.Caption = time.Now().Format("15:04")
 	a.minimap.Draw(a.sprites, a.font, v.image, a.white, w, h, ui.MapWindow(u, z, span), u, z, heading, a.wv.mapID, a.wv.pos[0], a.wv.pos[2], markers)
 }

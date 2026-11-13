@@ -17,15 +17,16 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
-// Font is a Latin-1 glyph atlas. Height follows D3DXCreateFont with a
+// Font uses a fast Latin-1 atlas and shaped Unicode fallback. Height follows D3DXCreateFont with a
 // positive height: the cell (ascent + descent) is Height pixels.
 type Font struct {
-	tex    *render.Texture
-	glyphs [256]glyph
-	Ascent int
-	Height int
-	atlasW float32
-	atlasH float32
+	tex     *render.Texture
+	glyphs  [256]glyph
+	unicode *unicodeFont
+	Ascent  int
+	Height  int
+	atlasW  float32
+	atlasH  float32
 }
 
 type glyph struct {
@@ -34,11 +35,10 @@ type glyph struct {
 	adv        int
 }
 
-// The same Wine Tahoma face used by the original local build is embedded so
-// moving the client never changes its font or requires an external font file.
-// See fonts/Tahoma-NOTICE.txt and fonts/LGPL-2.1-or-later.txt.
+// Liberation Sans is the sole embedded face, with Arial-compatible metrics.
+// Its unmodified font and SIL OFL license are distributed with the source.
 //
-//go:embed fonts/tahoma.ttf
+//go:embed fonts/LiberationSans-Regular.ttf
 var defaultFontData []byte
 
 // LoadFont rasterizes the face so that its cell is cellHeight pixels.
@@ -73,6 +73,10 @@ func loadFontData(data []byte, cellHeight int, pixelSize bool) (*Font, error) {
 		height = (face.Metrics().Ascent + face.Metrics().Descent).Round()
 	}
 	f := &Font{Height: height, Ascent: face.Metrics().Ascent.Round()}
+	f.unicode, err = newUnicodeFont(data, float32(size), height, f.Ascent)
+	if err != nil {
+		return nil, err
+	}
 	const aw, ah = 512, 256
 	atlas := image.NewAlpha(image.Rect(0, 0, aw, ah))
 	px, py, rowH := 1, 1, 0
@@ -108,6 +112,9 @@ func loadFontData(data []byte, cellHeight int, pixelSize bool) (*Font, error) {
 
 // Width is the advance of s in pixels.
 func (f *Font) Width(s string) int {
+	if f.unicode != nil && needsUnicode(s) {
+		return f.unicode.layout(s).width
+	}
 	w := 0
 	for _, r := range s {
 		if r < 256 {
@@ -125,7 +132,7 @@ func (f *Font) DrawOutlined(s *render.Sprites, text string, x, y int, tint [4]fl
 	f.Draw(s, text, x, y, tint, 0)
 }
 
-// Draw renders Latin-1 text with its cell top-left at (x, y), clipped to
+// Draw renders UTF-8 text with its cell top-left at (x, y), clipped to
 // maxW pixels when maxW > 0.
 func (f *Font) Draw(s *render.Sprites, text string, x, y int, rgba [4]float32, maxW int) {
 	f.DrawScaled(s, text, float32(x), float32(y), 1, rgba, maxW)
@@ -133,6 +140,10 @@ func (f *Font) Draw(s *render.Sprites, text string, x, y int, rgba [4]float32, m
 
 // DrawScaled keeps tooltip text and frame together on small viewports.
 func (f *Font) DrawScaled(s *render.Sprites, text string, x, y, scale float32, rgba [4]float32, maxW int) {
+	if f.unicode != nil && needsUnicode(text) {
+		f.unicode.draw(s, text, x, y, scale, rgba, maxW)
+		return
+	}
 	pen := 0
 	for _, r := range text {
 		if r >= 256 {
@@ -150,6 +161,9 @@ func (f *Font) DrawScaled(s *render.Sprites, text string, x, y, scale float32, r
 }
 
 func (f *Font) Delete() {
+	if f != nil && f.unicode != nil {
+		f.unicode.delete()
+	}
 	if f != nil && f.tex != nil {
 		f.tex.Delete()
 		f.tex = nil

@@ -11,10 +11,10 @@ The interface is being reconstructed incrementally from original EP5 artwork and
 | Weapon enchantments | Original Weapon.Seff, ninety recipes across fifteen weapon families, equipped and remote levels, both dual bindings | Full visual comparison across animations; see [weapon enchantments](weapon-enchantments.md) |
 | Cloaks | Original PC/CTL/3DC loading, equipment slot 7, all body families, native spring modes and animated attachment pins | Body/ground contact adapter, map wind and guild emblem overlay; full physical parity is not yet claimed |
 | Status | Allocation, EXP and current/max HP/MP/SP bars | Native graph and full attribute help |
-| Chat | Phoenix geometry, Open Sans 12px, channel colours, persistent grey histories, single input row, seven-channel picker and original SysMsg messages | Speech bubbles, remaining special notices and complete state comparison |
+| Chat | Phoenix geometry, embedded Liberation Sans, channel colours, persistent grey histories, single input row, seven-channel picker and original SysMsg messages | Speech bubbles, remaining special notices and complete state comparison |
 | Effects | Independently draggable positive/negative strips; 32px icons, 6px gaps, native yellow duration bars and the original white debuff pulse | Full effect categories and all special states |
-| Maps | Native map art, ring buttons, name/clock plate, draggable minimap/full map, pan and zoom | Remaining map services and indicator variants |
-| Options | Menu and six subpages; classic glow/brightness/detail/distance sliders, cloak/helmet visibility, audio, mouse and chat | Resolution selection, other service controls and shortcut editing |
+| Maps | Native map art, ring buttons, expanded-map name and compact clock, draggable minimap/full map, pan and zoom | Remaining map services and indicator variants |
+| Options | Menu and six subpages; classic glow/brightness/detail/distance sliders, cloak/helmet visibility, audio, mouse, chat and monitor resolution selection | Other service controls and shortcut editing |
 | Party/raid | Member frames, invitations, leader and selection flows | Complete badges, buffs and visual variants |
 | Player context | Original classic TipBox frame, SysMsg rows, hover, character/target/party picking, whisper focus and supported party/trade/duel/guild actions | Inspect, follow, personal shops and remaining social windows/services |
 | Quests | Original U button, journal artwork, state icons, seven 31px rows, three scrollbars, selection and confirmed abandonment; NPC dialogs/rewards/progress | Native tracker and remaining markers |
@@ -175,3 +175,27 @@ Skill requests check the known MP/SP budget before sending or starting predicted
 F2 or a left click on the local portrait selects the player as a normal friendly target; the target frame displays their name and current HP. Dropped items have no floating text. Click their models or use H to approach and pick up, stopping within the server's accepted ten-unit range with a safety margin. Pickup and removal still require server confirmation.
 
 Friendly skill results are sent after the recipient applies the heal. Green numbers show effective HP gained rather than the requested amount; zero gain displays no number. Apply the updated GX Server build as well as the client to use the corrected healing announcements.
+
+## Display selection
+
+Graphics options list `Window` and the resolutions advertised by the current monitor. The original resolution arrow opens a scrollable list; mouse, wheel and arrow keys select a pending mode. Enter closes the list and Escape dismisses it before closing the page. Press **OK** to apply and save; **Cancel** discards the selection. Keyboard navigation does not open chat or release movement already held.
+
+Fullscreen uses the existing GLFW window and OpenGL context. Returning to `Window` restores its previous size, position and maximized state. Normal window geometry is saved separately from the chosen display mode. Old settings default to a window; explicit `-w`/`-h` arguments override a saved fullscreen choice for that launch. Unsupported modes are refused and driver errors remain visible in the options page. The renderer stays at 32-bit colour. Wayland uses the primary monitor because it does not expose global window positions.
+
+Validation includes a virtual-monitor fullscreen/window round trip, real OpenGL window resizing with texture preservation, the rendered options popup, and two-client input checks. A real-monitor fullscreen transition and native Windows runtime have not been validated in this local patch.
+
+## Water and scene transparency
+
+**Water Surface Effect** changes reflection/refraction work, not the visibility
+of the surface. With the option disabled, the original animated WTR water stays
+visible and the extra reflection scene and refraction capture are skipped.
+Re-enabling the option restores the advanced path, including when a reflection
+target already exists from an earlier frame.
+
+Scene destination alpha stays opaque throughout drawing, including reflected
+scenes, so Dispel's destination-alpha blend layer cannot darken the background
+into black shapes. Individual textures retain source-alpha transparency. The
+previous colour-write mask is restored afterward. Shadow silhouette targets
+still write their own alpha coverage and restore the enclosing scene mask.
+Regression checks exercise the real Dispel EFT, translucent layering, nested
+shadow captures and the water option in a rendered map.

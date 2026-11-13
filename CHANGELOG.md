@@ -2,19 +2,35 @@
 
 This log records delivered changes and data-package updates. Client data is hosted separately on Drive; changing it does not automatically produce a new executable release.
 
-## Unreleased gameplay fixes
+## gx-v0.1.4 — November 13, 2026
+
+[Full accumulated patch notes](docs/releases/gx-v0.1.4.md).
+
+### Gameplay fixes
 
 - Reject skills locally when the known MP/SP budget is insufficient, with SysMsg 214 and the MP/SP label; recheck queued skills on reaching their target before sending or predicting animation.
 - Remove floating labels from dropped items and route model clicks through pickup approach using the server's ten-unit range with a safety margin.
 - Select the local player through the portrait or F2, with their name and current HP in the target frame.
 - Announce friendly healing only after the recipient applies it; combat numbers reflect effective HP restored, and zero gain produces no number. Mob life drain also reports only actual HP gained.
 
-## Unreleased documentation
+### Documentation
 
 - Visible screenshots at the top of the README and a full gallery.
 - Contribution direction: original functional Shaiya foundation, Go and OpenGL 4.5, Linux as primary development platform and Windows support.
 - Complete Linux/Windows portable client download on Drive, separate from executable-only GitHub release packages.
 - Functional workflow status, supported-format tables and an explanation of the on-screen performance metrics.
+
+### HUD, text and rendering
+
+- Persist independently dragged player/target frames; keep the compact clock and expanded-map name in their original roles.
+- Restore the original simple blue casting bar, filling with progress.
+- Add persistent resolution/fullscreen selection with OK/Cancel and input ownership.
+- Support UTF-8 client/server text, grapheme-safe editing and fixed byte budgets; embed redistributable Liberation Sans with Arial-compatible metrics and documented glyph limits.
+- Refresh duel wins/losses without reconnecting.
+- Fix Dispel destination-alpha artifacts and keep animated water visible when advanced water effects are disabled.
+- Prefer dedicated GPUs at startup where recognized, while preserving explicit driver overrides.
+- Add conservative terrain/sector visibility, bounded CPU streaming, prepared resource lists, matrix/uniform reuse and conservative object LOD; document measured benefits and remaining stalls.
+- Publish updated native Windows/Linux client and server packages with accumulated notes and checksums. The Drive data bundle is unchanged.
 
 ## gx-v0.1.3 — November 13, 2026
 

@@ -13,7 +13,7 @@ Shaiya GX/
     ...
 ```
 
-The executable discovers `data/` beside itself regardless of the current working directory. `-data` / `SHAIYA_DATA` can explicitly select a different data directory for development. No SAH/SAF index, font folder, launcher, Python or external media codec is needed to run the game. Both fonts are embedded. Platform graphics/audio libraries and drivers are still required.
+The executable discovers `data/` beside itself regardless of the current working directory. `-data` / `SHAIYA_DATA` can explicitly select a different data directory for development. No SAH/SAF index, font folder, launcher, Python or external media codec is needed to run the game. The client embeds Liberation Sans. Platform graphics/audio libraries and drivers are still required.
 
 GX indexes loose file paths once at startup and preserves the old case-insensitive resource lookup on Linux and Windows. Restart after editing assets to refresh that index and the CPU/GPU caches. Symlinks and ambiguous case/hash names are rejected, so the folder remains portable. A legacy invalid-byte filename is escaped as `%XX`; lookup applies the same mapping to binary references without changing model data.
 

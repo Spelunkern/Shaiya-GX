@@ -64,6 +64,14 @@ func TestUnderwaterViewTransitionsGL(t *testing.T) {
 	draw := func(y float32) []byte {
 		v.eye = render.V3{eye[0], y, eye[2]}
 		v.pos = v.eye.Add(render.V3{0, -.5, 5})
+		// Observe the surface explicitly from either side. A gameplay camera
+		// aimed at a swimming actor may look down at the floor instead.
+		pitch := float32(-.5)
+		if y < 0 {
+			pitch = .5
+		}
+		v.cameraReady = true
+		v.cameraEye, v.cameraTarget = v.eye, v.eye.Add(render.V3{0, pitch, 1})
 		gl.Viewport(0, 0, 256, 256)
 		gl.ClearDepth(1)
 		gl.DepthMask(true)
@@ -143,8 +151,18 @@ func TestUnderwaterViewTransitionsGL(t *testing.T) {
 	v.waterReflection = nil
 	v.waterFailed = true
 	render.ResetDrawCalls()
-	draw(2)
+	simpleWater := draw(2)
 	withoutReflection := render.DrawCalls()
+	// Turning off advanced effects must match the basic animated-water path,
+	// even when a reflection target was allocated on a previous frame.
+	a.gameMenu.Settings.Water = false
+	v.waterFailed = false
+	render.ResetDrawCalls()
+	unchecked := draw(2)
+	if !bytes.Equal(simpleWater, unchecked) || render.DrawCalls() != withoutReflection {
+		t.Fatalf("unchecked Water Surface Effect changed basic water or kept reflection work: %d vs %d draws", render.DrawCalls(), withoutReflection)
+	}
+	a.gameMenu.Settings.Water = true
 	v.waterFailed = false
 	if withReflection <= withoutReflection {
 		t.Fatalf("reflection did not draw an additional scene: %d vs %d", withReflection, withoutReflection)

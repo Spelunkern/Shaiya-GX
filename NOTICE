@@ -27,3 +27,9 @@ This is the Wine font, not Microsoft's proprietary Tahoma.
 
 Ogg Vorbis decoder: github.com/jfreymuth/oggvorbis and github.com/jfreymuth/vorbis,
 MIT License, Copyright Jonas Frey. See the upstream module LICENSE files.
+
+The current build embeds only Liberation Sans Regular 2.1.5, an unmodified
+Arial-metric-compatible face. Copyright (c) 2010 Google Corporation and
+Copyright (c) 2012 Red Hat, Inc.; SIL Open Font License 1.1.
+See internal/ui/fonts/LiberationSans-OFL.txt and LiberationSans-README.md.
+Wine Tahoma/Open Sans are retained historical source assets, not embedded faces.

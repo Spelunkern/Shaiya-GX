@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -54,17 +55,24 @@ func wrapChatMarkup(f *Font, text string, base [4]float32, markup bool) ([][]cha
 	var rows [][]chatRun
 	var lines []string
 	for len(glyphs) > 0 {
-		width, cut, space := 0, 0, -1
-		for cut < len(glyphs) && glyphs[cut].char != '\n' {
-			advance := f.Width(string(glyphs[cut].char))
-			if cut > 0 && width+advance > 316 {
+		cut, space := 0, -1
+		var remaining strings.Builder
+		for _, g := range glyphs {
+			if g.char == '\n' {
 				break
 			}
-			if glyphs[cut].char == ' ' {
+			remaining.WriteRune(g.char)
+		}
+		candidate := ""
+		for _, cluster := range textwire.Graphemes(remaining.String()) {
+			if cut > 0 && f.Width(candidate+cluster) > 316 {
+				break
+			}
+			if cluster == " " {
 				space = cut
 			}
-			width += advance
-			cut++
+			candidate += cluster
+			cut += len([]rune(cluster))
 		}
 		if cut < len(glyphs) && glyphs[cut].char != '\n' && space > 0 {
 			cut = space

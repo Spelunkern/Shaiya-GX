@@ -6,6 +6,7 @@ package packet
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"math"
 )
 
@@ -305,12 +306,5 @@ func F32(b []byte) (float32, error) {
 	return math.Float32frombits(v), err
 }
 
-// FixedASCII decodes a null-terminated, fixed-width string field.
-func FixedASCII(b []byte) string {
-	for i, c := range b {
-		if c == 0 {
-			return string(b[:i])
-		}
-	}
-	return string(b)
-}
+// FixedText decodes NUL-terminated UTF-8 with a legacy ANSI fallback.
+func FixedText(b []byte) string { return textwire.Decode(b) }

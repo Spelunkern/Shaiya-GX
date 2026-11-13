@@ -39,9 +39,16 @@ func TestTerrainStreamingRouteGL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	asynchronous := os.Getenv("SHAIYA_TEST_ASYNC_STREAM") == "1"
+	if asynchronous {
+		w.EnableAsyncStreaming()
+	}
 	start := render.V3{583, 80, 1767}
-	for n := 0; n < 240 && !w.Ready(); n++ {
+	for deadline := time.Now().Add(20 * time.Second); !w.Ready() && time.Now().Before(deadline); {
 		w.UpdateVisible(start, 500)
+		if asynchronous {
+			time.Sleep(time.Millisecond)
+		}
 	}
 	if !w.Ready() {
 		t.Fatal("initial residency did not converge")
@@ -59,7 +66,7 @@ func TestTerrainStreamingRouteGL(t *testing.T) {
 			x = 64 - x
 		}
 		pos := start.Add(render.V3{float32(x) * 20, 0, 0})
-		for n := 0; n < 240; n++ {
+		for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
 			begin := time.Now()
 			w.UpdateVisible(pos, 500)
 			elapsed := time.Since(begin)
@@ -70,9 +77,12 @@ func TestTerrainStreamingRouteGL(t *testing.T) {
 			if w.Ready() {
 				break
 			}
-			if n == 239 {
-				t.Fatal("residency did not converge", step)
+			if asynchronous {
+				time.Sleep(time.Millisecond)
 			}
+		}
+		if !w.Ready() {
+			t.Fatal("residency did not converge", step)
 		}
 	}
 	runtime.ReadMemStats(&after)
@@ -84,5 +94,5 @@ func TestTerrainStreamingRouteGL(t *testing.T) {
 	if left := render.GPUBytes(); left != baseline {
 		t.Fatalf("GPU storage not released: baseline=%d remaining=%d", baseline, left)
 	}
-	t.Logf("route updates=%d mean=%s max=%s allocated=%.1f MiB, GPU initial=%.1f peak=%.1f MiB", updates, total/time.Duration(updates), longest, float64(after.TotalAlloc-before.TotalAlloc)/(1<<20), float64(initial-baseline)/(1<<20), float64(peak-baseline)/(1<<20))
+	t.Logf("async=%v route updates=%d mean=%s max=%s allocated=%.1f MiB, GPU initial=%.1f peak=%.1f MiB", asynchronous, updates, total/time.Duration(updates), longest, float64(after.TotalAlloc-before.TotalAlloc)/(1<<20), float64(initial-baseline)/(1<<20), float64(peak-baseline)/(1<<20))
 }

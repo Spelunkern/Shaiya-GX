@@ -3,6 +3,7 @@ package sdata
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"math"
 )
 
@@ -74,13 +75,7 @@ func (c *cursor) str() string {
 	return latin1(b)
 }
 
-func latin1(b []byte) string {
-	r := make([]rune, len(b))
-	for i, x := range b {
-		r[i] = rune(x)
-	}
-	return string(r)
-}
+func latin1(b []byte) string { return textwire.Decode(b) }
 
 // ParseItems reads Item.SData (decrypting it if needed).
 func ParseItems(raw []byte) (map[ItemKey]*Item, error) {

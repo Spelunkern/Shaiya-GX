@@ -4,7 +4,7 @@ Updated November 13, 2026. This is a development snapshot, not a claim of comple
 
 ## Server parity checklist
 
-The [original server parity table](../server/docs/original-parity.md) currently records **53 done and 3 partial entries**. These entries have different sizes and complexity; their counts are not an overall project completion percentage.
+The [original server parity table](../server/docs/original-parity.md) currently records **54 done and 2 partial entries**. These entries have different sizes and complexity; their counts are not an overall project completion percentage.
 
 These figures summarize the documented table, not an independent audit of every server rule. Keep them synchronized when that table changes.
 
@@ -44,8 +44,8 @@ Chat, party/raid, quests, trade/duels, social windows and the mall are also impl
 | Navigation | Complete collision/navigation behavior and remaining actions |
 | Cloaks | Body/ground contact, map wind and guild emblem overlay |
 | Interface | Quest tracker/markers, speech bubbles, remaining target indicators and service windows |
-| Options | Resolution selection, shortcut editing and remaining controls |
-| Server rules | Three partial entries in the [parity table](../server/docs/original-parity.md) |
+| Options | Shortcut editing and remaining controls; resolution selection is implemented |
+| Server rules | Two partial entries in the [parity table](../server/docs/original-parity.md) |
 | Persistence | Replace SQLite in the future; replacement engine and migration schedule are not selected |
 
 ## Validation boundaries

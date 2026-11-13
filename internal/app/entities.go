@@ -347,6 +347,10 @@ func (a *App) drawPlayerNames(w, h int) {
 			return
 		}
 		if x, y, depth, ok := projectLabel(pos, vp, w, h); ok {
+			labelWidth := a.font.Width(name)
+			if a.scene3d.OccludedLabel(pos, x-labelWidth/2, y-a.font.Height-offset, labelWidth, a.font.Height, w, h) {
+				return
+			}
 			if !captured {
 				a.sprites.CaptureNameDepth(w, h)
 				captured = true

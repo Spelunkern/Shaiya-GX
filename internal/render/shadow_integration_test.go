@@ -47,6 +47,8 @@ func TestShadowCaptureAlphaProjectionDepthAndReuse(t *testing.T) {
 	mesh := NewMesh(vertices, indices)
 	defer mesh.Delete()
 	gl.Viewport(0, 0, 64, 64)
+	restoreAlpha := KeepSceneAlphaOpaque()
+	defer restoreAlpha()
 	for pass := 0; pass < 3; pass++ {
 		s.Shadow = true
 		alphaRef := float32(.5)
@@ -54,6 +56,11 @@ func TestShadowCaptureAlphaProjectionDepthAndReuse(t *testing.T) {
 			alphaRef = -1
 		} // opaque RGB textures can have unused zero alpha
 		target.Capture(func() { s.Begin(); s.DrawModel(mesh, image, Identity(), alphaRef, false) })
+		var mask [4]bool
+		gl.GetBooleanv(gl.COLOR_WRITEMASK, &mask[0])
+		if mask != [4]bool{true, true, true, false} {
+			t.Fatal("shadow capture changed scene alpha protection", mask)
+		}
 		var viewport [4]int32
 		gl.GetIntegerv(gl.VIEWPORT, &viewport[0])
 		if viewport != [4]int32{0, 0, 64, 64} {

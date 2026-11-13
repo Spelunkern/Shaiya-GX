@@ -98,9 +98,9 @@ func (a *App) mallCommand(text string) bool {
 		return true
 	} else if len(fields) == 2 && strings.EqualFold(fields[1], "points") {
 		packet = proto.MallPointsPacket()
-	} else if len(fields) == 3 && strings.EqualFold(fields[1], "buy") && len(proto.EncodeLatin1(fields[2])) <= 20 {
+	} else if len(fields) == 3 && strings.EqualFold(fields[1], "buy") && len(proto.EncodeText(fields[2])) <= 20 {
 		packet = proto.MallBuyPacket(fields[2])
-	} else if len(fields) == 4 && strings.EqualFold(fields[1], "gift") && len(proto.EncodeLatin1(fields[2])) <= 20 && len(proto.EncodeLatin1(fields[3])) <= 20 {
+	} else if len(fields) == 4 && strings.EqualFold(fields[1], "gift") && len(proto.EncodeText(fields[2])) <= 20 && len(proto.EncodeText(fields[3])) <= 20 {
 		packet = proto.MallGiftPacket(fields[2], fields[3])
 	} else if len(fields) == 3 && strings.EqualFold(fields[1], "claim") {
 		slot, err := strconv.ParseUint(fields[2], 10, 8)

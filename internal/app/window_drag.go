@@ -158,6 +158,18 @@ func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 		x, y := a.bankUI.Origin(w, h)
 		return start(&a.bankUI.Position, x, y, ui.WarehouseWidth, ui.WarehouseHeight, 75, 226)
 	}
+	if a.hud != nil {
+		if a.state.Target != 0 {
+			x, y := a.hud.TargetOrigin(w, h)
+			if start(&a.hud.TargetPosition, x, y, 256, 64, 8, 240) {
+				return true
+			}
+		}
+		x, y := a.hud.Origin(w, h)
+		if start(&a.hud.Position, x, y, 213, 114, 80, 125) {
+			return true
+		}
+	}
 	if a.minimap != nil {
 		x, y := a.minimap.Origin(w, h)
 		// Drag the rim or lower information plate; leave buttons and map zoom free.
@@ -197,6 +209,10 @@ func (a *App) finishWindowDrag() {
 }
 func (a *App) layoutPositions() map[string]*ui.WindowPosition {
 	out := map[string]*ui.WindowPosition{"buffs": &a.buffLayout.Position[0], "debuffs": &a.buffLayout.Position[1]}
+	if a.hud != nil {
+		out["portrait_hud"] = &a.hud.Position
+		out["target_hud"] = &a.hud.TargetPosition
+	}
 	if a.minimap != nil {
 		out["minimap"] = &a.minimap.Position
 		out["full_map"] = &a.minimap.FullPosition

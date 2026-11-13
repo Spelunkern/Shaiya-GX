@@ -34,6 +34,7 @@ func (a *App) openGameMenu() {
 // while held movement, automatic travel and gameplay outside keep running.
 func (a *App) gameMenuControls(in *platform.Input, w, h int) (platform.Input, bool) {
 	controls := *in
+	keyboardCapture := a.gameMenu.DisplayPopupOpen()
 	modal := a.menuPending || a.menuConfirm != nil && a.menuConfirm.Visible
 	width, height := a.gameMenu.Size()
 	x, y := a.gameMenu.Origin(w, h)
@@ -58,9 +59,18 @@ func (a *App) gameMenuControls(in *platform.Input, w, h int) (platform.Input, bo
 	if modal || a.menuPending || a.menuConfirm != nil && a.menuConfirm.Visible {
 		return platform.Input{MouseX: in.MouseX, MouseY: in.MouseY, SuppressAutoRun: true}, true
 	}
-	if in.HasKey(platform.KeyEscape) || hasChar(in, 'o') {
+	if keyboardCapture || in.HasKey(platform.KeyEscape) || hasChar(in, 'o') {
 		controls.Keys = nil
 		controls.Chars = nil
+		if keyboardCapture {
+			controls.Space = false
+			controls.Down = strings.Map(func(r rune) rune {
+				if strings.ContainsRune("<>^v", r) {
+					return -1
+				}
+				return r
+			}, controls.Down)
+		}
 	}
 	if captured {
 		controls.Pressed, controls.Clicked, controls.MouseDown = false, false, false
@@ -75,7 +85,7 @@ func (a *App) gameMenuControls(in *platform.Input, w, h int) (platform.Input, bo
 	if !in.RightDown {
 		v.uiRight = false
 	}
-	return controls, captured || in.HasKey(platform.KeyEscape) || hasChar(in, 'o')
+	return controls, keyboardCapture || captured || in.HasKey(platform.KeyEscape) || hasChar(in, 'o')
 }
 
 func (a *App) updateGameMenu(in *platform.Input, w, h int) {
@@ -115,7 +125,12 @@ func (a *App) updateGameMenu(in *platform.Input, w, h int) {
 		a.menuOpen = false
 		return
 	}
-	switch action := a.gameMenu.Update(in, w, h); action {
+	previousPage := a.gameMenu.Page
+	action := a.gameMenu.Update(in, w, h)
+	if previousPage != a.gameMenu.Page && a.gameMenu.Page == ui.MenuGraphics && a.cfg.DisplayModes != nil {
+		a.gameMenu.SetDisplayModes(a.cfg.DisplayModes())
+	}
+	switch action {
 	case ui.MenuClose:
 		a.menuOpen = false
 	case ui.MenuCharacters, ui.MenuExit:
@@ -129,7 +144,11 @@ func (a *App) updateGameMenu(in *platform.Input, w, h int) {
 		a.applyClientSettings()
 	case ui.MenuSave:
 		a.applyClientSettings()
-		a.saveClientSettings()
+		if a.applyDisplaySettings() {
+			a.saveClientSettings()
+		} else {
+			a.gameMenu.Open(ui.MenuGraphics)
+		}
 	}
 }
 
@@ -190,11 +209,15 @@ func (a *App) loadClientSettings() {
 		log.Print("load settings: invalid values")
 		return
 	}
+	if a.cfg.OverrideDisplay {
+		value.DisplayMode = platform.DisplayMode{}
+	}
 	a.gameMenu.Settings = value
 	if a.chatUI != nil {
 		a.chatUI.Channel = value.ChatChannel
 	}
 	a.applyClientSettings()
+	a.applyDisplaySettings()
 }
 
 func (a *App) saveClientSettings() {

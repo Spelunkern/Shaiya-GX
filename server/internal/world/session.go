@@ -692,7 +692,7 @@ func (s *Session) handleCreateCharacter(p []byte) {
 		return
 	}
 	nc := db.NewCharacter{Slot: p[2], Race: p[3], Mode: p[4], Hair: p[5], Face: p[6], Height: p[7], Class: p[8],
-		Gender: p[9], Name: packet.FixedASCII(p[10:])}
+		Gender: p[9], Name: packet.FixedText(p[10:])}
 	reject := func(why string) {
 		s.log.Printf("GX Server World rejected create character name=%q slot=%d: %s", nc.Name, nc.Slot, why)
 		s.send(buildCreateCharacterResult(false), "0x0102 create character rejected")
@@ -704,7 +704,7 @@ func (s *Session) handleCreateCharacter(p []byte) {
 	// CUser::PacketCharacter: spaces are dropped and at least two
 	// characters must remain; the family/job pair and mode must be valid.
 	nc.Name = strings.ReplaceAll(nc.Name, " ", "")
-	if len(nc.Name) < 2 {
+	if len(nc.Name) < 2 || len(nc.Name) > 18 {
 		reject("name too short")
 		return
 	}
@@ -747,7 +747,7 @@ func (s *Session) handleRename(p []byte) {
 		return
 	}
 	id, _ := packet.U32(p[2:])
-	name := packet.FixedASCII(p[6:])
+	name := packet.FixedText(p[6:])
 	ok := false
 	if strings.TrimSpace(name) != "" {
 		if taken, err := db.NameTaken(name); err == nil && !taken {

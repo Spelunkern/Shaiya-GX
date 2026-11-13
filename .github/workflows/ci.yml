@@ -85,6 +85,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: portable
@@ -100,13 +101,5 @@ jobs:
           cp portable/gx-server-linux-amd64/*.tar.gz release/
           cp portable/gx-server-windows-amd64/*.zip release/
           (cd release && sha256sum *.tar.gz *.zip > SHA256SUMS.txt)
-          cat > release-notes.txt <<'NOTES'
-          Shaiya GX client builds for Windows and Linux now use a loose data/ folder beside the executable. Download gx-client for your OS; client game data is supplied separately. Both executables may share one data/ directory. Fonts and Ogg Vorbis decoding are embedded; interface images and cursors use PNG.
-
-          Extract the complete client archive and keep licenses/notices when redistributing. Open Shaiya GX on Linux or Shaiya GX.exe on Windows. Graphics require OpenGL 4.5. The Linux client targets Ubuntu 24.04 (glibc 2.39+). See the included README and source documentation for runtime libraries, server addresses and data compatibility.
-
-          GX Server portables remain included, with login, world, console, micro app and the explicitly distributed development SQLite seed. SQLite is a development convenience and will be replaced in the future. Existing personal runtime databases are never overwritten by packaging.
-
-          SHA256SUMS.txt verifies all downloads. Native CI builds/tests Windows and Linux; server portables pass relocated startup and controller isolation. Full client gameplay with licensed data is validated separately on the development machine.
-          NOTES
+          cp "docs/releases/$GX_TAG.md" release-notes.txt
           gh release create "$GX_TAG" release/* --verify-tag --title "Shaiya GX $GX_TAG" --notes-file release-notes.txt

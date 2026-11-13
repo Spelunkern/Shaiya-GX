@@ -18,6 +18,9 @@ type Instance struct {
 
 // World is a drawable map.
 type World struct {
+	occlusion            *render.TerrainOcclusion
+	occlusionRevision    uint64
+	occlusionEye         render.V3
 	water                *waterSurface
 	elapsed              float64
 	stream               *fieldStream

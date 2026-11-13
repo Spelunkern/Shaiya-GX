@@ -85,7 +85,7 @@ SHAIYA_DATA=/path/to/ShaiyaGX/data \
   "./build/Shaiya GX" -login 127.0.0.1:30800
 ```
 
-Sign in, select the server, choose/create your character and enter the world. GX Server decides outcomes and saves progress. The client folder contains `Shaiya GX` (Linux) or `Shaiya GX.exe` (Windows) alongside `data/`. The executable discovers that adjacent folder automatically. Both UI fonts are embedded; no external font file or `SHAIYA_FONT` setting is used. Start GX Server separately and run the Shaiya GX executable directly. Public GX server downloads do not include those client assets.
+Sign in, select the server, choose/create your character and enter the world. GX Server decides outcomes and saves progress. The client folder contains `Shaiya GX` (Linux) or `Shaiya GX.exe` (Windows) alongside `data/`. The executable discovers that adjacent folder automatically. The client embeds Liberation Sans; no external font file or `SHAIYA_FONT` setting is used. Start GX Server separately and run the Shaiya GX executable directly. Public GX server downloads do not include those client assets.
 
 ## If startup fails
 

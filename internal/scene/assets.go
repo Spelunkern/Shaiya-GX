@@ -103,6 +103,7 @@ func (s *Assets) modelTexture(file string) *render.Texture {
 
 // Part is one textured mesh of a model.
 type Part struct {
+	lods           []staticMeshLOD
 	Mesh           *render.Mesh
 	Tex            *render.Texture
 	Alpha          bool
@@ -121,10 +122,12 @@ type shadowVertex struct {
 }
 
 type Model struct {
-	colliders []world.CollisionMesh
-	center    render.V3
-	radius    float32
-	Parts     []Part
+	lodErrors    [2]float32
+	lodAvailable [2]bool
+	colliders    []world.CollisionMesh
+	center       render.V3
+	radius       float32
+	Parts        []Part
 }
 
 // SMOD loads a static model; textures come from Entity/Texture.
@@ -141,10 +144,14 @@ func (s *Assets) SMOD(file string) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", file, err)
 	}
+	return s.uploadSMOD(key, sm)
+}
+
+func (s *Assets) uploadSMOD(key string, sm *world.SMOD, preparedLODs ...[][]staticLODCPU) (*Model, error) {
 	m := &Model{colliders: sm.Colliders}
 	var lo, hi render.V3
 	hasBounds := false
-	for _, mesh := range sm.Meshes {
+	for meshIndex, mesh := range sm.Meshes {
 		v := make([]render.Vertex, len(mesh.Vertices))
 		var partLo, partHi render.V3
 		for i, x := range mesh.Vertices {
@@ -184,6 +191,17 @@ func (s *Assets) SMOD(file string) (*Model, error) {
 			p.Alpha = p.Tex != nil
 			if p.Tex != nil {
 				p.Tex.SetWrap(true)
+			}
+		}
+		if len(preparedLODs) > 0 && meshIndex < len(preparedLODs[0]) {
+			p.lods = make([]staticMeshLOD, 2)
+			for level, lod := range preparedLODs[0][meshIndex] {
+				if len(lod.indices) == 0 {
+					continue
+				}
+				p.lods[level] = staticMeshLOD{mesh: render.NewMesh(lod.vertices, lod.indices), error: lod.error}
+				m.lodAvailable[level] = true
+				m.lodErrors[level] = max(m.lodErrors[level], lod.error)
 			}
 		}
 		m.Parts = append(m.Parts, p)

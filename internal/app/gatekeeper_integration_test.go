@@ -142,13 +142,14 @@ func TestGatekeeperCrossMapAgainstRapture(t *testing.T) {
 			t.Fatal("source map did not load")
 		}
 		oldWorld = a.wv.world
-		for frame := 0; frame < 240; frame++ {
+		for streamDeadline := time.Now().Add(10 * time.Second); time.Now().Before(streamDeadline); {
 			gl.Viewport(0, 0, 1024, 734)
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			a.Draw(1024, 734)
 			if a.SceneReady() {
 				break
 			}
+			time.Sleep(time.Millisecond) // background decode needs wall time, not a fixed draw count
 		}
 		if !a.SceneReady() {
 			t.Fatal("source map did not finish streaming")
@@ -217,13 +218,14 @@ func TestGatekeeperCrossMapAgainstRapture(t *testing.T) {
 		if oldWorld.Sky != nil {
 			t.Fatal("source streaming world did not release its sky")
 		}
-		for frame := 0; frame < 240; frame++ {
+		for streamDeadline := time.Now().Add(10 * time.Second); time.Now().Before(streamDeadline); {
 			gl.Viewport(0, 0, 1024, 734)
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 			a.Draw(1024, 734)
 			if a.SceneReady() {
 				break
 			}
+			time.Sleep(time.Millisecond) // background decode needs wall time, not a fixed draw count
 		}
 		if !a.SceneReady() || math.Abs(float64(a.wv.pos[0]-st.Self.X)) > .1 || math.Abs(float64(a.wv.pos[2]-st.Self.Z)) > .1 {
 			t.Fatal("destination scene did not finish streaming at the confirmed position")

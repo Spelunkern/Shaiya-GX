@@ -643,6 +643,7 @@ func (s *Session) duelDeath(winner *ConnectedPlayer) bool {
 		s.char.Defeats++
 	}
 	s.persist()
+	s.send(buildKillCountUpdate(3, s.char.Defeats), "0x020E duel defeats")
 	winner.queueDuelWin()
 	winner.Send(duelByte(0x2405, 1), "0x2405 duel won")
 	s.send(duelByte(0x2405, 2), "0x2405 duel lost")
@@ -680,6 +681,7 @@ func (s *Session) applyDuelWins() {
 		}
 	}
 	s.persist()
+	s.send(buildKillCountUpdate(2, s.char.Victories), "0x020E duel victories")
 }
 
 // guildDuelState is CUser +0x54e4 (non-zero in a guild duel), under duelMu.

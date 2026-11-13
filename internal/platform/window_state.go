@@ -49,6 +49,9 @@ func (w *Window) saveSize() {
 	}
 	state := w.normalSize
 	state.Maximized = w.maximized
+	if w.Window != nil && w.GetMonitor() != nil {
+		state.Maximized = w.windowedMaximized
+	}
 	path, err := windowStatePath()
 	if err == nil {
 		err = os.MkdirAll(filepath.Dir(path), 0o700)

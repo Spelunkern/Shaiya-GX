@@ -158,7 +158,7 @@ func (w *World) RenderMapEffects(s *render.Scene3D) {
 	frustum := render.ViewFrustum(s.View, s.Proj)
 	for _, i := range w.mapFX.active {
 		placed := &w.mapFX.instances[i]
-		if placed.instance != nil && render.ClipSphereVisible(s.ClipPlane, placed.position, placed.radius) && frustum.SphereVisible(placed.position, placed.radius) {
+		if placed.instance != nil && render.ClipSphereVisible(s.ClipPlane, placed.position, placed.radius) && frustum.SphereVisible(placed.position, placed.radius) && !s.OccludedSphere(placed.position, placed.radius) {
 			placed.instance.Draw(s)
 		}
 	}

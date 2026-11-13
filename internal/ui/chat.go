@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"slices"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
@@ -279,14 +280,14 @@ func (c *ChatPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, h in
 	s.Draw(c.input, 68, float32(y), 276, 22, 4.0/512, .5, 268.0/512, 150.0/256, white)
 	s.Draw(c.input, 344, float32(y), 4, 22, 268.0/512, .5, 272.0/512, 150.0/256, white)
 	s.Draw(c.input, 348, float32(y), 2, 22, 290.0/512, .5, 292.0/512, 150.0/256, white)
-	shown := []rune(text)
+	shown := text
 	if typing {
-		shown = append(shown, '_')
+		shown += "_"
 	}
-	for len(shown) > 1 && f.Width(string(shown)) > 274 {
-		shown = shown[1:]
+	for len(shown) > 1 && f.Width(shown) > 274 {
+		shown = textwire.DropFirst(shown)
 	}
-	f.Draw(s, string(shown), 70, y+2, white, 274)
+	f.Draw(s, shown, 70, y+2, white, 274)
 }
 
 var chatChannelNames = [7]string{"Normal", "Trade", "Guild", "Party", "Area", "Whisper", "Raid"}

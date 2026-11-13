@@ -62,7 +62,7 @@ The publication check inspects staged source and, with `--history`, reachable hi
 
 ## Local assets and graphics checks
 
-Place the converted loose `data/` directory beside the Shaiya GX executable, or set `SHAIYA_DATA` / `-data` to that directory. The game no longer reads SAH/SAF. See [data formats and conversion](data-formats.md). Wine Tahoma and Open Sans SemiBold are embedded in the executable; no external font, OS font lookup or `SHAIYA_FONT` variable is required. Their notices and licenses are retained in `internal/ui/fonts/`.
+Place the converted loose `data/` directory beside the Shaiya GX executable, or set `SHAIYA_DATA` / `-data` to that directory. The game no longer reads SAH/SAF. See [data formats and conversion](data-formats.md). The client embeds Liberation Sans; no external font, OS font lookup or `SHAIYA_FONT` variable is required. Their notices and licenses are retained in `internal/ui/fonts/`.
 
 ```sh
 SHAIYA_TEST_RENDER=1 SHAIYA_DATA=/path/to/ShaiyaGX/data \
@@ -86,3 +86,24 @@ Rebuilding does not take a new snapshot from a personal runtime. Refresh deliber
 ## Prepare a private client folder (Linux)
 
 `python3 tools/package.py --source /path/to/converted/data --output /path/to/play-folder` writes only `Shaiya GX` and its adjacent `data/` directory. It does not install fonts, launchers, documentation or development tools. `--update` replaces the Linux executable atomically and preserves the installed data directory. Start GX Server separately, then run the client directly. Windows uses the same converted data directory and its own `Shaiya GX.exe`; the Linux binary does not run on Windows. Keep source documentation/licenses in the repository and game archives out of Git.
+
+## Embedded typography and UTF-8
+
+The build embeds only Liberation Sans Regular 2.1.5, with Arial-compatible
+metrics. The unmodified font and its SIL OFL license are included in source;
+clean CI and contributor checkouts need no private font, download or OS lookup.
+See `internal/ui/fonts/LiberationSans-README.md`. The large Noto/emoji pack is
+not included. UTF-8 encoding, shaping and grapheme-safe editing remain.
+Latin, Greek, Cyrillic and Hebrew text are covered; Arabic, CJK and emoji lack
+full glyph coverage and can appear as missing-glyph boxes.
+
+The gx-v0.1.4 client/server changes use UTF-8, retaining legacy ANSI decoding
+for older resources. Update both GX endpoints together. Original packet sizes
+remain fixed: character creation names have 18 bytes, UI account names 18 bytes,
+passwords 16 bytes and chat payloads at most 127 bytes. These are byte budgets,
+not character counts. Truncation and backspace preserve whole grapheme clusters.
+SQLite stores the resulting text without an encoding migration.
+
+The Drive bundle is an older snapshot; update both client and server from the
+matching GitHub release. Tagged releases use the reviewed notes in
+`docs/releases/<tag>.md`. Local work does not trigger publication automatically.

@@ -26,11 +26,14 @@ import (
 )
 
 type Config struct {
-	RememberLayout bool
-	Volume         float64
-	LoginAddr      string
-	WorldPort      int
-	Version        uint32
+	DisplayModes     func() []platform.DisplayMode
+	ApplyDisplayMode func(platform.DisplayMode) error
+	OverrideDisplay  bool
+	RememberLayout   bool
+	Volume           float64
+	LoginAddr        string
+	WorldPort        int
+	Version          uint32
 }
 
 type screen int
@@ -43,6 +46,8 @@ const (
 )
 
 type App struct {
+	appliedDisplay                      platform.DisplayMode
+	displayConfigured                   bool
 	social                              socialView
 	socialUI                            *ui.SocialPanel
 	socialInviteUI                      *ui.Message
@@ -252,6 +257,9 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	}
 	if a.gameMenu, err = ui.NewGameMenu(a); err != nil {
 		return nil, err
+	}
+	if cfg.DisplayModes != nil {
+		a.gameMenu.SetDisplayModes(cfg.DisplayModes())
 	}
 	if a.menuConfirm, err = ui.NewMessage(a); err != nil {
 		return nil, err
@@ -467,6 +475,8 @@ func (a *App) Draw(w, h int) {
 }
 
 func (a *App) drawFrame(w, h int) {
+	restoreAlpha := render.KeepSceneAlphaOpaque()
+	defer restoreAlpha()
 	a.sprites.InvalidateNameDepth()
 	if a.performance.meter == nil {
 		a.performance.meter = render.NewFrameMeter()

@@ -1,6 +1,9 @@
 package ui
 
-import "strings"
+import (
+	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
+	"strings"
+)
 
 func wrapLines(f *Font, text string, width int) []string {
 	if width <= 0 {
@@ -18,13 +21,13 @@ func wrapLines(f *Font, text string, width int) []string {
 				line += " "
 			}
 			for f.Width(word) > width {
-				runes := []rune(word)
+				clusters := textwire.Graphemes(word)
 				cut := 1
-				for cut < len(runes) && f.Width(string(runes[:cut+1])) <= width {
+				for cut < len(clusters) && f.Width(strings.Join(clusters[:cut+1], "")) <= width {
 					cut++
 				}
-				lines = append(lines, line+string(runes[:cut]))
-				line, word = "", string(runes[cut:])
+				lines = append(lines, line+strings.Join(clusters[:cut], ""))
+				line, word = "", strings.Join(clusters[cut:], "")
 			}
 			line += word
 		}

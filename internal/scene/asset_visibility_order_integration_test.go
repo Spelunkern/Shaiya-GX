@@ -47,6 +47,7 @@ func TestAssetVisibilityKeepsCoincidentMaterialsStableGL(t *testing.T) {
 	distant := render.Identity()
 	distant[12] = -1.3
 	stream := fieldStream{world: &World{}, assets: &Assets{models: map[string]*Model{"a": a, "b": b}}, drawObjects: []int{0, 1, 2}, objects: []cellObject{{file: "a", world: distant, scale: 1}, {file: "b", world: render.Identity(), scale: 1}, {file: "a", world: render.Identity(), scale: 1}}}
+	stream.prepareDrawEntries()
 	var pixels [2][4]byte
 	for i, x := range []float32{.2, -.2} {
 		gl.Viewport(0, 0, 64, 64)
@@ -72,6 +73,7 @@ func TestAssetVisibilityKeepsCoincidentMaterialsStableGL(t *testing.T) {
 	right[12] = .5
 	stream.objects = []cellObject{{file: "a", world: left, scale: 1, mani: true}, {file: "a", world: right, scale: 1}}
 	stream.drawObjects = []int{0, 1}
+	stream.prepareDrawEntries()
 	gl.ClearColor(0, 0, 0, 1)
 	gl.DepthMask(true)
 	gl.ClearDepth(1)

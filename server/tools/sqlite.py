@@ -41,7 +41,7 @@ def main():
 
   else:
    password=os.environ.get('RAPTURE_ACCOUNT_PASSWORD') or getpass.getpass('Password: ')
-   if not 1<=len(args.name)<=18 or not 1<=len(password)<=32:raise ValueError('account/password exceeds protocol limits')
+   if not 1<=len(args.name.encode("utf-8"))<=18 or not 1<=len(password.encode("utf-8"))<=16:raise ValueError('account/password exceeds UTF-8 byte limits (18/16)')
    c.execute('BEGIN IMMEDIATE')
    if c.execute('SELECT 1 FROM PS_UserData_Users_Master WHERE UserID=?',(args.name,)).fetchone():raise ValueError('account already exists')
    uid=c.execute('SELECT COALESCE(MAX(UserUID),0)+1 FROM PS_UserData_Users_Master').fetchone()[0]
