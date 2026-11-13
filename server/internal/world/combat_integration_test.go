@@ -412,17 +412,21 @@ func TestMobAI(t *testing.T) {
 	}
 	var md *db.MobDef
 	for _, d := range db.MustDefs().Mobs {
-		if d.AI == 1 && d.ChaseRange >= 8 && d.Country == 2 && d.RecoverValue > 0 && d.ChaseStep > 0 && d.Attacks[0].OK != 0 {
+		if d.AI == 1 && d.ChaseRange >= 8 && d.Country == 2 && d.RecoverValue > 0 && d.ChaseStep > 0 && d.Attacks[0].OK != 0 && (md == nil || d.MobID < md.MobID) {
 			md = d
-			break
 		}
 	}
 	if md == nil {
 		t.Skip("no aggressive mob")
 	}
 	const mapID = 60001
-	AddEntities(mapID, MapEntities{Mobs: []MapMob{NewStaticMob(md, md.MobID, 100, 100, nil, 0)}})
 	s := shard(mapID)
+	s.mu.Lock()
+	previous := s.entities
+	s.entities = MapEntities{}
+	s.mu.Unlock()
+	t.Cleanup(func() { s.mu.Lock(); s.entities = previous; s.mu.Unlock() })
+	AddEntities(mapID, MapEntities{Mobs: []MapMob{NewStaticMob(md, md.MobID, 100, 100, nil, 0)}})
 	mob := func() *MapMob { return &s.entities.Mobs[0] }
 	snap := func(id uint32, x, z float32) PlayerCombatSnapshot {
 		return PlayerCombatSnapshot{CharacterID: id, MapID: mapID, PosX: x, PosZ: z, Alive: true, Faction: 0, Cell: cellFor(x, z)}
@@ -451,6 +455,13 @@ func TestMobAI(t *testing.T) {
 	if mob().AggroTarget != 2 {
 		t.Fatalf("ReTargetByAggro kept %d", mob().AggroTarget)
 	}
+	// Exercise the leash away from home, between chase steps. At home the
+	// return may complete in this same tick, depending on the chosen mob's
+	// attack range/timing; that is valid gameplay, not a leash failure.
+	s.mu.Lock()
+	mob().PosX = 130
+	mob().nextChaseAt = time.Now().Add(time.Minute)
+	s.mu.Unlock()
 	// The target runs past 45 units from home: the mob walks home.
 	far := snap(2, 100+mobLeash+5, 100)
 	TickMobCombat([]PlayerCombatSnapshot{far}, 64)
