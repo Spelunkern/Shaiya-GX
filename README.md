@@ -14,6 +14,35 @@ GX reads loose assets from a `data/` folder beside the **Shaiya GX** executable.
 
 **SQLite is used during development because an embedded database makes setup and distribution easy. It is temporary: the database backend will change in the future. The replacement and migration format are not selected yet.**
 
+## Progress at a glance
+
+```mermaid
+pie showData
+    title Documented GX Server parity checklist
+    "Done" : 53
+    "Partial" : 3
+```
+
+Snapshot: November 13, 2026. Counts come from the [server parity table](server/docs/original-parity.md); checklist entries differ in scope and are **not an overall project completion percentage**. Full client visual/gameplay parity remains in progress.
+
+| Delivered | Current result |
+|---|---|
+| Portable clients | Native Linux and Windows builds; shared adjacent `data/`; embedded fonts |
+| Media migration | OGG audio, PNG interface and seven PNG cursors |
+| Integrated server | GX Server GUI/console, login/world and embedded development DB |
+| Functional flows | Account entry, movement/combat, inventory/services and gatekeeper travel; scope and evidence in the progress guide |
+
+| Data role | Accepted format |
+|---|---|
+| Interface and cursors | PNG |
+| Audio | Ogg Vorbis (`.ogg`) |
+| 3D textures | Original supported DDS/TGA/BMP/JPEG/PNG layouts |
+| Models, worlds and effects | Original supported binary formats |
+| Active skill catalog | EP5 `Character/Skill.SData` |
+| Runtime storage | Loose `data/`; SAH/SAF for import only |
+
+[Progress, delivered workflows and remaining work](docs/progress.md) · [Complete format matrix](docs/data-formats.md#supported-formats-by-role) · [Changes and migrations](CHANGELOG.md)
+
 ## Get started
 
 1. Download `gx-server-windows-amd64.zip` or `gx-server-linux-amd64.tar.gz` from [GX releases](https://github.com/Spelunkern/Shaiya-GX/releases/latest), plus `SHA256SUMS.txt`. Extract the entire folder to a writable location. See [download verification](docs/quickstart.md#verify-a-download).

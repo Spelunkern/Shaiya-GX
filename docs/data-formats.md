@@ -17,6 +17,38 @@ The executable discovers `data/` beside itself regardless of the current working
 
 GX indexes loose file paths once at startup and preserves the old case-insensitive resource lookup on Linux and Windows. Restart after editing assets to refresh that index and the CPU/GPU caches. Symlinks and ambiguous case/hash names are rejected, so the folder remains portable. A legacy invalid-byte filename is escaped as `%XX`; lookup applies the same mapping to binary references without changing model data.
 
+## Supported formats by role
+
+| Role | Formats | Current contract |
+|---|---|---|
+| Playable resource layout | Loose files under `data/` | Required by game startup; case-insensitive lookup on Linux/Windows |
+| Legacy import | SAH + SAF | Parsec-compatible importer/tools only; not a playable GX package |
+| Interface, icons, portraits and minimaps | PNG | PNG required under `interface/`; `_dds.png` distinguishes legacy DDS atlases; optional `gxMP` preserves authored mipmaps |
+| Native cursor images | PNG | `Cursor/01.png`–`07.png`, original dimensions, hotspot `(0,0)` |
+| Runtime audio | Ogg Vorbis (`.ogg`) | Mono/stereo decoded to 44100 Hz stereo PCM for mixing; WAV decoder is an import/verification utility |
+| World/model/effect textures | DDS, TGA, BMP, JPEG and PNG | Existing content decoder; DDS supports DXT1/DXT3/DXT5 and supported uncompressed layouts; not arbitrary texture encodings |
+| Character/creature resources | 3DC, ANI, MLT, ALT, MON, ITM | Skeletal meshes, animation clips and model/action tables in the supported original layouts |
+| Cloaks | PC, CTL, 3DC | Original cloth resources; complete physics parity remains in progress |
+| World resources | WLD, DG, SMOD, 3DO, MANI, VANI, WTR | Field/dungeon layouts, geometry, placed/animated objects and water definitions |
+| Effect resources | EFT, 3DE, SEFF | Supported effect libraries, animated meshes and weapon-enchantment recipes |
+| Gameplay tables | SData | Supported table-specific schemas; active `Character/Skill.SData` must be EP5 |
+| Text and map configuration | `sysmsg-uni.txt`, existing map metadata | Read by their dedicated loaders; not a general document/config importer |
+| Server maps | SVMAP | GX Server data, separate from client WLD/Field assets |
+
+Format support means the layouts implemented by the corresponding [image](../internal/data/image), [model](../internal/data/model), [world](../internal/data/world), [effect](../internal/data/effect) and [SData](../internal/data/sdata) parsers. It does not imply every episode/version or every effect branch is implemented.
+
+```mermaid
+flowchart LR
+    A[Original SAH and SAF] --> B[Import and conversion]
+    B --> C[Loose data folder]
+    C --> D[PNG interface and cursors]
+    C --> E[Ogg Vorbis audio]
+    C --> F[Original model and world formats]
+    D --> G[Shaiya GX on Linux or Windows]
+    E --> G
+    F --> G
+```
+
 ## Import original data
 
 The original SAH is a directory/index and SAF contains file payloads. The importer follows the Parsec-compatible reader in `internal/data/archive`; it does not modify the source archives.

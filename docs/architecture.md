@@ -18,7 +18,7 @@ Shaiya GX contains the Go client and its integrated GX Server (formerly Rapture)
 | `internal/render` | OpenGL 4.5 rendering passes and GPU resources |
 | `internal/ui` | Original interface geometry, widgets and interaction |
 | `internal/app` | Input routing and integration between state and presentation |
-| `internal/audio` | Local WAV decoding, playback and channel mixing |
+| `internal/audio` | Ogg Vorbis decoding, playback and channel mixing |
 
 One thread owns application state and OpenGL. Network goroutines deliver decoded packets to that thread. The server decides game rules, inventory changes, combat results and persistence. The client predicts movement and presents animations; it does not invent successful outcomes.
 
