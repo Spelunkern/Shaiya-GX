@@ -16,13 +16,13 @@ func MaxSamples() int {
 // MSAATarget is an offscreen multisampled color + float depth target for the
 // 3D scene. The UI is drawn after Resolve, so text and HUD stay sharp.
 type MSAATarget struct {
-	fbo, color, depth uint32
-	width, height     int32
-	samples           int
-	bytes             uint64
-	parent            int32
-	viewport, scissor [4]int32
-	scissored         bool
+	fbo, color, depth  uint32
+	width, height      int32
+	samples            int
+	bytes              uint64
+	parent, readParent int32
+	viewport, scissor  [4]int32
+	scissored          bool
 }
 
 func NewMSAATarget(width, height, samples int) (*MSAATarget, error) {
@@ -55,6 +55,7 @@ func (t *MSAATarget) Matches(width, height, samples int) bool {
 // frame target (opaque black, current depth clear value).
 func (t *MSAATarget) Begin() {
 	gl.GetIntegerv(gl.DRAW_FRAMEBUFFER_BINDING, &t.parent)
+	gl.GetIntegerv(gl.READ_FRAMEBUFFER_BINDING, &t.readParent)
 	gl.GetIntegerv(gl.VIEWPORT, &t.viewport[0])
 	gl.GetIntegerv(gl.SCISSOR_BOX, &t.scissor[0])
 	t.scissored = gl.IsEnabled(gl.SCISSOR_TEST)
@@ -83,7 +84,8 @@ func (t *MSAATarget) Resolve() {
 	gl.Disable(gl.SCISSOR_TEST)
 	gl.BlitNamedFramebuffer(t.fbo, uint32(t.parent), 0, 0, t.width, t.height, 0, 0, t.width, t.height, gl.COLOR_BUFFER_BIT, gl.NEAREST)
 	gl.BlitNamedFramebuffer(t.fbo, uint32(t.parent), 0, 0, t.width, t.height, 0, 0, t.width, t.height, gl.DEPTH_BUFFER_BIT, gl.NEAREST)
-	gl.BindFramebuffer(gl.FRAMEBUFFER, uint32(t.parent))
+	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, uint32(t.parent))
+	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, uint32(t.readParent))
 	gl.Viewport(t.viewport[0], t.viewport[1], t.viewport[2], t.viewport[3])
 	gl.Scissor(t.scissor[0], t.scissor[1], t.scissor[2], t.scissor[3])
 	if t.scissored {
@@ -235,4 +237,31 @@ func (f *FXAA) Delete() {
 	gl.DeleteProgram(f.program)
 	gl.DeleteVertexArrays(1, &f.vao)
 	f.program, f.vao = 0, 0
+}
+
+// SupportedMSAASamples intersects the exact colour and depth format counts;
+// GL_MAX_SAMPLES alone need not describe DEPTH_COMPONENT32F support.
+func SupportedMSAASamples() []int {
+	counts := func(format uint32) map[int]bool {
+		var n int32
+		gl.GetInternalformativ(gl.RENDERBUFFER, format, gl.NUM_SAMPLE_COUNTS, 1, &n)
+		out := map[int]bool{}
+		if n <= 0 {
+			return out
+		}
+		values := make([]int32, n)
+		gl.GetInternalformativ(gl.RENDERBUFFER, format, gl.SAMPLES, n, &values[0])
+		for _, v := range values {
+			out[int(v)] = true
+		}
+		return out
+	}
+	color, depth := counts(gl.RGBA8), counts(gl.DEPTH_COMPONENT32F)
+	var supported []int
+	for _, n := range []int{2, 4, 8, 16} {
+		if color[n] && depth[n] {
+			supported = append(supported, n)
+		}
+	}
+	return supported
 }

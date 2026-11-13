@@ -138,6 +138,7 @@ void main() {
 
 // Scene3D holds the shared 3D program and per-frame camera state.
 type Scene3D struct {
+	TemporalJitter                                            [2]float32
 	StaticObjectLOD                                           bool
 	ViewportW, ViewportH                                      int
 	uniformWorld, uniformView, uniformVP                      M4
@@ -177,7 +178,7 @@ type Scene3D struct {
 	View, Proj, SkyProj                                       M4
 	LightDir                                                  V3
 	Ambient                                                   float32
- CharacterAmbient float32 // optional UI preview fill; zero keeps native character lighting
+	CharacterAmbient                                          float32 // optional UI preview fill; zero keeps native character lighting
 	FogColor                                                  V3
 	FogStart, FogEnd                                          float32
 	ClipPlane                                                 [4]float32 // world-space half-plane; zero disables clipping
@@ -477,6 +478,9 @@ func (s *Scene3D) modelView(world M4) M4 {
 
 // Keep CPU projection/frustum coordinates native; invert only the GPU depth.
 func (s *Scene3D) depthProjection(p M4) M4 {
+	if !s.Shadow && s.ClipPlane == [4]float32{} {
+		p = jitterProjection(p, s.TemporalJitter)
+	}
 	if s.ReverseDepth && !s.Shadow {
 		for i := 0; i < 4; i++ {
 			p[i*4+2] = p[i*4+3] - p[i*4+2]

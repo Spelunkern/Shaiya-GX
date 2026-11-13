@@ -12,7 +12,7 @@ func (w *World) prepareDungeonOcclusion(s *render.Scene3D, eye render.V3) {
 	if s.Shadow || s.ClipPlane != [4]float32{} {
 		return
 	}
-	if w.occlusion != nil && w.occlusion.Matches(s.View, s.Proj) {
+	if w.occlusion != nil && w.occlusion.Matches(s.View, s.VisibilityProjection()) {
 		w.occlusion.Culled = 0
 		s.Occlusion = w.occlusion
 		return
@@ -21,8 +21,8 @@ func (w *World) prepareDungeonOcclusion(s *render.Scene3D, eye render.V3) {
 		w.occlusion = render.NewTerrainOcclusion(160, 90)
 	}
 	o := w.occlusion
-	o.Reset(s.View, s.Proj)
-	f := render.ViewFrustum(s.View, s.Proj)
+	o.Reset(s.View, s.VisibilityProjection())
+	f := render.ViewFrustum(s.View, s.VisibilityProjection())
 	w.dgOrder = w.dgOrder[:0]
 	distance := func(i int) float32 {
 		p := w.dungeonOccluders[i]

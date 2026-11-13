@@ -103,7 +103,7 @@ func (a *App) prepareNPCs() {
 }
 
 func (a *App) drawNPCs() {
-	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.Proj)
+	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 	for id, e := range a.state.Entities {
 		if e.Kind != game.KindNpc {
 			continue

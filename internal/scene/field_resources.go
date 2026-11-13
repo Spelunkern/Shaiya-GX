@@ -225,7 +225,7 @@ func (s *fieldStream) draw(r *render.Scene3D) {
 }
 
 func (s *fieldStream) drawWithClipCulling(r *render.Scene3D, clipCulling bool) {
-	frustum := render.ViewFrustum(r.View, r.Proj)
+	frustum := render.ViewFrustum(r.View, r.VisibilityProjection())
 	for _, batch := range s.terrainBatches {
 		batch.ranges = batch.ranges[:0]
 	}

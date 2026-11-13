@@ -105,7 +105,7 @@ func (a *App) prepareMonsters() {
 }
 
 func (a *App) drawMonsters() {
-	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.Proj)
+	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 	for id, e := range a.state.Entities {
 		if e.Kind != game.KindMob {
 			continue

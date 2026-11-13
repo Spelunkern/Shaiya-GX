@@ -151,7 +151,7 @@ func (o *TerrainOcclusion) rectangle(minX, minY, maxX, maxY, near float32) bool 
 }
 func (s *Scene3D) OccludedBox(lo, hi V3) bool {
 	o := s.Occlusion
-	if o == nil || s.Shadow || s.ClipPlane != [4]float32{} || s.View != o.view || s.Proj != o.projection {
+	if o == nil || s.Shadow || s.ClipPlane != [4]float32{} || s.View != o.view || s.VisibilityProjection() != o.projection {
 		return false
 	}
 	return o.Box(lo, hi)
@@ -212,7 +212,7 @@ func (s *Scene3D) visibleEffectInstances(m *Mesh, worlds []M4, colors [][4]float
 // Its depth is constant just as in the name sprite shader.
 func (s *Scene3D) OccludedLabel(anchor V3, x, y, width, height, viewportW, viewportH int) bool {
 	o := s.Occlusion
-	if o == nil || !o.covered || viewportW <= 0 || viewportH <= 0 || s.Shadow || s.ClipPlane != [4]float32{} || s.View != o.view || s.Proj != o.projection {
+	if o == nil || !o.covered || viewportW <= 0 || viewportH <= 0 || s.Shadow || s.ClipPlane != [4]float32{} || s.View != o.view || s.VisibilityProjection() != o.projection {
 		return false
 	}
 	p, ok := o.project(anchor)

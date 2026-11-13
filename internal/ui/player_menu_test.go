@@ -15,7 +15,7 @@ func TestPlayerMenuNativeRowsExcludePadding(t *testing.T) {
 }
 
 func TestPopupPickingRespectsChatPanelsAndTheirGaps(t *testing.T) {
-	c := &ChatPanel{Rows: [2]int{5, 5}}
+	c := &ChatPanel{Rows: [2]int{5, 5}, AutoHide: true}
 	if c.Contains(100, 430, 768) || c.Contains(100, 690, 768) {
 		t.Fatal("hidden idle chat blocked the world")
 	}

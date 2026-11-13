@@ -170,7 +170,8 @@ func TestPhoenixChatPickerOwnsClicksAboveActionBars(t *testing.T) {
 
 func TestPhoenixChatClickFocusAndChannelAliases(t *testing.T) {
 	a := inputApp()
-	// The input row is hidden until Enter opens it, so a click there belongs to the world.
+	a.chatUI.AutoHide = true
+	// With auto-hide enabled, the idle input row belongs to the world.
 	if a.updateChatPointer(&platform.Input{MouseX: 100, MouseY: 734 - 75, Pressed: true, MouseDown: true}, 1024, 734) || a.chatOpen {
 		t.Fatal("hidden message input captured a click")
 	}

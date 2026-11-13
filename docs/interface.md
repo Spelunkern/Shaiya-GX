@@ -80,9 +80,9 @@ Chat uses runtime `sysmsg-uni.txt` entries, including channel templates 353/354/
 
 The chat presentation follows Phoenix `chat_hud.gd` and `ep4_chat.gd`, per the user's explicit preference. The native SysMsg formatter and gameplay message connections remain in place. Histories are 350px wide with a 4px gap, 112/144px default heights and six/eight fully visible 16px text rows. Their fixed background is RGBA `(0.114, 0.122, 0.141, 0.54)`. Text uses Open Sans at 12px with a single soft black shadow; the mode label uses 11px, or 10px for Whisper. The entry row combines a 64×22 mode button with a 286×22 nine-patch input built from `chat.tga`.
 
-Idle chat hides. A new line in either history shows both panes; they also stay up while typing, while the channel picker is open, while resizing or scrolling, and while the pointer is over a visible pane. After 10 seconds without activity they fade out over one second. The entry row is shown only while typing. Hidden panes and the hidden entry row do not capture pointer input, so world clicks pass through.
+Chat and its entry row stay visible by default. The User Option page offers **Auto-hide chat** in Name/Chat Setup (replacing the previously unsupported banned-words filter slot). When enabled, idle chat hides. A new line in either history shows both panes; they also stay up while typing, while the channel picker is open, while resizing or scrolling, and while the pointer is over a visible pane. After 10 seconds without activity they fade out over one second. With auto-hide enabled, the entry row is shown only while typing. Hidden panes and the hidden entry row do not capture pointer input, so world clicks pass through.
 
-Native golden chat frames, hover-only backgrounds, Alpha/filter/help windows and the extra whisper-recipient row have been retired. Old filter/Alpha preferences no longer affect received messages. Resizing supports zero through twenty configured rows; history holds 300 messages globally and preserves independent scroll anchors. Row sizes and the selected channel persist; Whisper is not restored on startup. Enter opens the entry row; selecting a channel focuses it. With Whisper selected, enter `name message` when there is no known recipient; `!name message` and `/w name message` also work. Raid uses the server's party-chat transport.
+Native golden chat frames, hover-only backgrounds, Alpha/filter/help windows and the extra whisper-recipient row have been retired. Old filter/Alpha preferences no longer affect received messages. Resizing supports zero through twenty configured rows; history holds 300 messages globally and preserves independent scroll anchors. Row sizes and the selected channel persist; Whisper is not restored on startup. Enter focuses the entry row (and reveals it when auto-hide is enabled); selecting a channel focuses it. With Whisper selected, enter `name message` when there is no known recipient; `!name message` and `/w name message` also work. Raid uses the server's party-chat transport.
 
 | Channel | Phoenix RGB |
 |---|---|
@@ -188,9 +188,21 @@ Validation includes a virtual-monitor fullscreen/window round trip, real OpenGL 
 
 ## Antialiasing
 
-The graphics page's former `Color Bit` slot is an **Antialias** dropdown, opened with an arrow like the resolution list: Off, FXAA and MSAA 2x/4x/8x/16x. MSAA levels above the driver's `GL_MAX_SAMPLES` are not listed; a saved level the GPU cannot provide falls back to the highest supported count. The choice previews immediately and is saved with **OK**.
+The former `Color Bit` slot offers **Off** (default), FXAA, TAA and supported
+MSAA levels. Existing settings remain Off; unsupported saved MSAA counts fall
+back to the nearest lower supported count. Colour/depth format support is queried
+separately. Selection previews immediately; OK saves and Cancel restores it.
 
-MSAA draws the 3D pass into a multisampled RGBA8 + 32-bit float depth target and resolves color and depth before glow and the interface, so name-label depth tests keep working; the water refraction copy uses a resolve blit while the scene is multisampled. FXAA is one full-screen pass over the finished 3D scene and also smooths alpha-tested foliage that MSAA does not cover. Neither filter touches the interface or text.
+MSAA resolves scene colour and float depth before glow/UI, including water
+refraction captures. FXAA filters the scene in one pass. TAA uses subpixel Halton
+sampling, camera/depth reprojection, depth rejection and neighbourhood/variance
+clamping, with resets for scene/camera cuts, resize and mode changes. It restores
+stable colour/depth before annotations; HUD/text are not filtered. Visibility
+culling uses the jittered projection, while UI anchors and input rays stay stable.
+TAA currently has no per-object/skinned motion-vector buffer, so fast animation
+and translucent effects still need broader ghosting evaluation. At 1080p its
+three colour/depth surfaces use about 47.5 MiB; Off allocates no AA surfaces and
+switching Off releases them. Shadows and clipped reflections remain unjittered.
 
 ## Water and scene transparency
 

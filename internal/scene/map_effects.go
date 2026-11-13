@@ -103,7 +103,7 @@ func (w *World) PrepareMapEffects(s *render.Scene3D, eye render.V3, additional .
 	var local [2]camera
 	cameras := local[:0]
 	reach, valid := mapEffectCameraReach(s.Proj)
-	cameras = append(cameras, camera{eye: eye, frustum: render.ViewFrustum(s.View, s.Proj), reach: reach, validReach: valid})
+	cameras = append(cameras, camera{eye: eye, frustum: render.ViewFrustum(s.View, s.VisibilityProjection()), reach: reach, validReach: valid})
 	for _, c := range additional {
 		reach, valid := mapEffectCameraReach(c.Projection)
 		cameras = append(cameras, camera{eye: c.Eye, frustum: render.ViewFrustum(c.View, c.Projection), reach: reach, validReach: valid})
@@ -155,7 +155,7 @@ func (w *World) RenderMapEffects(s *render.Scene3D) {
 	if w == nil || w.mapFX == nil {
 		return
 	}
-	frustum := render.ViewFrustum(s.View, s.Proj)
+	frustum := render.ViewFrustum(s.View, s.VisibilityProjection())
 	for _, i := range w.mapFX.active {
 		placed := &w.mapFX.instances[i]
 		if placed.instance != nil && render.ClipSphereVisible(s.ClipPlane, placed.position, placed.radius) && frustum.SphereVisible(placed.position, placed.radius) && !s.OccludedSphere(placed.position, placed.radius) {

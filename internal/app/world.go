@@ -729,7 +729,7 @@ func (a *App) drawSelf() {
 	if v.self == nil || v.firstPerson && !a.scene3d.Shadow && a.scene3d.ClipPlane == ([4]float32{}) {
 		return
 	}
-	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.Proj)
+	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 	if a.state.Self.Mounted && v.selfMount != nil {
 		if v.selfMount.Visible(frustum, a.scene3d.ClipPlane) {
 			v.selfMount.Draw(a.skinner, a.scene3d)

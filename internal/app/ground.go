@@ -23,7 +23,7 @@ func (a *App) drawGroundItems() {
 	if v.groundStart == nil {
 		v.groundStart = make(map[uint32]float64)
 	}
-	frustum := render.ViewFrustum(s.View, s.Proj)
+	frustum := render.ViewFrustum(s.View, s.VisibilityProjection())
 	for id, item := range a.state.GroundItems {
 		start, exists := v.groundStart[id]
 		if !exists {

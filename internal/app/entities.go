@@ -188,7 +188,7 @@ func (a *App) prepareRemotePlayers() {
 }
 
 func (a *App) drawRemotePlayers() {
-	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.Proj)
+	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 	for id, e := range a.state.Entities {
 		if e.Kind != game.KindUser || e.Shape == nil {
 			continue
@@ -327,7 +327,7 @@ func (a *App) drawPlayerNames(w, h int) {
 		}
 	}
 	if !captured {
-		frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.Proj)
+		frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 		for _, mob := range v.mobs {
 			if mob != nil && mob.actor != nil && mob.actor.Visible(frustum, a.scene3d.ClipPlane) {
 				a.sprites.CaptureNameDepth(w, h)
@@ -337,7 +337,7 @@ func (a *App) drawPlayerNames(w, h int) {
 		}
 	}
 	if !captured {
-		frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.Proj)
+		frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 		for _, player := range v.actors {
 			if player != nil && player.character != nil && player.character.Visible(frustum, a.scene3d.ClipPlane) {
 				a.sprites.CaptureNameDepth(w, h)

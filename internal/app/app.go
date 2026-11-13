@@ -136,6 +136,12 @@ type App struct {
 	sceneGlowFailed                     bool
 	msaaTarget                          *render.MSAATarget
 	fxaa                                *render.FXAA
+	taa                                 *render.TemporalAA
+	taaFailed                           bool
+	aaMode                              int
+	aaSamples                           []int
+	aaSize                              [2]int
+	aaContext                           [4]int
 	msaaFailed, fxaaFailed              bool
 	frameWidth, frameHeight             int
 	worlds                              map[string]*scene.World
@@ -276,7 +282,8 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	if cfg.DisplayModes != nil {
 		a.gameMenu.SetDisplayModes(cfg.DisplayModes())
 	}
-	a.gameMenu.SetAntialiasMaxSamples(render.MaxSamples())
+	a.aaSamples = render.SupportedMSAASamples()
+	a.gameMenu.SetAntialiasSamples(a.aaSamples)
 	if a.menuConfirm, err = ui.NewMessage(a); err != nil {
 		return nil, err
 	}
@@ -403,6 +410,7 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	a.loadSavedID()
 	a.loadUILayout()
 	a.loadClientSettings()
+	a.gameMenu.Settings.Antialias = ui.NormalizeAntialias(a.gameMenu.Settings.Antialias, a.aaSamples)
 	return a, nil
 }
 

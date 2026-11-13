@@ -26,9 +26,9 @@ type chatPane struct {
 	active   time.Time // last new line or interaction; drives auto-hide
 }
 
-// Idle chat hides: a pane shows while typing, or for chatHold after a new
-// line or interaction, then fades out over chatFade. The input row shows only
-// while typing.
+// Optional auto-hide reveals histories while typing or for chatHold after a
+// new line or interaction, then fades over chatFade. Persistent chat remains
+// the default.
 const (
 	chatHold = 10 * time.Second
 	chatFade = time.Second
@@ -37,7 +37,7 @@ const (
 var chatNow = time.Now
 
 func (c *ChatPanel) paneAlpha(i int, now time.Time) float32 {
-	if c.Typing || c.ModeOpen || c.resizing || c.panes[i].dragging {
+	if !c.AutoHide || c.Typing || c.ModeOpen || c.resizing || c.panes[i].dragging {
 		return 1
 	}
 	idle := now.Sub(c.panes[i].active)
@@ -50,7 +50,7 @@ func (c *ChatPanel) paneAlpha(i int, now time.Time) float32 {
 	return 1 - float32(idle-chatHold)/float32(chatFade)
 }
 
-func (c *ChatPanel) inputShown() bool { return c.Typing || c.ModeOpen }
+func (c *ChatPanel) inputShown() bool { return !c.AutoHide || c.Typing || c.ModeOpen }
 
 // ShowHistory reveals both history panes and restarts their hide timer.
 func (c *ChatPanel) ShowHistory() {
@@ -72,6 +72,7 @@ type ChatPanel struct {
 	panes                            [2]chatPane
 	modeButton                       Button
 	Typing, ModeOpen                 bool
+	AutoHide                         bool
 	Rows                             [2]int
 	resizePane, resizeY, resizeStart int
 	resizing                         bool

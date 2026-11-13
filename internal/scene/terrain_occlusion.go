@@ -15,14 +15,14 @@ func (w *World) PrepareTerrainOcclusion(s *render.Scene3D, eye render.V3) {
 	if w == nil || !w.HasTerrain() || w.stream == nil || len(w.stream.pending) != 0 || w.WLD == nil || eye[0] < 0 || eye[2] < 0 || eye[0] > float32(w.WLD.MapSize) || eye[2] > float32(w.WLD.MapSize) || eye[1] <= w.Height(eye[0], eye[2])+.1 {
 		return
 	}
-	if w.occlusion != nil && w.occlusionRevision == w.stream.revision && w.occlusionEye == eye && w.occlusion.Matches(s.View, s.Proj) {
+	if w.occlusion != nil && w.occlusionRevision == w.stream.revision && w.occlusionEye == eye && w.occlusion.Matches(s.View, s.VisibilityProjection()) {
 		w.occlusion.Culled = 0
 		s.Occlusion = w.occlusion
 		return
 	}
 	// The complete near plane must also be above terrain. Otherwise the
 	// real surface could be near-clipped while its lower envelope is not.
-	inverse := s.View.Mul(s.Proj).Inverse()
+	inverse := s.View.Mul(s.VisibilityProjection()).Inverse()
 	minY, minX, minZ := float32(1e30), float32(1e30), float32(1e30)
 	maxX, maxZ := float32(-1e30), float32(-1e30)
 	for _, xy := range [4][2]float32{{-1, -1}, {1, -1}, {-1, 1}, {1, 1}} {
@@ -67,7 +67,7 @@ func (w *World) PrepareTerrainOcclusion(s *render.Scene3D, eye render.V3) {
 		w.occlusion = render.NewTerrainOcclusion(160, 90)
 	}
 	o := w.occlusion
-	o.Reset(s.View, s.Proj)
+	o.Reset(s.View, s.VisibilityProjection())
 
 	for _, key := range w.stream.order {
 		if cell := w.stream.cells[key]; cell != nil {

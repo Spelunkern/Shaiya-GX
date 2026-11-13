@@ -210,7 +210,7 @@ func (w *World) Draw(s *render.Scene3D) {
 	for _, sec := range w.Sections {
 		drawSection(s, sec)
 	}
-	frustum := render.ViewFrustum(s.View, s.Proj)
+	frustum := render.ViewFrustum(s.View, s.VisibilityProjection())
 	for _, p := range w.dg {
 		if !frustum.BoxVisible(p.minimum, p.maximum) || !render.ClipBoxVisible(s.ClipPlane, p.minimum, p.maximum) || s.OccludedBox(p.minimum, p.maximum) {
 			continue
