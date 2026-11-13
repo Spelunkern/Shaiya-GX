@@ -14,14 +14,13 @@ GX reads loose assets from a `data/` folder beside the **Shaiya GX** executable.
 
 **SQLite is used during development because an embedded database makes setup and distribution easy. It is temporary: the database backend will change in the future. The replacement and migration format are not selected yet.**
 
-## Progress at a glance
+## On-screen metrics panel
 
-```mermaid
-pie showData
-    title Documented GX Server parity checklist
-    "Done" : 53
-    "Partial" : 3
-```
+The small overlay at the top of the screenshots is a live performance diagnostic: **FPS**, average frame time, **CPU/GPU time**, resident **RAM**, estimated **VRAM** and **DC** (draw calls). CPU/GPU figures are milliseconds, not utilization percentages. Memory is displayed in MiB; `VRAM~` excludes driver overhead and the window-system framebuffer.
+
+Values depend on the scene, hardware, resolution and frame limit; a screenshot is not a benchmark. [How to read the panel, colors and measurement limits](docs/performance.md).
+
+## Project status
 
 Snapshot: November 13, 2026. Counts come from the [server parity table](server/docs/original-parity.md); checklist entries differ in scope and are **not an overall project completion percentage**. Full client visual/gameplay parity remains in progress.
 

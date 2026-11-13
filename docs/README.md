@@ -4,7 +4,8 @@ Start with [first run](quickstart.md), then [building and testing](building.md).
 
 | Guide | Contents |
 |---|---|
-| [Progress](progress.md) | Charts, delivered workflows, evidence and remaining work |
+| [Performance metrics](performance.md) | On-screen FPS, frame/CPU/GPU timings, RAM, estimated VRAM and draw calls |
+| [Progress](progress.md) | Delivered workflows, evidence and remaining work |
 | [Changes](../CHANGELOG.md) | Releases, media migration and separately distributed data updates |
 | [Portable client](client-portable.md) | Complete Drive download for Linux/Windows, runtime requirements and executable updates |
 | [Data formats](data-formats.md) | Loose data layout, PNG and Ogg conversion |

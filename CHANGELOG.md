@@ -7,7 +7,7 @@ This log records delivered changes and data-package updates. Client data is host
 - Visible screenshots at the top of the README and a full gallery.
 - Contribution direction: original functional Shaiya foundation, Go and OpenGL 4.5, Linux as primary development platform and Windows support.
 - Complete Linux/Windows portable client download on Drive, separate from executable-only GitHub release packages.
-- Progress charts, functional workflow status and supported-format tables.
+- Functional workflow status, supported-format tables and an explanation of the on-screen performance metrics.
 
 ## gx-v0.1.3 — November 13, 2026
 

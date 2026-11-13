@@ -6,36 +6,20 @@ Updated November 13, 2026. This is a development snapshot, not a claim of comple
 
 The [original server parity table](../server/docs/original-parity.md) currently records **53 done and 3 partial entries**. These entries have different sizes and complexity; their counts are not an overall project completion percentage.
 
-```mermaid
-pie showData
-    title Documented server parity entries
-    "Done" : 53
-    "Partial" : 3
-```
-
-The chart summarizes the documented table, not an independent audit of every server rule. Keep the counts synchronized when that table changes.
+These figures summarize the documented table, not an independent audit of every server rule. Keep them synchronized when that table changes.
 
 ## Delivery milestones
 
-```mermaid
-flowchart TB
-    subgraph Delivered
-        A[Client and GX Server in one Go repository]
-        B[Native Linux and Windows builds in releases]
-        C[Loose portable data beside the executables]
-        D[OGG audio and PNG interface and cursors]
-        E[Embedded fonts and EP5 skill catalog]
-    end
-    subgraph Ongoing
-        F[Complete visual and gameplay parity]
-        G[Navigation, collision and cloak details]
-        H[Remaining service and interface variants]
-    end
-    classDef ready fill:#d1fae5,stroke:#047857,color:#064e3b
-    classDef ongoing fill:#fef3c7,stroke:#b45309,color:#78350f
-    class A,B,C,D,E ready
-    class F,G,H ongoing
-```
+| Milestone | Status |
+|---|---|
+| Client and GX Server in one Go repository | Delivered |
+| Native Linux and Windows release builds | Delivered |
+| Loose portable data beside the executables | Delivered |
+| OGG audio, PNG interface and cursors | Delivered |
+| Embedded fonts and EP5 skill catalog | Delivered |
+| Complete visual/gameplay parity | Ongoing |
+| Navigation, collision and cloak details | Ongoing |
+| Remaining service/interface variants | Ongoing |
 
 ## Delivered functional workflows
 
