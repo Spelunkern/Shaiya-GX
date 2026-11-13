@@ -46,6 +46,14 @@ func DefaultFontPath() string {
 			return p
 		}
 	}
+	// Windows ships the face this client is built around, so a Windows build
+	// needs no font beside the executable.
+	if root := os.Getenv("SystemRoot"); root != "" {
+		p := filepath.Join(root, "Fonts", "tahoma.ttf")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
 	return "/usr/share/wine/fonts/tahoma.ttf"
 }
 

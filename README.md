@@ -40,6 +40,38 @@ The graphical client asks for the account at login. Passwords are not persisted.
 
 Open Sans SemiBold is embedded for the interface elements that require it. Its [SIL Open Font License](internal/ui/fonts/OFL.txt) is included. No original game font is bundled.
 
+## Build with Docker
+
+Docker only provides the compiler. The folder mounted as the build output
+receives the executable directly, and `go build` targets either platform.
+
+```sh
+docker compose run --rm build                                    # game.exe (Windows)
+SHAIYA_GOOS=linux SHAIYA_CC= SHAIYA_OUT=shaiya \
+  docker compose run --rm build                                  # shaiya (Linux)
+```
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SHAIYA_GAME_DIR` | folder set in `docker-compose.yml` | mounted at `/out`, receives the executable |
+| `SHAIYA_OUT` | `game.exe` | output file name |
+| `SHAIYA_GOOS` | `windows` | `windows` (PE32+) or `linux` (ELF) |
+| `SHAIYA_CC` | `x86_64-w64-mingw32-gcc` | empty for a Linux build |
+
+The executable reads its settings from the environment; each one has an
+equivalent command-line flag that wins over it.
+
+| Variable | Flag | Default when unset |
+|---|---|---|
+| `SHAIYA_DATA` | `-data` | folder of the executable |
+| `SHAIYA_LOGIN` | `-login` | `127.0.0.1:30800` |
+| `SHAIYA_WORLD_PORT` | `-world-port` | `30810` |
+| `SHAIYA_FONT` | — | `fonts/tahoma.ttf` beside the executable, then the system font |
+| `SHAIYA_PASSWORD` | — | headless client only |
+
+The world server address is not configured: the login server answers the
+server list with it and the client connects on `SHAIYA_WORLD_PORT`.
+
 ## Controls
 
 | Input | Action |

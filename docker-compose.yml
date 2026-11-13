@@ -1,0 +1,40 @@
+# Shaiya GX — compiles game.exe straight into the game folder.
+#
+#   docker compose run --rm build
+#
+# /out IS the game folder: the compiler writes game.exe there. Nothing is
+# copied afterwards and no other file is added.
+#
+# The login endpoint is a runtime environment variable of the client
+# (SHAIYA_LOGIN, SHAIYA_WORLD_PORT); -login / -world-port override it.
+#
+# Linux build instead of Windows:
+#   SHAIYA_GOOS=linux SHAIYA_CC= SHAIYA_OUT=shaiya docker compose run --rm build
+name: shaiya-gx
+
+services:
+  build:
+    build: .
+    image: shaiya-gx-build:alpine
+    working_dir: /src
+    environment:
+      GOOS: ${SHAIYA_GOOS:-windows}
+      GOARCH: amd64
+      CC: ${SHAIYA_CC:-x86_64-w64-mingw32-gcc}
+    volumes:
+      - .:/src
+      # Output directory: the game folder itself.
+      - "${SHAIYA_GAME_DIR:-./data}:/out"
+      - gomod:/go/pkg/mod
+    command:
+      - go
+      - build
+      - -trimpath
+      - -ldflags
+      - -s -w
+      - -o
+      - /out/${SHAIYA_OUT:-game.exe}
+      - ./cmd/shaiya
+
+volumes:
+  gomod:

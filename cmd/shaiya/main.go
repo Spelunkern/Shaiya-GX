@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 
 	"github.com/go-gl/gl/v4.5-core/gl"
@@ -23,9 +24,12 @@ import (
 func init() { platform.LockMainThread() }
 
 func main() {
+	// Endpoints come from the environment, the same way -data reads SHAIYA_DATA:
+	// SHAIYA_LOGIN / SHAIYA_WORLD_PORT, as docker-compose.yml defines them.
+	// An explicit flag still wins over the environment.
 	dataDir := flag.String("data", os.Getenv("SHAIYA_DATA"), "directory with data.sah and data.saf")
-	login := flag.String("login", "127.0.0.1:30800", "login server address")
-	worldPort := flag.Int("world-port", 30810, "world server port")
+	login := flag.String("login", envOr("SHAIYA_LOGIN", "127.0.0.1:30800"), "login server address (SHAIYA_LOGIN)")
+	worldPort := flag.Int("world-port", envPort("SHAIYA_WORLD_PORT", 30810), "world server port (SHAIYA_WORLD_PORT)")
 	width := flag.Int("w", 1024, "window width")
 	height := flag.Int("h", 768, "window height")
 	volume := flag.Float64("volume", 0.6, "master audio volume (0..1; screenshots are silent)")
@@ -53,6 +57,22 @@ func main() {
 	if err := run(*dataDir, app.Config{LoginAddr: *login, WorldPort: *worldPort, Version: proto.ClientVersion, Volume: *volume}, *width, *height, *debug, *shot, *shotScreen, *autoplay, *autoSelect, *autoCast); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// envOr returns the environment value, or fallback when it is unset or empty.
+func envOr(name, fallback string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// envPort is envOr for a port number; a malformed value keeps the fallback.
+func envPort(name string, fallback int) int {
+	if v, err := strconv.Atoi(os.Getenv(name)); err == nil {
+		return v
+	}
+	return fallback
 }
 
 func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen, autoUser string, autoSelect, autoCast int) error {

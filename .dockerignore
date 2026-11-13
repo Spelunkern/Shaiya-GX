@@ -1,0 +1,23 @@
+# The image builds from source; never ship build outputs, VCS data or
+# game data into the build context.
+.git
+.gitignore
+build/
+out/
+/data/
+*.saf
+*.sah
+*.SAH
+*.SAF
+*.exe
+*.EXE
+*.dll
+*.DLL
+*.png
+*.jpg
+*.jpeg
+*.webp
+__pycache__/
+*.pyc
+logs/
+*.log
