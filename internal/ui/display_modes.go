@@ -13,7 +13,7 @@ func (m *GameMenu) SetDisplayModes(modes []platform.DisplayMode) {
 	m.displayHeld = -1
 }
 func (m *GameMenu) DisplayPopupOpen() bool {
-	return m != nil && m.Page == MenuGraphics && m.displayOpen
+	return m != nil && m.Page == MenuGraphics && (m.displayOpen || m.antialiasOpen)
 }
 func (m *GameMenu) displaySelected() int {
 	for i, mode := range m.DisplayModes {
@@ -102,7 +102,7 @@ func (m *GameMenu) updateDisplayModes(in *platform.Input, w, h, x, y int) (bool,
 	return true, MenuNone // dropdown owns its pointer and navigation until dismissed
 }
 func (m *GameMenu) drawDisplayModes(s *render.Sprites, f *Font, solid *render.Texture, x, y int) {
-	if !m.DisplayPopupOpen() || solid == nil {
+	if m.Page != MenuGraphics || !m.displayOpen || solid == nil {
 		return
 	}
 	labels := make([]string, 0, m.displayRows())

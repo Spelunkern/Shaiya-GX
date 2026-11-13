@@ -134,6 +134,9 @@ type App struct {
 	frameTarget                         *render.WaterTarget
 	sceneGlow                           *render.SceneGlow
 	sceneGlowFailed                     bool
+	msaaTarget                          *render.MSAATarget
+	fxaa                                *render.FXAA
+	msaaFailed, fxaaFailed              bool
 	frameWidth, frameHeight             int
 	worlds                              map[string]*scene.World
 	skinner                             *render.Skinner
@@ -273,6 +276,7 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	if cfg.DisplayModes != nil {
 		a.gameMenu.SetDisplayModes(cfg.DisplayModes())
 	}
+	a.gameMenu.SetAntialiasMaxSamples(render.MaxSamples())
 	if a.menuConfirm, err = ui.NewMessage(a); err != nil {
 		return nil, err
 	}
@@ -508,6 +512,7 @@ func (a *App) drawFrame(w, h int) {
 		a.drawMapLoading(w, h)
 		return
 	}
+	msaa := a.beginSceneAntialias(w, h)
 	if a.screen == screenLogin || a.screen == screenServers {
 		if ls := a.loginBackdrop(); ls != nil {
 			ls.Update(a.frameDT)
@@ -525,6 +530,8 @@ func (a *App) drawFrame(w, h int) {
 			a.drawWorld(a.selectWorld(fury), selectEye, selectTarget, w, h)
 		}
 	}
+	// Resolve before the loading screen so it never draws into the MSAA target.
+	a.endSceneAntialias(msaa)
 	if a.loading.active {
 		a.drawMapLoading(w, h)
 		return

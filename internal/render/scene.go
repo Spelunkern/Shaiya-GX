@@ -186,6 +186,7 @@ type Scene3D struct {
 	WaterTime                                                 float32
 	WaterBelow                                                bool
 	waterBackground                                           *Texture
+	waterBackgroundFBO, waterBackgroundFor                    uint32 // blit target when the scene is multisampled
 }
 
 func NewScene3D() (*Scene3D, error) {

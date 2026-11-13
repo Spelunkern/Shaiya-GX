@@ -16,6 +16,7 @@ func (s *Scene3D) CaptureWaterBackground() {
 		if s.waterBackground != nil {
 			s.waterBackground.Delete()
 		}
+		s.waterBackgroundFor = 0 // a recycled texture name must be reattached
 		var id uint32
 		gl.CreateTextures(gl.TEXTURE_2D, 1, &id)
 		gl.TextureStorage2D(id, 1, gl.RGBA8, int32(w), int32(h))
@@ -30,6 +31,23 @@ func (s *Scene3D) CaptureWaterBackground() {
 	var read, draw int32
 	gl.GetIntegerv(gl.READ_FRAMEBUFFER_BINDING, &read)
 	gl.GetIntegerv(gl.DRAW_FRAMEBUFFER_BINDING, &draw)
+	if draw != 0 && framebufferSamples(draw) > 0 {
+		// A multisampled scene cannot be copied; resolve it with a blit.
+		if s.waterBackgroundFBO == 0 || s.waterBackgroundFor != s.waterBackground.ID {
+			if s.waterBackgroundFBO == 0 {
+				gl.CreateFramebuffers(1, &s.waterBackgroundFBO)
+			}
+			gl.NamedFramebufferTexture(s.waterBackgroundFBO, gl.COLOR_ATTACHMENT0, s.waterBackground.ID, 0)
+			s.waterBackgroundFor = s.waterBackground.ID
+		}
+		scissored := gl.IsEnabled(gl.SCISSOR_TEST)
+		gl.Disable(gl.SCISSOR_TEST)
+		gl.BlitNamedFramebuffer(uint32(draw), s.waterBackgroundFBO, viewport[0], viewport[1], viewport[0]+int32(w), viewport[1]+int32(h), 0, 0, int32(w), int32(h), gl.COLOR_BUFFER_BIT, gl.NEAREST)
+		if scissored {
+			gl.Enable(gl.SCISSOR_TEST)
+		}
+		return
+	}
 	if read != draw {
 		gl.BindFramebuffer(gl.READ_FRAMEBUFFER, uint32(draw))
 	}
@@ -43,5 +61,9 @@ func (s *Scene3D) ReleaseWaterBackground() {
 	if s != nil && s.waterBackground != nil {
 		s.waterBackground.Delete()
 		s.waterBackground = nil
+	}
+	if s != nil && s.waterBackgroundFBO != 0 {
+		gl.DeleteFramebuffers(1, &s.waterBackgroundFBO)
+		s.waterBackgroundFBO, s.waterBackgroundFor = 0, 0
 	}
 }
