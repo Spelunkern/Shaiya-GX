@@ -94,3 +94,8 @@ __pycache__/
 /server/tools/refs/
 /server/docs/images/
 /out/
+
+# Explicitly approved project gallery screenshots.
+!/gallery/2026-11-13-login.png
+!/gallery/2026-11-13-character-selection.png
+!/gallery/2026-11-13-in-game.png

@@ -27,6 +27,10 @@ The client implements login, character creation/selection, world rendering, move
 
 GX Server retains Rapture's gameplay and protocol behavior. Its process names are now `gx_login`, `gx_world`, `gx_console` and `gx_server`; the advertised server name and micro app title are **GX Server**. Existing `RAPTURE_*` environment keys and `rapture.sqlite` filenames remain compatible to avoid changing operation or storage semantics.
 
+## Gallery
+
+See the [latest screenshots](gallery/README.md): login, character selection and in-game exploration.
+
 ## Guides
 
 - [First run on Windows and Linux](docs/quickstart.md)

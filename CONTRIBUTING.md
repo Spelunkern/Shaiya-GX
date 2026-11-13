@@ -44,9 +44,11 @@ Report what was actually tested. Call out skipped tests, Wine versus native Wind
 
 ## Data and publication policy
 
+The three explicitly approved screenshots listed in `tools/check_publication.py` may be published under `gallery/`; this exception does not permit arbitrary captures or game assets.
+
 Allowed fixtures are `server/data/` (supplied server maps/configuration and the intentionally shared development DB/manifest) and the authored GX Server icon. The shared DB intentionally includes test accounts, characters and inventory; do not refresh it from a different runtime without explicit authorization. SQLite snapshot/manifest must be updated together via `server/tools/snapshot_sqlite.py`.
 
-Never commit `data.sah`, `data.saf`, original executables, client textures/models/music, private fonts, personal runtime DBs, local overrides, credentials, packets, screenshots, research dumps, build outputs or private backups. Keep game-asset rights separate from the source license. Preserve [NOTICE](NOTICE) and [server/LICENSE](server/LICENSE).
+Never commit `data.sah`, `data.saf`, original executables, client textures/models/music, private fonts, personal runtime DBs, local overrides, credentials, packets, private/unapproved screenshots, research dumps, build outputs or private backups. Keep game-asset rights separate from the source license. Preserve [NOTICE](NOTICE) and [server/LICENSE](server/LICENSE).
 
 Run `python3 tools/check_publication.py --history` after staging the intended changes. Publish portable server binaries as GX release assets; use `python3 server/tools/package.py --output out/portable` and attach its checksums. Do not commit generated ZIPs/EXEs into source history.
 

@@ -14,6 +14,11 @@ GAME_SUFFIXES = {'.sah', '.saf', '.sdata', '.exe', '.dll', '.dds', '.tga', '.bmp
                  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.eft', '.3de', '.mlt',
                  '.sqlite', '.db', '.pem', '.key', '.pcap', '.packetlog', '.zip', '.7z'}
 LOCAL_DIRS = {'work', 'build', 'logs', 'runtime', 'data'}
+GALLERY_IMAGES = {
+    'gallery/2026-11-13-login.png',
+    'gallery/2026-11-13-character-selection.png',
+    'gallery/2026-11-13-in-game.png',
+}
 SECRETS = [re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'),
            re.compile(rb'\bgh[pousr]_[A-Za-z0-9]{30,}\b'),
            re.compile(rb'\bgithub_pat_[A-Za-z0-9_]{40,}\b'),
@@ -28,7 +33,7 @@ def forbidden(path):
     p = PurePosixPath(path)
     # Explicitly distributed server fixtures and authored app icon. This does
     # not permit personal runtime copies, client archives or build artifacts.
-    if path in {'server/cmd/gx_server/icon.png', 'internal/audio/testdata/tone.ogg'}:
+    if path in GALLERY_IMAGES or path in {'server/cmd/gx_server/icon.png', 'internal/audio/testdata/tone.ogg'}:
         return False
     if p.parts[:2] == ('server', 'data'):
         return (p.suffix.lower() in {'.sah', '.saf', '.exe', '.dll', '.pem', '.key', '.env'}
@@ -82,7 +87,7 @@ def main():
             if header[1] != b'blob':
                 continue
             checked += 1
-            if size > (67_108_864 if path.startswith('server/data/') else 1_048_576):
+            if size > (67_108_864 if path.startswith('server/data/') else 8_388_608 if path in GALLERY_IMAGES else 1_048_576):
                 errors.append(f'oversized source blob: {path}')
             if any(pattern.search(content) for pattern in SECRETS):
                 errors.append(f'potential secret: {path}')
