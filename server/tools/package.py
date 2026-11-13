@@ -101,6 +101,67 @@ def verify_native(package):
                     except subprocess.TimeoutExpired:
                         process.kill()
                         process.wait()
+        verify_controller(copied, temporary, environment, ports)
+
+
+def verify_controller(package, temporary, environment, ports):
+    """Exercise the real console and ensure a second installation survives."""
+    suffix = ".exe" if sys.platform == "win32" else ""
+    foreign = temporary / "Another GX Server copy"
+    shutil.copytree(package, foreign)
+    with socket.socket() as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        other_port = reservation.getsockname()[1]
+    other_env = dict(environment, RAPTURE_LOGIN_LISTEN=f"127.0.0.1:{other_port}")
+    with (temporary / "foreign.log").open("w") as log:
+        other = subprocess.Popen([str(foreign / "build" / ("gx_login" + suffix))],
+                                 cwd=temporary, env=other_env, stdout=log, stderr=subprocess.STDOUT)
+    console = None
+
+    def listening(port):
+        with socket.socket() as sock:
+            sock.settimeout(.2)
+            return sock.connect_ex(("127.0.0.1", port)) == 0
+
+    try:
+        deadline = time.monotonic() + 30
+        while not listening(other_port):
+            if other.poll() is not None or time.monotonic() > deadline:
+                raise RuntimeError("second installation did not start")
+            time.sleep(.1)
+        with (temporary / "console.log").open("w") as log:
+            console = subprocess.Popen([str(package / "build" / ("gx_console" + suffix))],
+                                       cwd=temporary, env=environment, stdin=subprocess.PIPE,
+                                       stdout=log, stderr=subprocess.STDOUT, text=True)
+        console.stdin.write("start server\n")
+        console.stdin.flush()
+        deadline = time.monotonic() + 60
+        while not all(listening(port) for port in ports):
+            if console.poll() is not None or time.monotonic() > deadline:
+                raise RuntimeError("console failed to start login/world")
+            time.sleep(.1)
+        console.stdin.write("shutdown server\n")
+        console.stdin.close()
+        console.wait(timeout=60)
+        if console.returncode != 0 or any(listening(port) for port in ports):
+            raise RuntimeError("console failed to stop its own installation")
+        if other.poll() is not None or not listening(other_port):
+            raise RuntimeError("controller stopped another portable installation")
+        print("Console verified: start/stop and second-installation isolation", flush=True)
+    finally:
+        if console is not None and console.poll() is None:
+            # Cleanup is scoped to this copied package, never by image name.
+            if console.stdin and not console.stdin.closed:
+                console.stdin.write("shutdown server\n")
+                console.stdin.close()
+            try:
+                console.wait(timeout=60)
+            except subprocess.TimeoutExpired:
+                console.kill()
+                console.wait()
+        if other.poll() is None:
+            other.terminate()
+            other.wait(timeout=10)
 
 
 def build_package(platform, output, go):
