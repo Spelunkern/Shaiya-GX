@@ -178,7 +178,7 @@ Friendly skill results are sent after the recipient applies the heal. Green numb
 
 ## Display selection
 
-Graphics options list `Window` and the resolutions advertised by the current monitor. The original resolution arrow opens a scrollable list; mouse, wheel and arrow keys select a pending mode. Enter closes the list and Escape dismisses it before closing the page. Press **OK** to apply and save; **Cancel** discards the selection. Keyboard navigation does not open chat or release movement already held.
+Graphics options list `Window`, fixed windowed sizes (currently `1600x900 Win`, offered when the monitor can hold it) and the fullscreen resolutions advertised by the current monitor. A fixed windowed size leaves fullscreen or un-maximizes and centers the window in the monitor work area; the window stays resizable afterward. The original resolution arrow opens a scrollable list; mouse, wheel and arrow keys select a pending mode. Enter closes the list and Escape dismisses it before closing the page. Press **OK** to apply and save; **Cancel** discards the selection. Keyboard navigation does not open chat or release movement already held.
 
 Fullscreen uses the existing GLFW window and OpenGL context. Returning to `Window` restores its previous size, position and maximized state. Normal window geometry is saved separately from the chosen display mode. Old settings default to a window; explicit `-w`/`-h` arguments override a saved fullscreen choice for that launch. Unsupported modes are refused and driver errors remain visible in the options page. The renderer stays at 32-bit colour. Wayland uses the primary monitor because it does not expose global window positions.
 

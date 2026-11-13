@@ -8,7 +8,16 @@ import (
 
 // The zero mode restores the ordinary resizable window. Nonzero modes use
 // a monitor-advertised 24/32-bit fullscreen resolution with the same GL context.
-type DisplayMode struct{ Width, Height int }
+// Windowed nonzero modes resize the ordinary window to a fixed client size
+// instead of switching the monitor.
+type DisplayMode struct {
+	Width, Height int
+	Windowed      bool `json:",omitempty"`
+}
+
+// windowedSizes are the fixed client sizes offered in windowed mode when the
+// monitor is large enough to hold them.
+var windowedSizes = []DisplayMode{{Width: 1600, Height: 900, Windowed: true}}
 
 func (m DisplayMode) Valid() bool {
 	return m == DisplayMode{} || m.Width >= 640 && m.Height >= 480 && m.Width <= 16384 && m.Height <= 16384
@@ -17,7 +26,21 @@ func (m DisplayMode) Label() string {
 	if m == (DisplayMode{}) {
 		return "Window"
 	}
+	if m.Windowed {
+		return fmt.Sprintf("%dx%d Win", m.Width, m.Height)
+	}
 	return fmt.Sprintf("%dx%d", m.Width, m.Height)
+}
+
+// Order: the resizable window, fixed windowed sizes, then fullscreen modes.
+func displayModeRank(m DisplayMode) int {
+	switch {
+	case m == DisplayMode{}:
+		return 0
+	case m.Windowed:
+		return 1
+	}
+	return 2
 }
 func NormalizeDisplayModes(modes []DisplayMode) []DisplayMode {
 	unique := map[DisplayMode]bool{{}: true}
@@ -31,6 +54,9 @@ func NormalizeDisplayModes(modes []DisplayMode) []DisplayMode {
 		out = append(out, m)
 	}
 	sort.Slice(out, func(i, j int) bool {
+		if ri, rj := displayModeRank(out[i]), displayModeRank(out[j]); ri != rj {
+			return ri < rj
+		}
 		if out[i].Width != out[j].Width {
 			return out[i].Width < out[j].Width
 		}
@@ -65,9 +91,16 @@ func (w *Window) displayMonitor() *glfw.Monitor {
 func (w *Window) DisplayModes() []DisplayMode {
 	var out []DisplayMode
 	if m := w.displayMonitor(); m != nil {
+		maxW, maxH := 0, 0
 		for _, v := range m.GetVideoModes() {
 			if v.RedBits >= 8 && v.GreenBits >= 8 && v.BlueBits >= 8 {
-				out = append(out, DisplayMode{v.Width, v.Height})
+				out = append(out, DisplayMode{Width: v.Width, Height: v.Height})
+				maxW, maxH = max(maxW, v.Width), max(maxH, v.Height)
+			}
+		}
+		for _, size := range windowedSizes {
+			if size.Width <= maxW && size.Height <= maxH {
+				out = append(out, size)
 			}
 		}
 	}
@@ -104,6 +137,9 @@ func (w *Window) ApplyDisplayMode(mode DisplayMode) (err error) {
 	if monitor == nil {
 		return fmt.Errorf("no display monitor")
 	}
+	if mode.Windowed {
+		return w.applyWindowedSize(monitor, mode)
+	}
 	refresh := -1
 	for _, v := range monitor.GetVideoModes() {
 		if v.Width == mode.Width && v.Height == mode.Height && v.RedBits >= 8 && v.GreenBits >= 8 && v.BlueBits >= 8 {
@@ -124,5 +160,34 @@ func (w *Window) ApplyDisplayMode(mode DisplayMode) (err error) {
 		}
 	}
 	w.SetMonitor(monitor, 0, 0, mode.Width, mode.Height, refresh)
+	return nil
+}
+
+// applyWindowedSize leaves fullscreen or un-maximizes, then sets the client
+// area to the requested size centered in the monitor's work area.
+func (w *Window) applyWindowedSize(monitor *glfw.Monitor, mode DisplayMode) error {
+	ax, ay, aw, ah := monitor.GetWorkarea()
+	if aw <= 0 || ah <= 0 {
+		if v := monitor.GetVideoMode(); v != nil {
+			ax, ay = monitor.GetPos()
+			aw, ah = v.Width, v.Height
+		}
+	}
+	x, y := ax+max(0, (aw-mode.Width)/2), ay+max(0, (ah-mode.Height)/2)
+	if w.GetMonitor() != nil {
+		w.SetMonitor(nil, x, y, mode.Width, mode.Height, glfw.DontCare)
+	} else {
+		if w.GetAttrib(glfw.Maximized) != 0 {
+			w.Restore()
+		}
+		w.SetSize(mode.Width, mode.Height)
+		if glfw.GetPlatform() != glfw.PlatformWayland {
+			// Keep the title bar on screen when the frame is taller than the gap.
+			_, top, _, _ := w.GetFrameSize()
+			w.SetPos(x, max(ay+top, y))
+		}
+	}
+	w.windowedMaximized = false
+	w.normalSize.Width, w.normalSize.Height = mode.Width, mode.Height
 	return nil
 }
