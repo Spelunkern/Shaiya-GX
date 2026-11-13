@@ -14,3 +14,8 @@ blending) were used as reference; no code is copied.
 
 Open Sans SemiBold, Copyright 2020 The Open Sans Project Authors.
 Embedded under the SIL Open Font License 1.1; see internal/ui/fonts/OFL.txt.
+
+GX Server incorporates the former Rapture Go server. Copyright (c) 2026,
+Shaiya Core Contributors. BSD 3-Clause terms retained in server/LICENSE.
+Server development database and supplied map/configuration data are distributed
+as test fixtures; original game content retains its respective ownership.

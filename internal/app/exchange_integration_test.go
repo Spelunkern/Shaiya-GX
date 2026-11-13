@@ -58,8 +58,8 @@ func TestExchangeAgainstRapture(t *testing.T) {
 		t.Fatal("player context menu did not open")
 	}
 	cx, cy := a1.playerContext.x, a1.playerContext.y
-	a1.worldControls(&platform.Input{MouseX: cx + 10, MouseY: cy + contextRowHeight + 5, Pressed: true, MouseDown: true}, 1024, 768)
-	a1.worldControls(&platform.Input{MouseX: cx + 10, MouseY: cy + contextRowHeight + 5, Clicked: true}, 1024, 768)
+	a1.worldControls(&platform.Input{MouseX: cx + 10, MouseY: cy + ui.PlayerMenuTextInset + contextRowHeight + 5, Pressed: true, MouseDown: true}, 1024, 768)
+	a1.worldControls(&platform.Input{MouseX: cx + 10, MouseY: cy + ui.PlayerMenuTextInset + contextRowHeight + 5, Clicked: true}, 1024, 768)
 	waitB(func() bool { return b.Exchange.InviteID == a.SelfID })
 	if !a2.updateExchangeInvite(&platform.Input{}, 1024, 768) || !a2.exchangeInvite.Visible {
 		t.Fatal("trade invitation not shown")

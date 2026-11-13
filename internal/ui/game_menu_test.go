@@ -73,3 +73,21 @@ func TestOptionsCancelRestoresPreviewAndOKCommits(t *testing.T) {
 		t.Fatal("OK did not commit", action, m.Settings)
 	}
 }
+
+func TestGraphicsSlidersAndCancel(t *testing.T) {
+	m, _ := NewGameMenu(marketTextures{})
+	before := m.Settings
+	m.Open(MenuGraphics)
+	x, y := m.Origin(1024, 768)
+	for i := 0; i < 4; i++ {
+		m.Update(&platform.Input{MouseX: x + 35, MouseY: y + 184 + 50*i, Pressed: true, MouseDown: true}, 1024, 768)
+		m.Update(&platform.Input{MouseX: x + 35, MouseY: y + 184 + 50*i, Clicked: true}, 1024, 768)
+	}
+	if m.Settings.Glow != 0 || m.Settings.Brightness != 0 || m.Settings.Details != 0 || m.Settings.VisualDistance != 0 {
+		t.Fatal(m.Settings)
+	}
+	m.DiscardPage()
+	if m.Settings != before {
+		t.Fatal("graphics cancel lost saved values")
+	}
+}

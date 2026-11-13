@@ -16,6 +16,8 @@ import (
 // third-person camera (0x444b10 reset, 0x4397d0 orbit/zoom, 0x43bfa0
 // movement; Phoenix tools/reference/ep5_camera_controls.md).
 type worldView struct {
+	requestedSkill          *requestedSkillPresentation
+	releaseEffects          []skillRelease
 	death                   deathView
 	localActions            [ui.TotalActionSlots]uint8 // zero means empty; otherwise panel index + 1
 	localActionDrag         subActionDrag
@@ -52,7 +54,10 @@ type worldView struct {
 	autoRun                 bool
 	travel                  bool
 	approachTarget          uint32
+	approachSkill           []byte
+	approachLearned         proto.LearnedSkill
 	approachLoot            bool
+	approachNPC             bool
 	destination             render.V3
 	travelEffect            *scene.Effect
 	firstPerson             bool
@@ -542,16 +547,19 @@ func (a *App) drawWorldView(w, h int) {
 		eye, target = v.cameraEye, v.cameraTarget
 	}
 	s := a.scene3d
+	s.HideWeaponEffects = !a.clientSettings().SkillEffects
+	s.DetailBias = float32(2 - a.clientSettings().Details)
 	s.SetCameraView(eye, target, render.V3{0, 1, 0})
 	aspect := projectionAspect(w, h)
-	far := max(float32(400), v.world.FogEnd)
+	distanceScale := []float32{.5, .75, 1}[a.clientSettings().VisualDistance]
+	far := max(float32(200), max(float32(400), v.world.FogEnd)*distanceScale)
 	// Enclose every frustum corner, including wide viewports and pitched cameras.
 	tangent := float32(math.Tan(nativeWorldFOV / 2))
 	radius := far * float32(math.Sqrt(float64(1+tangent*tangent*(1+aspect*aspect))))
 	v.world.UpdateVisible(eye, radius)
 	s.Proj = render.PerspectiveFovLH(nativeWorldFOV, aspect, 0.1, far)
 	s.SkyProj = render.PerspectiveFovLH(nativeWorldFOV, aspect, 10, 100000)
-	s.FogColor, s.FogStart, s.FogEnd = v.world.FogColor, v.world.FogStart, v.world.FogEnd
+	s.FogColor, s.FogStart, s.FogEnd = v.world.FogColor, v.world.FogStart*distanceScale, v.world.FogEnd*distanceScale
 	underwaterColor, underwater := v.world.UnderwaterFogAt(eye)
 	if underwater {
 		// Phoenix's underwater range; the original's fog curve is not yet known.
@@ -609,7 +617,7 @@ func (a *App) drawWorldView(w, h int) {
 	} else if v.waterReflection != nil && waterVisible && underwater {
 		v.world.PrepareMapEffects(s, eye)
 		fogColor, fogStart, fogEnd := s.FogColor, s.FogStart, s.FogEnd
-		s.FogColor, s.FogStart, s.FogEnd = v.world.FogColor, v.world.FogStart, v.world.FogEnd
+		s.FogColor, s.FogStart, s.FogEnd = v.world.FogColor, v.world.FogStart*distanceScale, v.world.FogEnd*distanceScale
 		v.waterReflection.Capture(s.FogColor, func() {
 			s.ClipPlane = [4]float32{0, 1, 0, 0}
 			s.Begin()
@@ -746,6 +754,7 @@ func (a *App) refreshSelf(v *worldView) {
 }
 
 func (a *App) releaseWorld() {
+	a.combatNumbers = nil
 	a.appearanceEdit = nil
 	a.mall = mallView{}
 	if a.mallConfirm != nil {
@@ -762,6 +771,15 @@ func (a *App) releaseWorld() {
 		a.buffs = buffsView{}
 		a.party = partyView{}
 		a.guild = guildView{}
+		a.social = socialView{}
+		if a.socialInviteUI != nil {
+			a.socialInviteUI.Visible = false
+		}
+		if a.socialUI != nil {
+			a.socialUI.Focus = false
+			a.socialUI.EditingMemo = 0
+			a.socialUI.Name = ui.TextField{Max: 20}
+		}
 		a.guildDuel = guildDuelView{}
 		if a.guildDuelMessage != nil {
 			a.guildDuelMessage.Visible = false

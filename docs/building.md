@@ -1,40 +1,80 @@
-# Building and testing
+# Building, testing and packaging GX
 
-## Linux build
+Run commands from the repository root unless noted. Client and server share the root `go.mod` / `go.sum`; `server/` has no separate Go module or Git repository. Go 1.27.3 is the tested toolchain. Use an amd64 toolchain and `go version` to confirm it.
 
-Use Go 1.27.3 with CGO, a C compiler, `pkg-config`, OpenGL development headers, X11/GLFW dependencies and ALSA development libraries. A functioning OpenGL 4.5 driver is required at runtime.
+## Linux
+
+Install Go, GCC, `pkg-config`, OpenGL development headers, X11, Wayland/xkbcommon headers and ALSA development libraries. For Debian/Ubuntu:
 
 ```sh
-go build -o build/shaiya ./cmd/shaiya
-go build -o build/shaiyacli ./cmd/shaiyacli
-go build -o build/assets ./cmd/assets
+sudo apt-get install build-essential pkg-config libgl1-mesa-dev xorg-dev libwayland-dev libxkbcommon-dev libasound2-dev
+./tools/build.sh
+```
+
+The script vets, builds client utilities into `build/`, builds server programs into `server/build/`, and runs ordinary unit tests. On other distributions install equivalent packages. The client needs an OpenGL 4.5-capable GPU/driver. The Fyne micro app also needs desktop graphics. The portable headless server/console does not require these development packages.
+
+## Windows (native)
+
+Install the Go 1.27.3 amd64 toolchain and a 64-bit MinGW-w64 GCC (for example MSYS2 UCRT64's `mingw-w64-ucrt-x86_64-gcc`). Add Go and that GCC's `bin` directory to your PowerShell PATH, then confirm:
+
+```powershell
+go version
+gcc --version
+$env:CGO_ENABLED = '1'
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
+```
+
+Do not use a 32-bit compiler or MSVC `cl` as the CGO compiler. Output: `build/shaiya.exe`, `build/shaiyacli.exe`, `build/assets.exe` and `server/build/gx_{login,world,console,server}.exe`. `gx_server.exe` is a GUI-subsystem app. Audio uses the Windows backend; ALSA is only a Linux dependency. Run from a normal desktop with your GPU vendor's OpenGL 4.5 driver.
+
+## Windows cross build from Linux
+
+With `x86_64-w64-mingw32-gcc` installed:
+
+```sh
+CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
+  go build -o build/shaiya.exe ./cmd/shaiya
+python3 server/tools/package.py --platform windows-amd64 --output out/portable
+```
+
+The packager cross-builds the GUI with MinGW (`GX_WINDOWS_CC` overrides the compiler). Login/world/console use CGO=0. Cross-compilation proves build compatibility; native Windows execution is checked separately by CI. [Fyne's cross-build guide](https://docs.fyne.io/started/cross-compiling/) explains the GUI toolchain requirement.
+
+## Tests and continuous integration
+
+```sh
 go vet ./...
 go test ./...
-staticcheck ./...
+go test -tags integration ./server/... -count=1
+python3 -m unittest discover -s server/tools -p 'test_*.py'
+python3 tools/check_publication.py --history
 ```
 
-`tools/build.sh` runs vet, builds all three executables and runs unit tests. Build outputs are ignored. Windows cross-compilation is not part of the currently validated release path.
+The publication check inspects staged source and, with `--history`, reachable history. Stage intended files first. It permits the explicitly distributed `server/data/` fixtures and the authored micro app icon, while rejecting client assets, local runtime copies, credentials and generated binaries.
 
-## Local assets
+`.github/workflows/ci.yml` builds and tests on native Linux and Windows runners, including server integration and portable startup from a relocated directory containing spaces. Portable packages are uploaded as workflow artifacts. Tagged GX releases publish the portable archives and checksums. A green run does not establish full visual parity: graphical tests need licensed local assets and a real OpenGL context.
 
-Keep `data.sah` and `data.saf` outside the source tree. Set `SHAIYA_DATA` to their directory and `SHAIYA_FONT` to a local Tahoma-compatible font. A packaged executable also looks beside itself for archives and `fonts/tahoma.ttf`.
+## Local assets and graphics checks
 
-`tools/package.py --source /path/to/local/assets --output /path/to/play-folder` prepares a local play folder. This copies local game assets for personal testing; **never add that output folder to Git**. The helper assumes a local font and Rapture setup; inspect its options before using it on a different workstation. `--update` replaces an existing Linux executable atomically without truncating the running process's executable inode.
-
-## Opt-in graphics checks
+Set `SHAIYA_DATA` to the directory containing your compatible `data.sah` and `data.saf`, and `SHAIYA_FONT` to a Tahoma-compatible font. The client also checks for archives and `fonts/tahoma.ttf` beside its executable. Open Sans SemiBold is embedded under its included SIL license; Tahoma is not bundled publicly.
 
 ```sh
-SHAIYA_TEST_RENDER=1 \
-SHAIYA_DATA=/path/to/local/game-data \
-SHAIYA_FONT=/path/to/tahoma.ttf \
-SHAIYA_TEST_ARTIFACTS=/path/to/local/captures \
-go test -tags integration ./internal/app -run TestHUDPolishOriginalAssetsGL -count=1 -v
+SHAIYA_TEST_RENDER=1 SHAIYA_DATA=/path/to/game-data \
+SHAIYA_FONT=/path/to/tahoma.ttf SHAIYA_TEST_ARTIFACTS=/path/to/private/captures \
+  go test -tags integration ./internal/app \
+  -run 'TestHUDPolishOriginalAssetsGL|TestPhoenixChatAndLoginLogoGL' -count=1 -v
 ```
 
-These checks need a graphics context and compatible original archives. They do not download assets. Use an ignored directory for captures, logs and analysis output.
+`python3 tools/n2_smoke.py` is the Linux end-to-end client/server probe. It uses `server/build`, copies the distributed seed to temporary storage, creates disposable fixtures and uses ports 40800/40810. It does not use your mutable runtime DB or stop your personal services. `GX_SERVER_DIR` overrides the server directory; legacy `RAPTURE_DIR` remains accepted. Legacy SQL Server-only probes are disabled; use N2 for SQLite.
 
-## Server integration
+## Package a portable server
 
-`tools/n2_smoke.py` expects a local Rapture build and seed database. It copies the seed into a temporary directory, provisions disposable accounts/items, starts login/world on ports 40800/40810 and removes its own processes/database afterwards. Existing game services and personal runtime databases are left alone. `RAPTURE_DIR` overrides the local server directory.
+```sh
+python3 server/tools/package.py --output out/portable
+```
 
-The current probe covers movement and remote animation, jump/posture/evasions, mouse controls, frame-rate consistency, approach-and-pickup, approach-and-attack, chat and acknowledged return to selection. Other integration tests require their documented opt-in environment variables and suitable disposable fixtures.
+This requires Go, Python 3 and GUI build dependencies. Building both targets on Linux also requires MinGW. It emits `gx-server-linux-amd64.tar.gz`, `gx-server-windows-amd64.zip` and `SHA256SUMS.txt`. Every package includes the GUI, console, login/world, seed, server data, docs, license and optional account/backup tools. Packaging fails if the GUI fails to build; it cannot silently disappear from a release. The packager validates seed hashes, table counts and integrity before shipping and starts the native target in a disposable relocated directory.
+
+Rebuilding does not take a new snapshot from a personal runtime. Refresh deliberately using [server storage instructions](../server/docs/sqlite.md), then build. Release binaries are attached to the GX repository's releases rather than committed into source history.
+
+## Prepare a private client folder (Linux)
+
+`python3 tools/package.py --source /path/to/local/assets --output /path/to/play-folder` copies your own game files, font, client, docs and launcher for personal use. Set `GX_SERVER_DIR` to your source `server/` folder or an extracted portable server. `--update` replaces the Linux executable atomically and preserves installed archives. This helper is for private Linux play folders; Windows users can run `build/shaiya.exe` with the environment variables above. Never publish a client play folder containing game assets.

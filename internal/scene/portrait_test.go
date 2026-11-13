@@ -22,3 +22,17 @@ func TestPortraitFrameFitsTallAndWideBodies(t *testing.T) {
 		}
 	}
 }
+
+func TestInventoryFrameDoesNotZoomOutForBindPoseArms(t *testing.T) {
+	narrow := &Character{parts: []*skinPart{{min: render.V3{-.3, 0, -.1}, max: render.V3{.3, 2, .1}}}}
+	wide := &Character{parts: []*skinPart{{min: render.V3{-2, 0, -.1}, max: render.V3{2, 2, .1}}}}
+	c1, d1 := narrow.InventoryFrame(math.Pi/5, 1)
+	c2, d2 := wide.InventoryFrame(math.Pi/5, 1)
+	if c1 != 1 || c1 != c2 || d1 != d2 {
+		t.Fatal("bind-pose arms changed inventory scale", c1, d1, c2, d2)
+	}
+	_, tall := wide.InventoryFrame(math.Pi/5, 1.04)
+	if tall <= d2 {
+		t.Fatal("height did not preserve full-body framing")
+	}
+}

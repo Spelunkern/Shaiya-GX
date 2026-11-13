@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
@@ -99,9 +98,8 @@ func (v *Inventory) Draw(s *render.Sprites, f *Font, w, h int, bag uint8, money 
 	}
 	v.close.OriginX, v.close.OriginY = x, y
 	v.close.Draw(s)
-	text := fmt.Sprint(money)
-	f.Draw(s, text, x+220-f.Width(text), y+460, white, 110)
-	f.Draw(s, message, x+12, y+438, white, 232)
+	text := GoldText(money)
+	f.Draw(s, text, x+220-f.Width(text), y+460, goldTint(money), 110)
 }
 
 func (v *Inventory) Origin(w, h int) (int, int) {

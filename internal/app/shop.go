@@ -34,7 +34,7 @@ func (a *App) updateShop(in *platform.Input, w, h int) bool {
 	for _, r := range in.Chars {
 		if (r == 'n' || r == 'N') && !a.state.Self.Dead {
 			a.loadNPCs()
-			best := float32(100)
+			best := float32(50 * 50)
 			id := uint32(0)
 			for k, e := range a.state.Entities {
 				if e.Kind != game.KindNpc {
@@ -42,6 +42,9 @@ func (a *App) updateShop(in *platform.Input, w, h int) bool {
 				}
 				dx, dz := e.X-a.wv.pos[0], e.Z-a.wv.pos[2]
 				d := dx*dx + dz*dz
+				if e.NpcType != 2 && d >= 100 {
+					continue
+				}
 				if d < best || d == best && (id == 0 || k < id) {
 					best, id = d, k
 				}
@@ -143,14 +146,25 @@ func (a *App) openNPC(id uint32) {
 	}
 	dx, dz := e.X-a.wv.pos[0], e.Z-a.wv.pos[2]
 	if dx*dx+dz*dz >= 100 {
+		if e.NpcType == 2 && dx*dx+dz*dz < 50*50 {
+			a.wv.autoRun = false
+			a.wv.approachTarget, a.wv.approachNPC, a.wv.approachLoot = id, true, false
+			a.wv.approachSkill = nil
+			a.updateActionApproach(&platform.Input{})
+		}
 		return
 	}
 	a.loadNPCs()
+	a.wv.approachTarget, a.wv.approachSkill = 0, nil
+	a.wv.approachNPC, a.wv.travel, a.wv.autoRun = false, false, false
 	if err := a.world.Send(proto.NpcTalkPacket(id)); err != nil {
 		a.backToLogin("Unable to talk to NPC.")
 		return
 	}
 	a.shop.npcID, a.shop.page, a.shop.questMode = id, 0, false
+	if e.NpcType == 2 && a.gateUI != nil {
+		a.gateUI.ResetWelcomeScroll()
+	}
 }
 
 func (a *App) drawShop(w, h int) {

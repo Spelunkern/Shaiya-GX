@@ -26,12 +26,14 @@ const (
 	KeyF9
 	KeyF10
 	KeySpace
-	KeyTarget // Synthetic target selection for integration autoplay, not a native binding.
+	KeyTarget         // Native English client: DirectInput 0x29 (grave accent).
+	KeyPreviousTarget // Press edge only; Backspace still repeats inside text fields.
 )
 
 // Input is one frame of input: the state plus the events since last frame.
 type Input struct {
 	KeypadChars      string // character events that belong to keypad action edges
+	ActionHeld       uint32 // held number-row/keypad slots, independent of repeat events
 	Actions          []int  // second-bar keypad press edges, flattened slot indices
 	MouseX, MouseY   int
 	MouseLook        bool    // captured pointer; UI coordinates stay at the drag anchor
@@ -65,7 +67,8 @@ func (in *Input) HasKey(k Key) bool {
 }
 
 var keyMap = map[glfw.Key]Key{
-	glfw.KeyEnter: KeyEnter, glfw.KeyKPEnter: KeyEnter, glfw.KeyTab: KeyTab,
+	glfw.KeyGraveAccent: KeyTarget,
+	glfw.KeyEnter:       KeyEnter, glfw.KeyKPEnter: KeyEnter, glfw.KeyTab: KeyTab,
 	glfw.KeyBackspace: KeyBackspace, glfw.KeyEscape: KeyEscape, glfw.KeyUp: KeyUp,
 	glfw.KeyHome: KeyHome, glfw.KeyPageUp: KeyPageUp, glfw.KeyPageDown: KeyPageDown,
 	glfw.KeyF9: KeyF9, glfw.KeyF10: KeyF10, glfw.KeySpace: KeySpace,
@@ -104,6 +107,9 @@ func (w *Window) InstallInput() *InputQueue {
 				q.cur.Keys = append(q.cur.Keys, KeyNumLock)
 			}
 			return
+		}
+		if k == glfw.KeyBackspace && a == glfw.Press {
+			q.cur.Keys = append(q.cur.Keys, KeyPreviousTarget)
 		}
 		if mk, ok := keyMap[k]; ok && (a == glfw.Press || mk <= KeyDelete && mk != KeyTab) {
 			q.cur.Keys = append(q.cur.Keys, mk)
@@ -182,8 +188,18 @@ func (q *InputQueue) Frame() Input {
 	}
 	in.Down = string(down[:n])
 	in.Space = q.win.GetKey(glfw.KeySpace) == glfw.Press
+	for digit := 0; digit < 10; digit++ {
+		slot := (digit + 9) % 10
+		if q.win.GetKey(glfw.Key0+glfw.Key(digit)) == glfw.Press {
+			in.ActionHeld |= 1 << slot
+		}
+		if q.win.GetKey(glfw.KeyKP0+glfw.Key(digit)) == glfw.Press {
+			in.ActionHeld |= 1 << (10 + slot)
+		}
+	}
 	if q.win.GetAttrib(glfw.Focused) == 0 {
 		in.Down, in.Space, in.SuppressAutoRun = "", false, true
+		in.ActionHeld = 0
 		in.Chars, in.Keys, in.Actions, in.Released = nil, nil, nil, ""
 	}
 	q.cur = Input{MouseDown: in.MouseDown, RightDown: in.RightDown, Shift: in.Shift}

@@ -68,14 +68,29 @@ func TestGuildRosterControlsAndCapture(t *testing.T) {
 		t.Fatal("G did not open and capture guild panel")
 	}
 	x, y := a.guildUI.Origin(1024, 768)
-	a.worldControls(&platform.Input{MouseX: x + 60, MouseY: y + 103, Pressed: true, MouseDown: true}, 1024, 768)
-	controls = a.worldControls(&platform.Input{MouseX: x + 60, MouseY: y + 103, Clicked: true}, 1024, 768)
+	a.worldControls(&platform.Input{MouseX: x + 60, MouseY: y + 116, Pressed: true, MouseDown: true}, 1024, 768)
+	controls = a.worldControls(&platform.Input{MouseX: x + 60, MouseY: y + 116, Clicked: true}, 1024, 768)
 	if a.guild.selected != 2 || controls.Clicked {
 		t.Fatal("guild selection not captured", a.guild.selected)
 	}
 	controls = a.worldControls(&platform.Input{Keys: []platform.Key{platform.KeyEscape}}, 1024, 768)
 	if a.guild.open || controls.HasKey(platform.KeyEscape) {
 		t.Fatal("escape did not close guild panel")
+	}
+}
+
+func TestNativeGuildHeadersSortWithoutChangingSelection(t *testing.T) {
+	a := inputApp()
+	a.guildUI, _ = ui.NewGuildPanel(inputTextures{})
+	a.guild.open, a.guild.rosterDirty, a.guild.selected = true, true, 2
+	a.state.Guild.Members = map[uint32]proto.GuildMember{1: {ID: 1, Name: "Zed", Level: 60, Rank: 1}, 2: {ID: 2, Name: "Ally", Level: 20, Rank: 9}}
+	x, y := a.guildUI.Origin(1024, 768)
+	for _, want := range []uint32{2, 1} {
+		a.updateGuild(&platform.Input{MouseX: x + 40, MouseY: y + 75, Pressed: true, MouseDown: true}, 1024, 768)
+		a.updateGuild(&platform.Input{MouseX: x + 40, MouseY: y + 75, Clicked: true}, 1024, 768)
+		if a.guild.roster[0].ID != want || a.guild.selected != 2 {
+			t.Fatal("column sort lost ordering or selected member", a.guild.roster, a.guild.selected)
+		}
 	}
 }
 

@@ -1,0 +1,446 @@
+package world
+
+import (
+	"net"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/Spelunkern/Shaiya-GX/server/internal/crypto"
+	"github.com/Spelunkern/Shaiya-GX/server/internal/db"
+	"github.com/Spelunkern/Shaiya-GX/server/internal/logx"
+)
+
+// connWriter serializes every write to one client socket: the owning
+// session and broadcasts from other sessions share it.
+type connWriter struct {
+	mu   sync.Mutex
+	conn net.Conn
+}
+
+func (w *connWriter) write(b []byte) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	_, err := w.conn.Write(b)
+	return err
+}
+
+type pendingTeleport struct {
+	MapID   uint16
+	X, Y, Z float32
+}
+
+type pendingDamage struct {
+	MobGlobalID uint32
+	MobID       uint16
+	Attack      uint32
+	Slot        uint8
+	First       bool // the skill's selected target (0x060D), else 0x060B
+}
+
+// ConnectedPlayer is a player in the world, reachable from any session for
+// broadcasts. Cross-session work is queued in mailboxes and applied by the
+// owning session's loop, which alone mutates its character.
+type ConnectedPlayer struct {
+	CharacterID   uint32
+	CharacterName string
+	IsAdmin       bool
+	out           *connWriter
+	log           *logx.Logger
+
+	mu        sync.Mutex
+	mapID     uint16
+	character db.Character
+	items     []db.Item
+	faction   uint8
+	motion    uint8
+	direction uint16
+	sitting   bool
+	gmVisible bool
+	mount     uint8 // 0x051D vehicle shape, 0 on foot
+
+	mailMu       sync.Mutex
+	teleport     *pendingTeleport
+	tradeRefresh *tradeRefresh
+	damage       []pendingDamage
+	lifeSkill    *pendingLifeSkill
+	friendly     []pendingFriendly
+	userHits     []pendingUserHit
+	pvpKills     []pvpKill
+	duelEnds     []pendingDuelEnd
+	duelWins     int
+	itemGrants   []db.Item
+	weaponWear   int
+
+	guild    playerGuildState // guarded by guildMu
+	soulKill bool
+
+	alive     atomic.Bool
+	debuffed  atomic.Bool // an active debuff (PvPHaveDebuff), refreshed by its session
+	kcRefresh atomic.Bool // the country tier changed (ApplyKillCount)
+
+	duel duelState // guarded by duelMu
+
+	// Party state, guarded by partyMu.
+	party          *party
+	inviterID      uint32
+	inviteDeadline time.Time
+
+	rewardMu   sync.Mutex
+	expRewards []uint32
+	goldShares []uint32
+	questKills []uint16
+
+	questMu  sync.Mutex
+	questIDs map[uint16]bool // active quests, for loot eligibility
+
+	view playerView // cell and the entities this client knows
+}
+
+// QueueQuestKill credits a kill to the player's quests (party members get
+// it too, as mob_death does).
+func (p *ConnectedPlayer) QueueQuestKill(mobID uint16) {
+	p.rewardMu.Lock()
+	p.questKills = append(p.questKills, mobID)
+	p.rewardMu.Unlock()
+}
+
+func (p *ConnectedPlayer) TakeQuestKills() []uint16 {
+	p.rewardMu.Lock()
+	defer p.rewardMu.Unlock()
+	k := p.questKills
+	p.questKills = nil
+	return k
+}
+
+func (p *ConnectedPlayer) setQuests(ids []uint16) {
+	m := make(map[uint16]bool, len(ids))
+	for _, id := range ids {
+		m[id] = true
+	}
+	p.questMu.Lock()
+	p.questIDs = m
+	p.questMu.Unlock()
+}
+
+func (p *ConnectedPlayer) hasQuest(id uint16) bool {
+	p.questMu.Lock()
+	defer p.questMu.Unlock()
+	return p.questIDs[id]
+}
+
+// QueueExp / QueueGold carry a party member's share of a kill to its own
+// session, the only one that mutates its character.
+func (p *ConnectedPlayer) QueueExp(amount uint32) {
+	p.rewardMu.Lock()
+	p.expRewards = append(p.expRewards, amount)
+	p.rewardMu.Unlock()
+}
+
+func (p *ConnectedPlayer) QueueGold(amount uint32) {
+	p.rewardMu.Lock()
+	p.goldShares = append(p.goldShares, amount)
+	p.rewardMu.Unlock()
+}
+
+func (p *ConnectedPlayer) TakeRewards() (exp, gold []uint32) {
+	p.rewardMu.Lock()
+	defer p.rewardMu.Unlock()
+	exp, gold = p.expRewards, p.goldShares
+	p.expRewards, p.goldShares = nil, nil
+	return
+}
+
+var (
+	registryMu sync.Mutex
+	registry   = map[uint16]map[uint32]*ConnectedPlayer{}
+)
+
+func bucket(mapID uint16) map[uint32]*ConnectedPlayer {
+	b, ok := registry[mapID]
+	if !ok {
+		b = map[uint32]*ConnectedPlayer{}
+		registry[mapID] = b
+	}
+	return b
+}
+
+// RegisterPlayer adds a player to its map's registry.
+func RegisterPlayer(ch db.Character, items []db.Item, isAdmin bool, faction uint8, out *connWriter, log *logx.Logger) *ConnectedPlayer {
+	p := &ConnectedPlayer{CharacterID: ch.ID, CharacterName: ch.Name, IsAdmin: isAdmin, out: out, log: log,
+		mapID: ch.MapID, character: ch, items: append([]db.Item(nil), items...), faction: faction}
+	p.alive.Store(true)
+	registryMu.Lock()
+	bucket(ch.MapID)[ch.ID] = p
+	registryMu.Unlock()
+	return p
+}
+
+// Unregister removes the player and cancels any trade it was part of.
+func (p *ConnectedPlayer) Unregister() {
+	clearSocialSession(p.CharacterID)
+	p.dropFromOthers()
+	registryMu.Lock()
+	delete(bucket(p.MapID()), p.CharacterID)
+	registryMu.Unlock()
+	tradeCancelForDisconnect(p.CharacterID, p.log)
+	duelLeave(p, 0, false) // PvPChkLeaveByZoneLeave
+	guildDuelLeave(p, nil, 1)
+	partyLeaveOnDisconnect(p)
+}
+
+func (p *ConnectedPlayer) SetMap(mapID uint16) {
+	p.mu.Lock()
+	old := p.mapID
+	p.mapID = mapID
+	p.mu.Unlock()
+	if old == mapID {
+		return
+	}
+	registryMu.Lock()
+	if cur, ok := bucket(old)[p.CharacterID]; ok {
+		delete(bucket(old), p.CharacterID)
+		bucket(mapID)[p.CharacterID] = cur
+	}
+	registryMu.Unlock()
+}
+
+func (p *ConnectedPlayer) MapID() uint16 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.mapID
+}
+
+func (p *ConnectedPlayer) Faction() uint8 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.faction
+}
+
+func (p *ConnectedPlayer) PositionXZ() (float32, float32) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.character.PosX, p.character.PosZ
+}
+
+func (p *ConnectedPlayer) UpdateCharacter(ch db.Character) {
+	p.mu.Lock()
+	p.character = ch
+	p.mu.Unlock()
+}
+
+func (p *ConnectedPlayer) Snapshot() db.Character {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.character
+}
+
+func (p *ConnectedPlayer) UpdateItems(items []db.Item) {
+	p.mu.Lock()
+	p.items = append([]db.Item(nil), items...)
+	p.mu.Unlock()
+}
+
+func (p *ConnectedPlayer) UpdateMotion(motion uint8, direction uint16) {
+	p.mu.Lock()
+	p.motion, p.direction = motion, direction
+	p.mu.Unlock()
+}
+
+func (p *ConnectedPlayer) SetSitting(v bool) {
+	p.mu.Lock()
+	p.sitting = v
+	p.mu.Unlock()
+}
+
+func (p *ConnectedPlayer) IsSitting() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.sitting
+}
+
+func (p *ConnectedPlayer) GMVisible() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.gmVisible
+}
+
+func (p *ConnectedPlayer) IsAlive() bool   { return p.alive.Load() }
+func (p *ConnectedPlayer) SetAlive(v bool) { p.alive.Store(v) }
+
+func (p *ConnectedPlayer) QueueTeleport(mapID uint16, x, y, z float32) {
+	p.mailMu.Lock()
+	p.teleport = &pendingTeleport{mapID, x, y, z}
+	p.mailMu.Unlock()
+}
+
+func (p *ConnectedPlayer) TakeTeleport() *pendingTeleport {
+	p.mailMu.Lock()
+	defer p.mailMu.Unlock()
+	t := p.teleport
+	p.teleport = nil
+	return t
+}
+
+// tradeRefresh tells the other side of a completed trade to reload its
+// items and apply the money change itself (only the owner mutates its
+// character).
+type tradeRefresh struct {
+	Packets    [][]byte
+	MoneyDelta int64
+}
+
+func (p *ConnectedPlayer) QueueTradeRefresh(packets [][]byte, moneyDelta int64) {
+	p.mailMu.Lock()
+	p.tradeRefresh = &tradeRefresh{packets, moneyDelta}
+	p.mailMu.Unlock()
+}
+
+func (p *ConnectedPlayer) TakeTradeRefresh() *tradeRefresh {
+	p.mailMu.Lock()
+	defer p.mailMu.Unlock()
+	r := p.tradeRefresh
+	p.tradeRefresh = nil
+	return r
+}
+
+func (p *ConnectedPlayer) QueueDamage(d pendingDamage) {
+	p.mailMu.Lock()
+	p.damage = append(p.damage, d)
+	p.mailMu.Unlock()
+}
+
+func (p *ConnectedPlayer) TakeDamage() []pendingDamage {
+	p.mailMu.Lock()
+	defer p.mailMu.Unlock()
+	d := p.damage
+	p.damage = nil
+	return d
+}
+
+func (p *ConnectedPlayer) SitMotionPacket() []byte {
+	return buildCharacterMotion(p.CharacterID, MotionSitDown)
+}
+
+// EnteredMapPacket introduces an already-present character to a viewer.
+func (p *ConnectedPlayer) EnteredMapPacket() []byte {
+	gid := guildIDFor(p.CharacterID)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return buildCharacterEnteredMapGuild(&p.character, p.IsAdmin, false, gid)
+}
+
+// ShapePacket never embeds sitting; sit is sent as a separate 0x0506.
+func (p *ConnectedPlayer) ShapePacket() []byte {
+	name := guildNameFor(p.CharacterID)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return buildCharacterShapeGuild(&p.character, p.faction, p.items, 0, name)
+}
+
+func (p *ConnectedPlayer) MovePacket() []byte {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return buildCharacterMove(&p.character, p.motion, p.direction)
+}
+
+func (p *ConnectedPlayer) EquipmentPacket(slot uint8) []byte {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return buildCharacterEquipment(&p.character, p.items, slot)
+}
+
+// Send writes a frame to this player with the post-handshake expanded XOR
+// encoding, which is stateless and safe from any goroutine.
+func (p *ConnectedPlayer) Send(frame []byte, label string) error {
+	out := frame
+	if len(frame) > 2 {
+		out = append(append([]byte{}, frame[:2]...), crypto.ExpandedXOR(frame[2:])...)
+	}
+	return p.out.write(out)
+}
+
+func playersWhere(mapID uint16, keep func(*ConnectedPlayer) bool) []*ConnectedPlayer {
+	registryMu.Lock()
+	candidates := make([]*ConnectedPlayer, 0, len(registry[mapID]))
+	for _, p := range registry[mapID] {
+		candidates = append(candidates, p)
+	}
+	registryMu.Unlock()
+	out := candidates[:0]
+	for _, p := range candidates {
+		if keep(p) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func PlayersOnMap(mapID uint16) []*ConnectedPlayer {
+	return playersWhere(mapID, func(*ConnectedPlayer) bool { return true })
+}
+
+func PlayersNear(mapID uint16, x, z, radius float32) []*ConnectedPlayer {
+	return playersWhere(mapID, func(p *ConnectedPlayer) bool {
+		px, pz := p.PositionXZ()
+		return DistanceXZ(px, pz, x, z) <= radius
+	})
+}
+
+func PlayersNearExcluding(mapID uint16, characterID uint32, x, z, radius float32) []*ConnectedPlayer {
+	return playersWhere(mapID, func(p *ConnectedPlayer) bool {
+		if p.CharacterID == characterID {
+			return false
+		}
+		px, pz := p.PositionXZ()
+		return DistanceXZ(px, pz, x, z) <= radius
+	})
+}
+
+func AllPlayers() []*ConnectedPlayer {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	var out []*ConnectedPlayer
+	for _, b := range registry {
+		for _, p := range b {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func FindPlayerByName(name string) *ConnectedPlayer {
+	for _, p := range AllPlayers() {
+		if strings.EqualFold(p.CharacterName, name) {
+			return p
+		}
+	}
+	return nil
+}
+
+func FindPlayerByID(id uint32) *ConnectedPlayer {
+	for _, p := range AllPlayers() {
+		if p.CharacterID == id {
+			return p
+		}
+	}
+	return nil
+}
+
+// canSeeCharacter: everyone is visible. The GM invisibility toggle was a
+// Rapture GM command and is gone with them; the hook stays for the
+// original admin-visibility rules if they come back.
+func canSeeCharacter(viewerIsAdmin, subjectIsAdmin, subjectGMVisible bool) bool {
+	return true
+}
+
+// broadcast sends frame to each player, logging failures.
+func broadcast(players []*ConnectedPlayer, frame []byte, label string, log *logx.Logger) {
+	for _, p := range players {
+		if err := p.Send(frame, label); err != nil && log != nil {
+			log.Printf("GX Server World failed to deliver %s to character_id=%d: %v", label, p.CharacterID, err)
+		}
+	}
+}

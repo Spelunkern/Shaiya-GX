@@ -61,7 +61,14 @@ func TestMonsterVisualMovementOnOriginalTerrainGL(t *testing.T) {
 	if mob.pos[0] != 500 {
 		t.Fatal("monster snapped to packet", mob.pos)
 	}
-	a.clock = 1.25
+	duration := float64(mob.actor.Definition.ChaseTimeMS) / 1000
+	if mob.actor.Definition.ChaseStep > 0 {
+		duration *= 4 / float64(mob.actor.Definition.ChaseStep)
+	}
+	if duration <= 0 {
+		duration = .5
+	}
+	a.clock = 1 + duration/2
 	a.prepareMonsters()
 	if mob.pos[0] != 502 || mob.pos[1] != w.Height(502, 600) || mob.actor.World[12] != 502 {
 		t.Fatalf("model did not follow interpolated terrain position: %v", mob.pos)
@@ -69,10 +76,15 @@ func TestMonsterVisualMovementOnOriginalTerrainGL(t *testing.T) {
 	if got := a.visualEntityPosition(s.Entities[42]); got != mob.pos {
 		t.Fatal("effects diverged from model", got, mob.pos)
 	}
-	a.clock = 1.5
+	a.clock = 1 + duration
 	a.prepareMonsters()
 	if mob.pos[0] != 504 || s.Entities[42].X != 504 {
 		t.Fatal("monster did not reach server position")
+	}
+	mob.actor.PlayOnce(2)
+	mob.actor.PlayOnce(7)
+	if !mob.actor.Attacking() {
+		t.Fatal("damage reaction interrupted the confirmed attack")
 	}
 	// Re-entry can reuse an ID; the new entity must not inherit stale motion.
 	s.Entities[42] = &game.Entity{ID: 42, Kind: game.KindMob, TypeID: 2009, X: 700, Z: 700}

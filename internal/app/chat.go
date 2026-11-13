@@ -2,8 +2,10 @@ package app
 
 import (
 	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/text"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
@@ -54,11 +56,15 @@ func (a *App) updateChat(in *platform.Input) bool {
 				a.chatHistory = a.chatHistory[len(a.chatHistory)-32:]
 			}
 		}
-		if a.gestureCommand(text) || a.vehicleCommand(text) || a.partyCommand(text) || a.mallCommand(text) || a.questCommand(text) || a.exchangeCommand(text) || a.duelCommand(text) || a.guildCommand(text) || a.guildDuelCommand(text) {
+		selectedChannel, channelText, channelCommand := phoenixChannelCommand(text)
+		if channelCommand {
+			text = channelText
+		}
+		if !channelCommand && (a.gestureCommand(text) || a.vehicleCommand(text) || a.partyCommand(text) || a.mallCommand(text) || a.questCommand(text) || a.exchangeCommand(text) || a.duelCommand(text) || a.guildCommand(text) || a.guildDuelCommand(text)) {
 			a.chatOpen = false
 			return true
 		}
-		if packet, handled := whisperCommand(text); handled {
+		if packet, handled := whisperCommand(text); handled && !channelCommand {
 			if packet == nil {
 				a.questMessage("Use /w name message.")
 			} else if err := a.world.Send(packet); err != nil {
@@ -72,18 +78,44 @@ func (a *App) updateChat(in *platform.Input) bool {
 			if a.chatUI != nil {
 				channel = a.chatUI.Channel
 			}
-			for _, prefix := range []struct {
-				s string
-				c uint8
-			}{{"/party ", proto.ChannelParty}, {"/guild ", proto.ChannelGuild}, {"/trade ", proto.ChannelTrade}, {"/shout ", proto.ChannelShout}} {
-				if strings.HasPrefix(text, prefix.s) {
-					channel = prefix.c
-					text = strings.TrimSpace(strings.TrimPrefix(text, prefix.s))
-					break
-				}
+			if channelCommand {
+				channel = selectedChannel
 			}
 			if text != "" {
-				if err := a.world.Send(proto.ChatPacket(channel, false, text)); err != nil {
+				if !channelCommand {
+					switch text[0] {
+					case '@':
+						channel = proto.ChannelParty
+						text = strings.TrimSpace(text[1:])
+					case '#':
+						channel = proto.ChannelGuild
+						text = strings.TrimSpace(text[1:])
+					case '$':
+						channel = proto.ChannelTrade
+						text = strings.TrimSpace(text[1:])
+					}
+				}
+				if text == "" {
+					a.chatOpen = false
+					return true
+				}
+				wireChannel := channel
+				if channel == 6 {
+					wireChannel = proto.ChannelParty
+				}
+				packet := proto.ChatPacket(wireChannel, false, text)
+				if channel == 5 {
+					recipient := strings.TrimSpace(a.chatUI.Recipient)
+					if recipient == "" {
+						recipient, text, _ = strings.Cut(text, " ")
+					}
+					packet = proto.WhisperPacket(recipient, strings.TrimSpace(text))
+					if packet == nil {
+						a.localizedNotice(1, 232, nil, "Use !name message.")
+						return true
+					}
+				}
+				if err := a.world.Send(packet); err != nil {
 					a.backToLogin("Unable to send chat message.")
 				}
 			}
@@ -94,8 +126,12 @@ func (a *App) updateChat(in *platform.Input) bool {
 }
 
 func whisperCommand(text string) ([]byte, bool) {
+	if strings.HasPrefix(text, "!") {
+		name, message, _ := strings.Cut(strings.TrimSpace(text[1:]), " ")
+		return proto.WhisperPacket(name, strings.TrimSpace(message)), true
+	}
 	command, rest, _ := strings.Cut(strings.TrimSpace(text), " ")
-	if !strings.EqualFold(command, "/w") && !strings.EqualFold(command, "/whisper") {
+	if !strings.EqualFold(command, "/w") && !strings.EqualFold(command, "/whisper") && !strings.EqualFold(command, "/t") && !strings.EqualFold(command, "/tell") {
 		return nil, false
 	}
 	name, message, _ := strings.Cut(strings.TrimSpace(rest), " ")
@@ -103,12 +139,20 @@ func whisperCommand(text string) ([]byte, bool) {
 }
 
 func (a *App) drawChat(w, h int) {
-	f := a.tooltipFont
-	if f == nil {
-		f = a.font
+	f := a.chatFont()
+	for i, id := range [...]int{5086, 5089, 5088, 5087, 5388, 5377} {
+		if label := a.msg.Get(id); label != "" {
+			runes := []rune(label)
+			runes[0] = unicode.ToUpper(runes[0])
+			a.chatUI.ChannelNames[i] = string(runes)
+		}
 	}
 	a.chatUI.SetEntries(f, a.formattedChat())
-	a.chatUI.Draw(a.sprites, f, a.white, h, a.chatOpen, a.chatInput.Text)
+	shown := ""
+	if a.chatOpen {
+		shown = a.chatInput.Text
+	}
+	a.chatUI.Draw(a.sprites, f, a.white, h, a.chatOpen, shown)
 }
 
 func (a *App) formattedChat() []ui.ChatEntry {
@@ -120,64 +164,51 @@ func (a *App) formattedChat() []ui.ChatEntry {
 	clear(a.chatEntries)
 	a.chatEntries = a.chatEntries[:0]
 	for _, line := range a.state.Chat {
-		a.chatEntries = append(a.chatEntries, chatEntry(line))
+		a.chatEntries = append(a.chatEntries, chatEntry(a.msg, line))
 	}
 	return a.chatEntries
 }
 
-func chatEntry(c game.ChatLine) ui.ChatEntry {
+// Native prefixes use the runtime message table, never a translated copy.
+func chatEntry(messages text.SysMsg, c game.ChatLine) ui.ChatEntry {
 	name := c.Sender
-	if c.Op == proto.ChatWhisper && name != "" {
-		if c.Direction == 1 {
-			name = "To " + name
-		} else {
-			name = "From " + name
-		}
-	}
-	if name == "" {
+	if name == "" && c.SenderID != 0 {
 		name = fmt.Sprintf("Player %d", c.SenderID)
-		if c.SenderID == 0 {
-			name = "System"
+	}
+	style := c.Style
+	body := c.Text
+	if c.Op == proto.ChatError && c.MessageID != 0 && messages.Get(c.MessageID) != "" {
+		body = messages.Format(c.MessageID, map[string]string{"p": name, "b": c.Text})
+	} else if c.Op != 0 && c.Op != proto.ChatError {
+		id := 0
+		style = 9
+		switch c.Op {
+		case proto.ChatParty:
+			id, style = 353, 10
+		case proto.ChatWhisper:
+			id, style = 354, 11
+		case proto.ChatGuild:
+			id, style = 370, 12
+		case proto.ChatWorld:
+			id, style = 355, 13
+		case proto.ChatShout, proto.ChatWorldShout, proto.ChatMap:
+			style = 14
+		case proto.ChatNormalAdmin:
+			style = 16
+		case proto.ChatWorldAdmin:
+			id, style = 356, 15
+		}
+		if id != 0 && messages.Get(id) != "" {
+			body = messages.Format(id, map[string]string{"p": name, "b": c.Text})
+		} else {
+			body = name + " : " + c.Text
 		}
 	}
-	channel := ""
-	switch c.Op {
-	case proto.ChatWorld, proto.ChatWorldAdmin:
-		channel = "Trade"
-	case proto.ChatGuild:
-		channel = "Guild"
-	case proto.ChatParty:
-		channel = "Party"
-	case proto.ChatShout, proto.ChatWorldShout:
-		channel = "Shout"
-	case proto.ChatMap:
-		channel = "Map"
-	case proto.ChatWhisper:
-		channel = "Whisper"
+	rgb := ui.ChatRGB(style)
+	if c.Raid {
+		rgb = 0xff7f00
 	}
-	prefix := ""
-	if channel != "" {
-		prefix = "[" + channel + "] "
-	}
-	system := c.SenderID == 0 && c.Sender == ""
-	tint := white
-	// Phoenix chat_hud.gd CHANNEL_COLORS; channel opcodes remain native EP5.
-	switch c.Op {
-	case proto.ChatParty:
-		tint = [4]float32{165.0 / 255, 240.0 / 255, 120.0 / 255, 1}
-	case proto.ChatGuild:
-		tint = [4]float32{239.0 / 255, 164.0 / 255, 213.0 / 255, 1}
-	case proto.ChatWhisper:
-		tint = [4]float32{214.0 / 255, 91.0 / 255, 117.0 / 255, 1}
-	case proto.ChatWorld, proto.ChatWorldAdmin:
-		tint = [4]float32{215.0 / 255, 180.0 / 255, 141.0 / 255, 1}
-	case proto.ChatMap, proto.ChatShout, proto.ChatWorldShout:
-		tint = [4]float32{112.0 / 255, 185.0 / 255, 245.0 / 255, 1}
-	}
-	if system {
-		tint = [4]float32{243.0 / 255, 199.0 / 255, 120.0 / 255, 1}
-	}
-	return ui.ChatEntry{Text: fmt.Sprintf("%s[%s] %s", prefix, name, c.Text), System: system, Color: tint}
+	return ui.ChatEntry{Text: body, System: game.ChatSystemPane(style), Color: ui.RGBColor(rgb), Style: style, Markup: c.Op == 0}
 }
 
 func (a *App) updateChatPointer(in *platform.Input, _, h int) bool {
@@ -186,9 +217,28 @@ func (a *App) updateChatPointer(in *platform.Input, _, h int) bool {
 	}
 	a.chatUI.Typing = a.chatOpen
 	captured := a.chatUI.Update(in, h)
-	if a.chatUI.Resized && a.gameMenu != nil {
+	if a.chatUI.FocusRequested && !a.chatOpen {
+		a.updateChat(&platform.Input{Keys: []platform.Key{platform.KeyEnter}})
+	}
+	if (a.chatUI.Resized || a.chatUI.ChannelChanged) && a.gameMenu != nil {
 		a.gameMenu.SetChatRows(a.chatUI.Rows)
+		a.gameMenu.SetChatChannel(a.chatUI.Channel)
 		a.saveClientSettings()
 	}
 	return captured
+}
+
+func (a *App) chatFont() *ui.Font {
+	if a.tooltipFont != nil {
+		return a.tooltipFont
+	}
+	return a.font
+}
+
+// Phoenix aliases take precedence over delivery-only diagnostic commands.
+func phoenixChannelCommand(value string) (uint8, string, bool) {
+	command, body, _ := strings.Cut(value, " ")
+	channels := map[string]uint8{"/s": 0, "/say": 0, "/p": 3, "/party": 3, "/g": 2, "/guild": 2, "/ra": 6, "/raid": 6, "/1": 4, "/area": 4, "/shout": 4, "/2": 1, "/trade": 1}
+	channel, ok := channels[strings.ToLower(command)]
+	return channel, strings.TrimSpace(body), ok
 }

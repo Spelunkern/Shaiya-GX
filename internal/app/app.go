@@ -43,97 +43,103 @@ const (
 )
 
 type App struct {
-	buffLayout              ui.BuffLayout
-	gameMenu                *ui.GameMenu
-	menuOpen                bool
-	menuConfirm             *ui.Message
-	menuIntent              int
-	menuPending             bool
-	menuDeadline            float64
-	deathUI                 *ui.DeathDialog
-	guildMessage            *ui.Message
-	guildConfirm            *ui.Message
-	guildVoteMessage        *ui.Message
-	guildDuelMessage        *ui.Message
-	guildDuel               guildDuelView
-	guildCreateUI           *ui.GuildCreateDialog
-	guildUI                 *ui.GuildPanel
-	guildDirectoryUI        *ui.GuildDirectory
-	guild                   guildView
-	playerContext           playerContext
-	duelUI                  *ui.ExchangePanel
-	duelMessage             *ui.Message
-	duel                    duelView
-	performance             performanceHUD
-	bank                    warehouseView
-	bankUI                  *ui.Warehouse
-	blacksmithUI            *ui.Blacksmith
-	gateUI                  *ui.Gatekeeper
-	gateConfirm             *ui.Message
-	gemConfirm              *ui.Message
-	party                   partyView
-	partyUI                 *ui.PartyPanel
-	partyMessage            *ui.Message
-	windowDrag              windowDrag
-	sound                   *audio.Engine
-	soundErrors             map[string]bool
-	cfg                     Config
-	arc                     *archive.Archive
-	sprites                 *render.Sprites
-	actionBar               *ui.ActionBar
-	inventoryUI             *ui.Inventory
-	statusUI                *ui.Status
-	marketUI                *ui.Market
-	mallUI                  *ui.Mall
-	mallConfirm             *ui.Message
-	mall                    mallView
-	quantityUI              *ui.Quantity
-	appearanceUI            *ui.AppearanceEditor
-	appearanceEdit          *appearanceEdit
-	skillBook               *ui.SkillBook
-	factionUI               *ui.FactionScreen
-	accountMessage          *ui.Message
-	account                 accountAction
-	factionDeadline         float64
-	hud                     *ui.HUD
-	minimap                 *ui.Minimap
-	bottom                  *ui.BottomBar
-	subActionsUI            *ui.SubActions
-	subActionsOpen          bool
-	font                    *ui.Font
-	tooltip                 []itemDetailLine
-	tooltipFont             *ui.Font
-	tooltipItem             bool
-	tooltipDescription      string
-	tooltipSockets          []tooltipSocket
-	chatCache               []game.ChatLine
-	chatEntries             []ui.ChatEntry
-	msg                     text.SysMsg
-	white                   *render.Texture
-	cache                   map[string]*render.Texture
-	assets                  *scene.Assets
-	scene3d                 *render.Scene3D
-	frameTarget             *render.WaterTarget
-	sceneGlow               *render.SceneGlow
-	sceneGlowFailed         bool
-	frameWidth, frameHeight int
-	worlds                  map[string]*scene.World
-	skinner                 *render.Skinner
-	items                   map[sdata.ItemKey]*sdata.Item
-	mallCatalog             []sdata.CashProduct
-	blessingMax             [2]uint32
-	blessingLoaded          bool
-	actor                   *scene.Character
-	actorID                 uint32
-	actorAppearance         scene.Appearance
-	createActor             *scene.Character
-	createAppearance        scene.Appearance
-	createDeadline          float64
-	login3                  *scene.LoginScene
-	login3Failed            bool
-	wv                      *worldView
-	lastMouseX              int
-	lastMouseY              int
+	social                              socialView
+	socialUI                            *ui.SocialPanel
+	socialInviteUI                      *ui.Message
+	appliedHideCloak, appliedHideHelmet bool
+	combatNumbers                       []combatNumber
+	buffLayout                          ui.BuffLayout
+	gameMenu                            *ui.GameMenu
+	menuOpen                            bool
+	menuConfirm                         *ui.Message
+	menuIntent                          int
+	menuPending                         bool
+	menuDeadline                        float64
+	deathUI                             *ui.DeathDialog
+	guildMessage                        *ui.Message
+	guildConfirm                        *ui.Message
+	guildVoteMessage                    *ui.Message
+	guildDuelMessage                    *ui.Message
+	guildDuel                           guildDuelView
+	guildCreateUI                       *ui.GuildCreateDialog
+	guildUI                             *ui.GuildPanel
+	guildDirectoryUI                    *ui.GuildDirectory
+	guild                               guildView
+	playerContext                       playerContext
+	playerMenuUI                        *ui.PlayerMenu
+	duelUI                              *ui.ExchangePanel
+	duelMessage                         *ui.Message
+	duel                                duelView
+	performance                         performanceHUD
+	bank                                warehouseView
+	bankUI                              *ui.Warehouse
+	blacksmithUI                        *ui.Blacksmith
+	gateUI                              *ui.Gatekeeper
+	gateConfirm                         *ui.Message
+	gemConfirm                          *ui.Message
+	party                               partyView
+	partyUI                             *ui.PartyPanel
+	partyMessage                        *ui.Message
+	windowDrag                          windowDrag
+	sound                               *audio.Engine
+	soundErrors                         map[string]bool
+	cfg                                 Config
+	arc                                 *archive.Archive
+	sprites                             *render.Sprites
+	actionBar                           *ui.ActionBar
+	inventoryUI                         *ui.Inventory
+	statusUI                            *ui.Status
+	marketUI                            *ui.Market
+	mallUI                              *ui.Mall
+	mallConfirm                         *ui.Message
+	mall                                mallView
+	quantityUI                          *ui.Quantity
+	appearanceUI                        *ui.AppearanceEditor
+	appearanceEdit                      *appearanceEdit
+	skillBook                           *ui.SkillBook
+	factionUI                           *ui.FactionScreen
+	accountMessage                      *ui.Message
+	account                             accountAction
+	factionDeadline                     float64
+	hud                                 *ui.HUD
+	minimap                             *ui.Minimap
+	bottom                              *ui.BottomBar
+	subActionsUI                        *ui.SubActions
+	subActionsOpen                      bool
+	font                                *ui.Font
+	tooltip                             []itemDetailLine
+	tooltipFont                         *ui.Font
+	tooltipItem                         bool
+	tooltipDescription                  string
+	tooltipSockets                      []tooltipSocket
+	chatCache                           []game.ChatLine
+	chatEntries                         []ui.ChatEntry
+	msg                                 text.SysMsg
+	white                               *render.Texture
+	cache                               map[string]*render.Texture
+	assets                              *scene.Assets
+	scene3d                             *render.Scene3D
+	frameTarget                         *render.WaterTarget
+	sceneGlow                           *render.SceneGlow
+	sceneGlowFailed                     bool
+	frameWidth, frameHeight             int
+	worlds                              map[string]*scene.World
+	skinner                             *render.Skinner
+	items                               map[sdata.ItemKey]*sdata.Item
+	mallCatalog                         []sdata.CashProduct
+	blessingMax                         [2]uint32
+	blessingLoaded                      bool
+	actor                               *scene.Character
+	actorID                             uint32
+	actorAppearance                     scene.Appearance
+	createActor                         *scene.Character
+	createAppearance                    scene.Appearance
+	createDeadline                      float64
+	login3                              *scene.LoginScene
+	login3Failed                        bool
+	wv                                  *worldView
+	lastMouseX                          int
+	lastMouseY                          int
 
 	screen   screen
 	login    *ui.Login
@@ -256,6 +262,9 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	if a.chatUI, err = ui.NewChatPanel(a); err != nil {
 		return nil, err
 	}
+	if a.playerMenuUI, err = ui.NewPlayerMenu(a); err != nil {
+		return nil, err
+	}
 	if a.actionBar, err = ui.NewActionBar(a); err != nil {
 		return nil, err
 	}
@@ -286,6 +295,13 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	if a.guildUI, err = ui.NewGuildPanel(a); err != nil {
 		return nil, err
 	}
+	if a.socialUI, err = ui.NewSocialPanel(a); err != nil {
+		return nil, err
+	}
+	if a.socialInviteUI, err = ui.NewMessage(a); err != nil {
+		return nil, err
+	}
+
 	if a.guildDirectoryUI, err = ui.NewGuildDirectory(a); err != nil {
 		return nil, err
 	}
@@ -391,6 +407,7 @@ func (a *App) Update(in *platform.Input, w, h int, dt float64) {
 	started := time.Now()
 	defer func() { a.performance.updateCPU = time.Since(started) }()
 	a.frameDT = dt
+	a.skills.heldActions = 0
 	for {
 		select {
 		case f := <-a.posted:
@@ -446,7 +463,7 @@ func (a *App) Draw(w, h int) {
 	a.scene3d.SetReverseDepth(true)
 	defer a.scene3d.SetReverseDepth(previousDepth)
 	a.frameTarget.Capture(render.V3{}, func() { a.drawFrame(w, h) })
-	a.frameTarget.Present()
+	a.frameTarget.PresentBrightness(a.clientSettings().Brightness)
 }
 
 func (a *App) drawFrame(w, h int) {
@@ -486,6 +503,7 @@ func (a *App) drawFrame(w, h int) {
 			}
 		}
 		if a.sceneGlow != nil {
+			a.sceneGlow.Level = a.clientSettings().Glow
 			if err := a.sceneGlow.Apply(); err != nil {
 				log.Printf("default scene glow: %v", err)
 				a.sceneGlowFailed = true
@@ -497,6 +515,7 @@ func (a *App) drawFrame(w, h int) {
 	case screenLogin:
 		a.login.Draw(a.sprites, a.font, w, h)
 	case screenServers:
+		a.login.DrawLogo(a.sprites, w, h)
 		a.servers.Draw(a.sprites, a.font, w, h)
 	case screenCharacters, screenWorld:
 		a.drawCharacters(w, h)
@@ -515,6 +534,9 @@ func (a *App) drawFrame(w, h int) {
 	}
 	if a.screen == screenWorld && a.guildConfirm != nil {
 		a.guildConfirm.Draw(a.sprites, a.font, w, h)
+		if a.socialInviteUI != nil {
+			a.socialInviteUI.Draw(a.sprites, a.font, w, h)
+		}
 	}
 	if a.screen == screenWorld && a.guildDuelMessage != nil {
 		a.guildDuelMessage.Draw(a.sprites, a.font, w, h)
@@ -684,10 +706,13 @@ func (a *App) pumpWorld() {
 				return
 			}
 			wasRaid := a.state.Party.Raid
-			var previousEquipment proto.CharacterSlot
-			if proto.Op(p) == proto.ItemBagToBag || proto.Op(p) == proto.ChangeAppearance {
-				previousEquipment, _ = a.selfSlot()
+			var previousAppearance scene.Appearance
+			if proto.Op(p) == proto.ItemBagToBag || proto.Op(p) == proto.ChangeAppearance || proto.Op(p) == proto.EnchantAdd {
+				if slot, ok := a.selfSlot(); ok {
+					previousAppearance = a.appearance(&slot)
+				}
 			}
+			previousMoney := a.state.Details.Money
 			ev, err := a.state.Apply(p)
 			if err != nil {
 				log.Printf("packet: %v", err)
@@ -762,6 +787,8 @@ func (a *App) pumpWorld() {
 			if a.state == nil {
 				return
 			}
+			a.confirmedItems(ev.Op)
+			a.confirmedSystemChat(p, previousMoney)
 			a.confirmedPickup(p)
 			a.confirmedMall(p)
 			a.confirmedAccount(p)
@@ -784,6 +811,7 @@ func (a *App) pumpWorld() {
 				a.questMessage(fmt.Sprintf("Detection: level %d, %s mode, defense element %d.", v.Level, mode, v.DefenseElement))
 			}
 			a.confirmedBuffs(ev.Op)
+			a.confirmedSocial(ev.Op)
 			a.confirmedEffects(p)
 			a.confirmedSound(p)
 			if ev.Op == proto.SetStatPoint || ev.Op == proto.StatsReset {
@@ -833,12 +861,12 @@ func (a *App) pumpWorld() {
 				} else {
 					a.inventory.pending = false
 				}
-				if slot, ok := a.selfSlot(); ok && slot != previousEquipment && a.wv != nil {
+				if slot, ok := a.selfSlot(); ok && a.appearance(&slot) != previousAppearance && a.wv != nil {
 					a.refreshSelf(a.wv)
 				}
 			}
-			if ev.Op == proto.ChangeAppearance && a.wv != nil {
-				if slot, ok := a.selfSlot(); ok && slot != previousEquipment {
+			if (ev.Op == proto.ChangeAppearance || ev.Op == proto.EnchantAdd) && a.wv != nil {
+				if slot, ok := a.selfSlot(); ok && a.appearance(&slot) != previousAppearance {
 					a.refreshSelf(a.wv)
 				}
 			}

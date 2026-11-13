@@ -131,8 +131,17 @@ func (l *Login) Update(in *platform.Input, w, h int, dt float64) LoginAction {
 }
 
 func (l *Login) Draw(s *render.Sprites, f *Font, w, h int) {
+	l.DrawLogo(s, w, h)
+	l.drawForm(s, f, w, h)
+}
+
+// The logo belongs to the login scenery, including server selection.
+func (l *Login) DrawLogo(s *render.Sprites, w, h int) {
 	// Logo: x = w/2 - 256, y = h/16 (0x4bb8f0, locale 6).
 	s.DrawImage(l.logo, float32(w/2-0x100), float32(h/16))
+}
+
+func (l *Login) drawForm(s *render.Sprites, f *Font, w, h int) {
 	ox, oy := loginOrigin(w, h)
 	s.DrawImage(l.panel, float32(ox), float32(oy))
 	l.OK.Draw(s)

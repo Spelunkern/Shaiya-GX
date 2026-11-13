@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
@@ -71,5 +72,15 @@ func TestChatChannelsUseServerWireLayouts(t *testing.T) {
 	}
 	if got := s.Chat[len(s.Chat)-1].Text; got != "Whisper recipient not found or unavailable." {
 		t.Fatal(got)
+	}
+}
+
+func TestPhoenixChatKeepsThreeHundredMessages(t *testing.T) {
+	s := New()
+	for i := range 301 {
+		s.AddChat(ChatLine{Op: proto.ChatNormal, Sender: "Alice", Text: fmt.Sprint(i)})
+	}
+	if len(s.Chat) != 300 || s.Chat[0].Text != "1" || s.Chat[299].Text != "300" {
+		t.Fatal("Phoenix history eviction failed", len(s.Chat))
 	}
 }

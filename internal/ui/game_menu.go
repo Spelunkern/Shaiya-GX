@@ -41,26 +41,29 @@ type GameMenu struct {
 // Only settings with a runtime consumer are editable. Other original controls
 // remain visible in their original art until their subsystems are implemented.
 type ClientSettings struct {
-	ChatRows                           [2]int
-	Music, Effects                     float64
-	MouseSensitivity                   int
-	UseMouse, InvertY                  bool
-	OwnName, PlayerNames, MonsterNames bool
-	Shadows, Water, SkillEffects       bool
+	ChatRows                                  [2]int
+	ChatChannel                               uint8
+	Music, Effects                            float64
+	Glow, Brightness, Details, VisualDistance int
+	HideCloak, HideHelmet                     bool
+	MouseSensitivity                          int
+	UseMouse, InvertY                         bool
+	OwnName, PlayerNames, MonsterNames        bool
+	Shadows, Water, SkillEffects              bool
 }
 
 func DefaultClientSettings() ClientSettings {
-	return ClientSettings{ChatRows: [2]int{5, 5}, Music: 1, Effects: 1, MouseSensitivity: 3, UseMouse: true,
+	return ClientSettings{Glow: 2, Brightness: 2, Details: 2, VisualDistance: 2, ChatRows: [2]int{5, 5}, Music: 1, Effects: 1, MouseSensitivity: 3, UseMouse: true,
 		OwnName: true, PlayerNames: true, MonsterNames: true, Shadows: true, Water: true, SkillEffects: true}
 }
 
 func (c ClientSettings) Valid() bool {
 	for _, rows := range c.ChatRows {
-		if rows < 1 || rows > 20 {
+		if rows < 0 || rows > 20 {
 			return false
 		}
 	}
-	return !math.IsNaN(c.Music) && !math.IsNaN(c.Effects) && c.Music >= 0 && c.Music <= 1 && c.Effects >= 0 && c.Effects <= 1 && c.MouseSensitivity >= 0 && c.MouseSensitivity <= 6
+	return c.Glow >= 0 && c.Glow <= 2 && c.Brightness >= 0 && c.Brightness <= 4 && c.Details >= 0 && c.Details <= 2 && c.VisualDistance >= 0 && c.VisualDistance <= 2 && c.ChatChannel <= 6 && !math.IsNaN(c.Music) && !math.IsNaN(c.Effects) && c.Music >= 0 && c.Music <= 1 && c.Effects >= 0 && c.Effects <= 1 && c.MouseSensitivity >= 0 && c.MouseSensitivity <= 6
 }
 
 func NewGameMenu(t Textures) (*GameMenu, error) {
@@ -221,10 +224,29 @@ func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 			m.Settings.OwnName, m.Settings.PlayerNames, m.Settings.MonsterNames = true, true, true
 		case MenuGraphics:
 			m.Settings.Shadows, m.Settings.Water, m.Settings.SkillEffects = true, true, true
+			m.Settings.Glow, m.Settings.Brightness, m.Settings.Details, m.Settings.VisualDistance = 2, 2, 2, 2
+			m.Settings.HideCloak, m.Settings.HideHelmet = false, false
 		}
 		return MenuChanged
 	}
 	changed := false
+	if m.Page == MenuGraphics {
+		values := []*int{&m.Settings.Glow, &m.Settings.Brightness, &m.Settings.Details, &m.Settings.VisualDistance}
+		limits := []int{2, 4, 2, 2}
+		for i, p := range values {
+			sy := 184 + i*50
+			if in.Pressed && in.MouseX >= x+27 && in.MouseX <= x+283 && in.MouseY >= y+sy-14 && in.MouseY < y+sy+14 {
+				m.dragSlider = i
+			}
+			if m.dragSlider == i {
+				*p = int(math.Round(min(1, max(0, float64(in.MouseX-x-35)/240)) * float64(limits[i])))
+				changed = true
+				if in.Clicked || !in.MouseDown {
+					m.dragSlider = -1
+				}
+			}
+		}
+	}
 	if m.Page == MenuSound || m.Page == MenuUser {
 		count := 2
 		if m.Page == MenuUser {
@@ -286,7 +308,7 @@ func (m *GameMenu) checks() []menuCheck {
 	case MenuUser:
 		return []menuCheck{{34, 83, &s.UseMouse}, {137, 83, nil}, {241, 83, &s.InvertY}, {34, 202, &s.OwnName}, {137, 202, &s.PlayerNames}, {34, 228, &s.MonsterNames}}
 	case MenuGraphics:
-		return []menuCheck{{35, 404, &s.Shadows}, {156, 404, &s.Water}, {35, 451, &s.SkillEffects}}
+		return []menuCheck{{35, 404, &s.Shadows}, {156, 404, &s.Water}, {35, 429, &s.HideCloak}, {156, 429, &s.HideHelmet}, {35, 451, &s.SkillEffects}}
 	}
 	return nil
 }
@@ -321,6 +343,10 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int) {
 	case MenuUser:
 		knob(36, 140, float64(m.Settings.MouseSensitivity)/6, 185)
 	case MenuGraphics:
+		for i, v := range []int{m.Settings.Glow, m.Settings.Brightness, m.Settings.Details, m.Settings.VisualDistance} {
+			limit := []int{2, 4, 2, 2}[i]
+			knob(35, 184+i*50, float64(v)/float64(limit), 240)
+		}
 		f.Draw(s, "Window", x+74, y+87, white, 65)
 		f.Draw(s, "32 bit", x+211, y+87, white, 64)
 	case MenuKeys:
@@ -349,3 +375,10 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int) {
 }
 
 func (m *GameMenu) SetChatRows(rows [2]int) { m.Settings.ChatRows = rows; m.original.ChatRows = rows }
+
+func (m *GameMenu) SetChatChannel(channel uint8) {
+	if channel == 5 {
+		channel = 0
+	}
+	m.Settings.ChatChannel, m.original.ChatChannel = channel, channel
+}

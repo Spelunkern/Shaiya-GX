@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/text"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
@@ -16,13 +17,13 @@ func TestChatEntriesIdentifyChannelsAndWhisperDirection(t *testing.T) {
 		want   string
 		system bool
 	}{
-		{game.ChatLine{Op: proto.ChatParty, Sender: "Alice", Text: "Hi"}, "[Party] [Alice] Hi", false},
-		{game.ChatLine{Op: proto.ChatGuild, Sender: "Alice", Text: "Hi"}, "[Guild] [Alice] Hi", false},
-		{game.ChatLine{Op: proto.ChatWhisper, Sender: "Alice", Text: "Hi"}, "[Whisper] [From Alice] Hi", false},
-		{game.ChatLine{Op: proto.ChatWhisper, Sender: "Alice", Direction: 1, Text: "Hi"}, "[Whisper] [To Alice] Hi", false},
-		{game.ChatLine{Op: proto.ChatError, Text: "Missing"}, "[System] Missing", true},
+		{game.ChatLine{Op: proto.ChatParty, Sender: "Alice", Text: "Hi"}, "[Party]Alice : Hi", false},
+		{game.ChatLine{Op: proto.ChatGuild, Sender: "Alice", Text: "Hi"}, "[Guild]Alice : Hi", false},
+		{game.ChatLine{Op: proto.ChatWhisper, Sender: "Alice", Text: "Hi"}, "[Whisper]Alice : Hi", false},
+		{game.ChatLine{Op: proto.ChatWhisper, Sender: "Alice", Direction: 1, Text: "Hi"}, "[Whisper]Alice : Hi", false},
+		{game.ChatLine{Op: proto.ChatError, Text: "Missing"}, "Missing", true},
 	} {
-		got := chatEntry(tc.line)
+		got := chatEntry(chatTestMessages, tc.line)
 		if got.Text != tc.want || got.System != tc.system {
 			t.Fatalf("got %+v, want %q", got, tc.want)
 		}
@@ -31,16 +32,17 @@ func TestChatEntriesIdentifyChannelsAndWhisperDirection(t *testing.T) {
 
 func TestFormattedChatTracksChangesAndReusesUnchangedHistory(t *testing.T) {
 	a := inputApp()
+	a.msg = chatTestMessages
 	a.state.Chat = []game.ChatLine{{Op: proto.ChatParty, Sender: "Alice", Text: "Hi"}}
 	first := a.formattedChat()
-	if len(first) != 1 || first[0].Text != "[Party] [Alice] Hi" {
+	if len(first) != 1 || first[0].Text != "[Party]Alice : Hi" {
 		t.Fatal(first)
 	}
 	if got := testing.AllocsPerRun(100, func() { a.formattedChat() }); got != 0 {
 		t.Fatalf("unchanged history allocated: %v", got)
 	}
 	a.state.Chat[0].Text = "Changed"
-	if got := a.formattedChat(); len(got) != 1 || got[0].Text != "[Party] [Alice] Changed" {
+	if got := a.formattedChat(); len(got) != 1 || got[0].Text != "[Party]Alice : Changed" {
 		t.Fatal(got)
 	}
 	a.state.Chat = nil
@@ -51,6 +53,7 @@ func TestFormattedChatTracksChangesAndReusesUnchangedHistory(t *testing.T) {
 
 func BenchmarkFormattedChat(b *testing.B) {
 	a := inputApp()
+	a.msg = chatTestMessages
 	for range 200 {
 		a.state.Chat = append(a.state.Chat, game.ChatLine{Op: proto.ChatParty, Sender: "Alice", Text: "An ordinary chat message"})
 	}
@@ -60,7 +63,7 @@ func BenchmarkFormattedChat(b *testing.B) {
 		for range b.N {
 			entries := make([]ui.ChatEntry, 0, len(a.state.Chat))
 			for _, line := range a.state.Chat {
-				entries = append(entries, chatEntry(line))
+				entries = append(entries, chatEntry(chatTestMessages, line))
 			}
 			if len(entries) != 200 {
 				b.Fatal("bad fixture")
@@ -133,6 +136,7 @@ func TestChatHistoryRestoresUnsentDraft(t *testing.T) {
 
 func TestChatHistoryOwnsPointerWithoutBlockingHeldMovement(t *testing.T) {
 	a := inputApp()
+	a.msg = chatTestMessages
 	in := platform.Input{MouseX: 40, MouseY: ui.ChatOrigin(734) + 130, Wheel: 120, Down: "W"}
 	controls := a.worldControls(&in, 1024, 734)
 	if controls.Wheel != 0 || controls.Down != "W" {
@@ -143,5 +147,65 @@ func TestChatHistoryOwnsPointerWithoutBlockingHeldMovement(t *testing.T) {
 	controls = a.worldControls(&platform.Input{MouseX: 512, MouseY: 384, Clicked: true}, 1024, 734)
 	if controls.Clicked {
 		t.Fatal("chat press released over world selected a target")
+	}
+}
+
+var chatTestMessages = text.SysMsg{353: "[Party]<p> : <b>", 354: "[Whisper]<p> : <b>", 370: "[Guild]<p> : <b>"}
+
+func TestPhoenixChatPickerOwnsClicksAboveActionBars(t *testing.T) {
+	a := inputApp()
+	a.chatOpen = true
+	a.chatUI.ModeOpen = true
+	in := platform.Input{MouseX: 40, MouseY: 734 - 82 - 7*22 + 3*22 + 8, Pressed: true, MouseDown: true, Down: "W"}
+	controls := a.worldControls(&in, 1024, 734)
+	if controls.Pressed || controls.Down != "W" {
+		t.Fatal("channel picker lost click or blocked held movement", controls)
+	}
+	controls = a.worldControls(&platform.Input{MouseX: 40, MouseY: in.MouseY, Clicked: true}, 1024, 734)
+	if controls.Clicked || a.chatUI.Channel != 5 {
+		t.Fatal("picker release reached world or failed to select whisper", controls, a.chatUI.Channel)
+	}
+}
+
+func TestPhoenixChatClickFocusAndChannelAliases(t *testing.T) {
+	a := inputApp()
+	a.updateChatPointer(&platform.Input{MouseX: 100, MouseY: 734 - 75, Pressed: true, MouseDown: true}, 1024, 734)
+	if !a.chatOpen {
+		t.Fatal("persistent message input did not focus on click")
+	}
+	for _, tc := range []struct {
+		value   string
+		channel uint8
+		body    string
+	}{{"/p hello", 3, "hello"}, {"/g hello", 2, "hello"}, {"/ra hello", 6, "hello"}, {"/1 hello", 4, "hello"}, {"/trade hello", 1, "hello"}, {"/say hello", 0, "hello"}} {
+		channel, body, ok := phoenixChannelCommand(tc.value)
+		if !ok || channel != tc.channel || body != tc.body {
+			t.Fatal(tc, channel, body, ok)
+		}
+	}
+}
+
+func TestPhoenixChannelColoursKeepSysMsgText(t *testing.T) {
+	for _, tc := range []struct {
+		op  proto.Opcode
+		rgb uint32
+	}{{proto.ChatNormal, 0xffffff}, {proto.ChatParty, 0xa5f078}, {proto.ChatGuild, 0xefa4d5}, {proto.ChatWhisper, 0xd65b75}, {proto.ChatMap, 0x70b9f5}, {proto.ChatWorld, 0xd7b48d}} {
+		line := game.ChatLine{Op: tc.op, Sender: "Alice", Text: "Message"}
+		entry := chatEntry(chatTestMessages, line)
+		if entry.Color != ui.RGBColor(tc.rgb) {
+			t.Fatal(tc, entry)
+		}
+		if tc.op == proto.ChatParty && entry.Text != chatTestMessages.Format(353, map[string]string{"p": "Alice", "b": "Message"}) {
+			t.Fatal("SysMsg template changed", entry)
+		}
+	}
+}
+
+func TestWhisperSelectionSurvivesOptionsPreview(t *testing.T) {
+	a := inputApp()
+	a.chatUI.Channel = 5
+	a.applyClientSettings()
+	if a.chatUI.Channel != 5 {
+		t.Fatal("applying audio/options preferences reset the active whisper channel")
 	}
 }

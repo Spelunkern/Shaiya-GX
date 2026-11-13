@@ -31,6 +31,7 @@ func (a *App) updateBottom(in *platform.Input, w, h int) bool {
 	if a.bottom == nil {
 		return false
 	}
+	a.bottom.QuestOpen, a.bottom.GuildOpen = a.questLog.open, a.guild.open
 	action, captured := a.bottom.Update(in, w, h, a.inventory.open, a.skills.open, a.status.open, a.subActionsOpen)
 	switch action {
 	case ui.BottomInventory:
@@ -42,11 +43,9 @@ func (a *App) updateBottom(in *platform.Input, w, h int) bool {
 	case ui.BottomStatus:
 		a.toggleStatus()
 	case ui.BottomGuild:
-		a.guild.open = !a.guild.open
-		if a.guild.open {
-			a.guild.etinRequestedFor = 0
-		}
-		a.guild.rosterDirty = true
+		a.toggleGuild()
+	case ui.BottomQuests:
+		a.toggleQuestLog()
 	case ui.BottomMall:
 		a.openMall()
 	case ui.BottomOptions:

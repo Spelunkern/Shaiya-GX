@@ -1,0 +1,5 @@
+server/data/game/** -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+server/data/maps/*.svmap binary
+server/data/rapture.sqlite binary
+
+*.bat text eol=crlf

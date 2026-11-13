@@ -37,6 +37,7 @@ type effectEmitter struct {
 type Effect struct {
 	emitters   []effectEmitter
 	quad       *render.Mesh
+	mirrorQuad *render.Mesh
 	Origin     render.V3
 	Time, step float32
 	Skipped    int
@@ -72,7 +73,7 @@ func (e *effectEmitter) advanceTexture(dt float32) {
 func LoadEffect(a *Assets, file string, sequence int) (*Effect, error) {
 	key := fmt.Sprintf("%s:%d", strings.ToLower(file), sequence)
 	if t := a.effectTemplates[key]; t != nil {
-		return &Effect{emitters: append([]effectEmitter(nil), t.emitters...), quad: a.effectQuad, Skipped: t.skipped, basis: render.Identity()}, nil
+		return &Effect{emitters: append([]effectEmitter(nil), t.emitters...), quad: a.effectQuad, mirrorQuad: a.effectMirrorQuad, Skipped: t.skipped, basis: render.Identity()}, nil
 	}
 	b, err := a.Arc.ReadFile(file)
 	if err != nil {
@@ -90,7 +91,7 @@ func LoadEffect(a *Assets, file string, sequence int) (*Effect, error) {
 func loadEffectLibrary(a *Assets, file string, sequence int, l *effect.Library) (*Effect, error) {
 	key := fmt.Sprintf("%s:%d", strings.ToLower(file), sequence)
 	if t := a.effectTemplates[key]; t != nil {
-		return &Effect{emitters: append([]effectEmitter(nil), t.emitters...), quad: a.effectQuad, Skipped: t.skipped, basis: render.Identity()}, nil
+		return &Effect{emitters: append([]effectEmitter(nil), t.emitters...), quad: a.effectQuad, mirrorQuad: a.effectMirrorQuad, Skipped: t.skipped, basis: render.Identity()}, nil
 	}
 	if l.Format != "EFT" {
 		return nil, fmt.Errorf("EFT: runtime for %s not verified", l.Format)
@@ -147,7 +148,12 @@ func loadEffectLibrary(a *Assets, file string, sequence int, l *effect.Library) 
 	if a.effectQuad == nil {
 		a.effectQuad = render.NewMesh([]render.Vertex{{Pos: render.V3{-.5, -.5, 0}, UV: [2]float32{0, 1}}, {Pos: render.V3{.5, -.5, 0}, UV: [2]float32{1, 1}}, {Pos: render.V3{.5, .5, 0}, UV: [2]float32{1, 0}}, {Pos: render.V3{-.5, .5, 0}, UV: [2]float32{0, 0}}}, []uint32{0, 1, 2, 0, 2, 3})
 	}
+	if a.effectMirrorQuad == nil {
+		vertices, indices := mirroredEffectQuad()
+		a.effectMirrorQuad = render.NewMesh(vertices, indices)
+	}
 	x.quad = a.effectQuad
+	x.mirrorQuad = a.effectMirrorQuad
 	if a.effectTemplates == nil {
 		a.effectTemplates = map[string]*effectTemplate{}
 	}
@@ -369,6 +375,10 @@ func staticParticleSize(e *effect.Emitter, elapsed, initialSeed, targetSeed floa
 func (x *Effect) Draw(s *render.Scene3D) {
 	s.Begin()
 	for _, e := range x.emitters {
+		quad := x.quad
+		if e.definition.Unk29 != 0 {
+			quad = x.mirrorQuad
+		}
 		p := e.definition.Parameters()
 		if len(e.textures) == 0 || len(e.particles) == 0 {
 			continue
@@ -431,14 +441,14 @@ func (x *Effect) Draw(s *render.Scene3D) {
 				x.batchWorld = append(x.batchWorld, m)
 				x.batchColor = append(x.batchColor, color)
 			} else {
-				s.DrawEffect(x.quad, texture, m, color, p.SourceBlend, p.DestinationBlend)
+				s.DrawEffect(quad, texture, m, color, p.SourceBlend, p.DestinationBlend, e.definition.Unk29 != 0)
 			}
 		}
 		if batched {
 			if e.geometry != nil {
 				flushMesh()
 			} else {
-				s.DrawEffectBatch(x.quad, texture, x.batchWorld, x.batchColor, p.SourceBlend, p.DestinationBlend)
+				s.DrawEffectBatch(quad, texture, x.batchWorld, x.batchColor, p.SourceBlend, p.DestinationBlend, e.definition.Unk29 != 0)
 			}
 		}
 	}

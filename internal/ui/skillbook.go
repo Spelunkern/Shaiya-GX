@@ -8,7 +8,7 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
-const SkillBookWidth, SkillBookHeight, SkillBookRows = 333, 489, 18
+const SkillBookWidth, SkillBookHeight, SkillBookRows = 333, 489, 9
 
 // Delivery anchor. Frame/row geometry comes from Game.exe 0x501000/0x5020e0.
 func SkillBookOrigin(w, h int) (int, int) {
@@ -18,12 +18,12 @@ func SkillBookRow(row int) (x, y int, ok bool) {
 	if row < 0 || row >= SkillBookRows {
 		return
 	}
-	return 45 + 135*(row%2), 79 + 43*(row/2), true
+	return 46, 78 + 43*row, true
 }
 func SkillBookHit(x, y int) (int, bool) {
 	for row := 0; row < SkillBookRows; row++ {
 		cx, cy, _ := SkillBookRow(row)
-		if x >= cx && x < cx+123 && y >= cy && y < cy+32 {
+		if x >= cx && x < cx+230 && y >= cy && y < cy+32 {
 			return row, true
 		}
 	}
@@ -54,7 +54,7 @@ func NewSkillBook(t Textures) (*SkillBook, error) {
 	tex := ld.get("skill_button.tga")
 	for i := range b.learn {
 		button := &b.learn[i]
-		*button = Button{Tex: tex, OffX: 61 + 135*(i%2), OffY: 95 + 43*(i/2), DrawW: 16, DrawH: 16, HitW: 16, HitH: 16}
+		*button = Button{Tex: tex, OffX: 278, OffY: 84 + 43*i, DrawW: 32, DrawH: 32, HitW: 22, HitH: 22}
 		for state, col := range []int{0, 1, 2, 2, 3} {
 			button.UV[state] = UV{float32(col) / 4, 0, float32(col+1) / 4, 1}
 		}
@@ -72,7 +72,7 @@ func NewSkillBook(t Textures) (*SkillBook, error) {
 }
 func (b *SkillBook) Update(in *platform.Input, w, h, category, offset, count int, enabled [SkillBookRows]bool) SkillBookAction {
 	x, y := b.Origin(w, h)
-	last := max(0, ((count+1)/2-9)*2)
+	last := max(0, count-SkillBookRows)
 	a := SkillBookAction{Category: category, Offset: max(0, min(offset, last)), Learn: -1, Select: -1}
 	b.close.OriginX, b.close.OriginY = x, y
 	a.Close = b.close.Update(in)
@@ -125,22 +125,18 @@ func (b *SkillBook) Update(in *platform.Input, w, h, category, offset, count int
 	}
 	if in.MouseX >= x && in.MouseX < x+SkillBookWidth && in.MouseY >= y && in.MouseY < y+SkillBookHeight {
 		if in.Wheel < 0 {
-			a.Offset += 2
+			a.Offset++
 		}
 		if in.Wheel > 0 {
-			a.Offset -= 2
+			a.Offset--
 		}
 	}
 	a.Offset = max(0, min(a.Offset, last))
 	return a
 }
-func (b *SkillBook) Draw(s *render.Sprites, f *Font, w, h, category, offset, count int, points uint16, enabled [SkillBookRows]bool) {
+func (b *SkillBook) Draw(s *render.Sprites, f *Font, w, h, category, offset, count int, points uint16, enabled [SkillBookRows]bool, pointLabel ...string) {
 	x, y := b.Origin(w, h)
 	s.Draw(b.frame, float32(x), float32(y), 333, 489, 0, 0, 333.0/512, 489.0/512, white)
-	// Reuse the authored empty-slot region for Phoenix's second column.
-	for row := 0; row < 9; row++ {
-		s.Draw(b.frame, float32(x+173), float32(y+74+43*row), 41, 40, 38.0/512, 74.0/512, 79.0/512, 114.0/512, white)
-	}
 	for i := 0; i < 4; i++ {
 		sheet, dx, v, height := 0, 0, float32(0), float32(256)
 		if i == category {
@@ -152,17 +148,21 @@ func (b *SkillBook) Draw(s *render.Sprites, f *Font, w, h, category, offset, cou
 	}
 	b.close.OriginX, b.close.OriginY = x, y
 	b.close.Draw(s)
-	f.Draw(s, fmt.Sprint(points), x+245, y+49, white, 58)
+	label := "Point"
+	if len(pointLabel) > 0 {
+		label = pointLabel[0]
+	}
+	f.Draw(s, fmt.Sprintf("%3d %s", points, label), x+245, y+49, white, 70)
 	for i := range b.learn {
 		b.learn[i].OriginX, b.learn[i].OriginY = x, y
 		b.learn[i].Disabled = !enabled[i]
-		if enabled[i] {
+		if offset+i < count {
 			b.learn[i].Draw(s)
 		}
 	}
 	for i := range b.arrows {
 		b.arrows[i].OriginX, b.arrows[i].OriginY = x, y
-		b.arrows[i].Disabled = (i == 0 && offset == 0) || (i == 1 && offset >= max(0, ((count+1)/2-9)*2))
+		b.arrows[i].Disabled = (i == 0 && offset == 0) || (i == 1 && offset >= max(0, count-SkillBookRows))
 		b.arrows[i].Draw(s)
 	}
 	thumb := 87

@@ -33,10 +33,7 @@ func (a *App) loadQuests() error {
 	return nil
 }
 func (a *App) questMessage(message string) {
-	a.state.Chat = append(a.state.Chat, game.ChatLine{Text: message})
-	if len(a.state.Chat) > 200 {
-		a.state.Chat = append([]game.ChatLine(nil), a.state.Chat[len(a.state.Chat)-200:]...)
-	}
+	a.state.AddChat(game.ChatLine{Text: message})
 }
 func (a *App) questName(id uint16) string {
 	if id == 0 || int(id) > len(a.questDefs) {
@@ -71,7 +68,11 @@ func (a *App) confirmedQuest(p []byte) {
 			}
 			a.questStartedAt[id] = time.Now()
 			delete(a.questSnapshotAt, id)
-			a.questMessage("Quest started: " + a.questName(id))
+			if a.msg.Get(219) != "" {
+				a.systemMessage(3, 219, nil)
+			} else {
+				a.questMessage("Quest started: " + a.questName(id))
+			}
 		}
 	case proto.QuestCounter:
 		id, slot, value, err := proto.DecodeQuestCounter(p)
@@ -116,7 +117,15 @@ func (a *App) confirmedQuest(p []byte) {
 			if result.Success != 0 {
 				status = "completed"
 			}
-			a.questMessage(fmt.Sprintf("Quest %s: %s", status, a.questName(result.ID)))
+			if a.msg.Get(243) != "" {
+				id := 244
+				if result.Success != 0 {
+					id = 243
+				}
+				a.systemMessage(3, id, nil)
+			} else {
+				a.questMessage(fmt.Sprintf("Quest %s: %s", status, a.questName(result.ID)))
+			}
 			if result.Success != 0 && !dialogue {
 				var def sdata.Quest
 				if result.ID > 0 && int(result.ID) <= len(a.questDefs) {

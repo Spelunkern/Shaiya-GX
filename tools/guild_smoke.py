@@ -15,8 +15,10 @@ import sys
 import tempfile
 import time
 
+raise SystemExit("Legacy SQL Server probe. Use tools/n2_smoke.py for GX Server SQLite integration.")
+
 root = Path(__file__).resolve().parents[1]
-rapture = Path(os.environ.get("RAPTURE_DIR", Path.home() / "Desktop/Rapture"))
+rapture = Path(os.environ.get("GX_SERVER_DIR", os.environ.get("RAPTURE_DIR", root / "server")))
 spec = importlib.util.spec_from_file_location("rapture_sql", rapture / "tools/sqlserver.py")
 sqltool = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sqltool)
@@ -89,8 +91,8 @@ INSERT dbo.Users_Master(UserUID,UserID,Pw,Admin,AdminLevel,UseQueue,Status,Leave
 VALUES(@uid,'{user}','{password}',0,0,0,0,0,'N',0);
 COMMIT; SELECT @uid;""", "PS_UserData"))
         uids.append(uid)
-    start_server("rapture_login", 30800)
-    world = start_server("rapture_world", 30810)
+    start_server("gx_login", 30800)
+    world = start_server("gx_world", 30810)
     for user, password, character in names:
         account_env = dict(env, SHAIYA_TEST_USER=user, SHAIYA_PASSWORD=password)
         run_test("TestFactionAgainstRapture", dict(account_env, SHAIYA_TEST_FACTION="1"))
@@ -148,7 +150,7 @@ EXEC @rc=dbo.usp_Create_GuildChar_E @GuildID={opponent_guild_id},@CharID={member
 IF @rc<>0 THROW 50000,'Opponent member fixture failed',1;
 UPDATE dbo.Chars SET Map=1,PosX=578,PosY=78,PosZ=1762 WHERE UserUID IN ({uids[0]},{uids[1]},{uids[2]});
 UPDATE dbo.Chars SET Str=150,Dex=150 WHERE UserUID={uids[0]} AND CharName='{names[0][2]}';""")
-        start_server("rapture_world", 30810)
+        start_server("gx_world", 30810)
         test_env = dict(env, SHAIYA_TEST_USER=names[0][0], SHAIYA_PASSWORD=names[0][1],
                         SHAIYA_TEST_PARTNER=names[1][0], SHAIYA_TEST_PARTNER_PASSWORD=names[1][1],
                         SHAIYA_TEST_GUILD=guild_name)

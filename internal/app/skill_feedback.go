@@ -1,8 +1,6 @@
 package app
 
 import (
-	"fmt"
-
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 )
@@ -14,16 +12,21 @@ func (a *App) confirmedSkillFeedback(op proto.Opcode) {
 	}
 	var source, target uint32
 	var value uint16
+	critical := false
 	label := "Damage"
 	switch op {
-	case proto.SkillUse, proto.SkillUseNoTarget, proto.SkillUserDrain, proto.SkillMobDrain, proto.SkillPartyMember, proto.SkillMobOther:
+	case proto.SkillUse, proto.SkillUseNoTarget, proto.SkillUserDrain, proto.SkillMobDrain, proto.SkillPartyMember, proto.SkillMobOther, proto.MobSkillUse, proto.MobSkillDrain, proto.MobSkillOther:
 		r := a.state.LastSkill
 		if r.Result > 3 || r.Target == 0 {
 			return
 		}
 		source, target, value = r.Source, r.Target, r.HP
+		critical = r.Result == 1
 		if source != a.state.SelfID && target != a.state.SelfID && target != a.state.Target {
 			return
+		}
+		if r.HealedHP > 0 {
+			a.showCombatNumber(r.Source, r.HealedHP, r.Result == 1, false, true)
 		}
 		if r.Result == 3 {
 			label = "Miss"
@@ -70,9 +73,5 @@ func (a *App) confirmedSkillFeedback(op proto.Opcode) {
 	if label != "Miss" && value == 0 {
 		return
 	}
-	a.combatNotice = label
-	if label != "Miss" {
-		a.combatNotice = fmt.Sprintf("%s: %d", label, value)
-	}
-	a.combatNoticeUntil = a.clock + 2
+	a.showCombatNumber(target, value, critical, label == "Miss", label == "Healing")
 }

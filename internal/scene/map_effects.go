@@ -203,6 +203,9 @@ func (f *mapEffects) trimTextures() {
 }
 
 func (f *mapEffects) close() {
+	if f.assets.effectMirrorQuad != nil {
+		f.assets.effectMirrorQuad.Delete()
+	}
 	if f.assets.effectQuad != nil {
 		f.assets.effectQuad.Delete()
 	}

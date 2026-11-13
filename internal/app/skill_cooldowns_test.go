@@ -16,6 +16,9 @@ func TestCooldownRestoresAndStartsFromConfirmedUse(t *testing.T) {
 	if a.skills.cooldowns[30] != 105 {
 		t.Fatal("remaining server delay not restored")
 	}
+	if a.learnedSkillPacket(proto.LearnedSkill{ID: 30, Level: 1, Number: 7}) != nil {
+		t.Fatal("client sent skill during restored reuse")
+	}
 	a.clock = 106
 	a.state.LastSkill = proto.SkillResult{Source: 43, ID: 30, Level: 1}
 	a.confirmedSkills(proto.SkillUse)

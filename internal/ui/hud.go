@@ -9,7 +9,7 @@ import (
 // HUD uses the native status art/layout (0x509f10, 0x5097b0), target
 // art/layout (0x50a2e0, 0x50b6a0).
 type HUD struct {
-	status, bars, circle, portraitMask, target, targetBar *render.Texture
+	status, bars, circle, portraitMask, target, targetBar, elemental *render.Texture
 }
 
 type Resource struct{ Current, Max uint32 }
@@ -24,6 +24,8 @@ type HUDState struct {
 	TargetName            string
 	TargetHP              Resource
 	TargetKnown           bool
+	TargetColor           [4]float32
+	TargetElement         uint8
 	Portrait              *render.Texture
 }
 
@@ -37,6 +39,7 @@ func NewHUD(t Textures) (*HUD, error) {
 		{"main_stats_circle.tga", &h.circle}, {"enemy_bar_bg.tga", &h.target},
 		{"main_stats_circle2.tga", &h.portraitMask},
 		{"enemy_bar.tga", &h.targetBar},
+		{"enemy_elemental.tga", &h.elemental},
 	} {
 		tex, err := t.Interface(asset.name)
 		if err != nil {
@@ -88,7 +91,15 @@ func (h *HUD) Draw(s *render.Sprites, f *Font, state HUDState) {
 
 	if state.TargetName != "" {
 		s.DrawImage(h.target, 256, 8)
-		f.Draw(s, state.TargetName, 358-f.Width(state.TargetName)/2, 26, white, 170)
+		tint := state.TargetColor
+		if tint[3] == 0 {
+			tint = white
+		}
+		f.Draw(s, state.TargetName, 358-f.Width(state.TargetName)/2, 26, tint, 170)
+		if state.TargetElement >= 1 {
+			u := float32((state.TargetElement-1)%4) / 4
+			s.Draw(h.elemental, 256, 14, 32, 32, u, 0, u+.25, 1, white)
+		}
 		if state.TargetKnown {
 			n := progress(state.TargetHP.Current, 0, state.TargetHP.Max)
 			s.Draw(h.targetBar, 297, 45, 140*n, 16, 0, 0, 140*n/256, 1, white)

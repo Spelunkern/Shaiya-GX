@@ -14,6 +14,7 @@ void main(){
 const glowFS = `#version 450 core
 layout(binding=0) uniform sampler2D sceneTexture;
 uniform int composite;
+uniform int glowLevel;
 in vec2 vUV;
 out vec4 frag;
 void main(){
@@ -26,6 +27,7 @@ void main(){
   if(any(lessThan(at,ivec2(0)))||any(greaterThanEqual(at,size)))continue;
   vec3 c=texelFetch(sceneTexture,at,0).rgb*255.0;
   float weight=i==4?35.0:44.0;
+  if(glowLevel==1)weight=i==4?17.0:22.0;
   // Native SRCALPHA/ONE accumulates into an eight-bit target after each tap.
   sum=clamp(roundEven(sum+c*(weight/255.0)),0.0,255.0);
  }
@@ -40,6 +42,8 @@ type SceneGlow struct {
 	width, height          int32
 	bytes                  uint64
 	composite              int32
+	level                  int32
+	Level                  int
 }
 
 func NewSceneGlow() (*SceneGlow, error) {
@@ -47,7 +51,7 @@ func NewSceneGlow() (*SceneGlow, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &SceneGlow{program: p, composite: gl.GetUniformLocation(p, gl.Str("composite\x00"))}
+	g := &SceneGlow{Level: 2, level: gl.GetUniformLocation(p, gl.Str("glowLevel\x00")), program: p, composite: gl.GetUniformLocation(p, gl.Str("composite\x00"))}
 	gl.CreateVertexArrays(1, &g.vao)
 	return g, nil
 }
@@ -81,6 +85,9 @@ func (g *SceneGlow) resize(w, h int32) error {
 // Apply preserves depth, the render target and the caller's graphics state.
 // Two color targets are reused; no geometry traversal or readback is needed.
 func (g *SceneGlow) Apply() error {
+	if g.Level == 0 {
+		return nil
+	}
 	var viewport [4]int32
 	gl.GetIntegerv(gl.VIEWPORT, &viewport[0])
 	w, h := max(viewport[2]/2, 1), max(viewport[3]/2, 1)
@@ -132,6 +139,7 @@ func (g *SceneGlow) Apply() error {
 	gl.BindVertexArray(g.vao)
 	gl.BindTextureUnit(0, g.textures[0])
 	gl.Uniform1i(g.composite, 0)
+	gl.Uniform1i(g.level, int32(g.Level))
 	gl.DrawArrays(gl.TRIANGLES, 0, 3)
 	drawCalls++
 	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, uint32(target))

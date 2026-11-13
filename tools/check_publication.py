@@ -26,7 +26,15 @@ def git(*args):
 
 def forbidden(path):
     p = PurePosixPath(path)
+    # Explicitly distributed server fixtures and authored app icon. This does
+    # not permit personal runtime copies, client archives or build artifacts.
+    if path == 'server/cmd/gx_server/icon.png':
+        return False
+    if p.parts[:2] == ('server', 'data'):
+        return (p.suffix.lower() in {'.sah', '.saf', '.exe', '.dll', '.pem', '.key', '.env'}
+                or p.name.startswith('.') or p.name.endswith(('-wal', '-shm')))
     return (p.suffix.lower() in GAME_SUFFIXES or p.parts[0] in LOCAL_DIRS
+            or any(part in {'runtime', '.local', 'build', 'out', 'logs'} for part in p.parts[:-1])
             or p.name == '.env' or p.name.startswith('.env.') or p.name.endswith('.env')
             or p.name in {'shaiya-go.toml', 'runtime.env'})
 
@@ -74,7 +82,7 @@ def main():
             if header[1] != b'blob':
                 continue
             checked += 1
-            if size > 1_048_576:
+            if size > (67_108_864 if path.startswith('server/data/') else 1_048_576):
                 errors.append(f'oversized source blob: {path}')
             if any(pattern.search(content) for pattern in SECRETS):
                 errors.append(f'potential secret: {path}')
@@ -83,7 +91,7 @@ def main():
         reader.wait()
     if errors:
         raise SystemExit('\n'.join(sorted(set(errors))))
-    print(f'Publication check passed: {checked} source/history blobs; no game assets, local runtime files or recognizable secrets.')
+    print(f'Publication check passed: {checked} source/history blobs; only approved server fixtures; no client archives, local runtime files or recognizable secrets.')
 
 
 if __name__ == '__main__':

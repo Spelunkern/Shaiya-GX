@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
-# Builds the Linux binaries into build/. GOOS=windows is not enabled yet.
+# Build and check the integrated Linux client and GX Server.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export PATH="$HOME/.local/opt/go-1.27.3/bin:$PATH" GOPATH="${GOPATH:-$HOME/.local/share/go}" GOTOOLCHAIN=local
+if ! command -v go >/dev/null 2>&1; then
+  for candidate in "$HOME"/.local/opt/go-*/bin /usr/local/go/bin; do
+    if [ -x "$candidate/go" ]; then export PATH="$candidate:$PATH"; break; fi
+  done
+fi
+export GOTOOLCHAIN=local
+mkdir -p build server/build
 go vet ./...
 for c in shaiya shaiyacli assets; do
-  nice go build -o "build/$c" "./cmd/$c"
+  go build -o "build/$c" "./cmd/$c"
 done
+./server/tools/build.sh
 go test ./...

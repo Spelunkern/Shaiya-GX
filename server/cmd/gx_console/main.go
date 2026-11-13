@@ -1,0 +1,53 @@
+// Command gx_console starts and stops gx_login and gx_world
+// from a plain terminal prompt: "start server" and "shutdown server".
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/Spelunkern/Shaiya-GX/server/internal/control"
+)
+
+func short(name string) string { return strings.TrimPrefix(name, "rapture_") }
+
+func status() {
+	state := func(name string) string {
+		if control.Running(name) {
+			return "ON"
+		}
+		return "OFF"
+	}
+	fmt.Printf("login: %s | world: %s\n", state("gx_login"), state("gx_world"))
+}
+
+func main() {
+	fmt.Println("GX Server Console")
+	status()
+	fmt.Println(`Commands: "start server" | "shutdown server"`)
+	input := bufio.NewScanner(os.Stdin)
+	for {
+		fmt.Print("> ")
+		if !input.Scan() {
+			return
+		}
+		switch strings.ToLower(strings.TrimSpace(input.Text())) {
+		case "start server":
+			if err := control.StartAll(); err != nil {
+				fmt.Printf("error -- %v\n", err)
+			} else {
+				fmt.Println("server started")
+			}
+			status()
+		case "shutdown server":
+			control.StopAll()
+			fmt.Println("server stopped")
+			status()
+		case "":
+		default:
+			fmt.Println(`unknown command. Use "start server" or "shutdown server".`)
+		}
+	}
+}

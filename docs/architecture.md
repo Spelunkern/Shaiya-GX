@@ -1,6 +1,6 @@
 # Architecture
 
-Shaiya GX is a Go client for the EP5.4 wire protocol supported by Rapture. The implementation is independent; original assets are read from user-supplied archives at runtime.
+Shaiya GX contains the Go client and its integrated GX Server (formerly Rapture), speaking the EP5.4 wire protocol. The implementation is independent; original assets are read from user-supplied archives at runtime.
 
 ## Modules
 
@@ -29,3 +29,11 @@ Assets load from the configured local archives and are cached. Terrain and repea
 ## Reference policy
 
 Original EP5 behavior and recovered constants define appearance and protocol. Phoenix supplies useful interface and interaction references, while its unrelated server rules are not imported. Comments cite native addresses or reference modules where available. A working panel does not imply complete parity with every original state.
+
+## Integrated server
+
+The root Go module owns `server/cmd`, `server/internal`, `server/data` and server tools. This is a direct source integration, not a submodule, external repository or remote module dependency. Server `internal` boundaries remain private to the server subtree.
+
+`gx_login` handles authentication/session handoff; `gx_world` owns maps, entities, combat and persistence. `gx_console` and the Fyne `gx_server` micro app share process control. Build outputs are under `server/build`; runtime, data and logs stay relative to that server installation. Compatibility environment names and database filenames are preserved. The advertised name and micro app title are GX Server.
+
+SQLite is embedded for development ease and will be replaced by another backend in the future. Storage remains behind `server/internal/db`. The included seed deliberately contains the author's shared test accounts and gameplay state; a mutable copy is created only when absent. Portables attach to GX releases. See [server operations](server.md) and [storage](../server/docs/sqlite.md).

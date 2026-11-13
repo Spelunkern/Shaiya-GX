@@ -8,7 +8,7 @@ import (
 
 // DrawEffectBatch preserves particle order within one emitter while sharing
 // geometry, material and draw call; each instance has its own tint.
-func (s *Scene3D) DrawEffectBatch(m *Mesh, t *Texture, worlds []M4, colors [][4]float32, source, destination int32) {
+func (s *Scene3D) DrawEffectBatch(m *Mesh, t *Texture, worlds []M4, colors [][4]float32, source, destination int32, clampTexture ...bool) {
 	src, dst, ok := EFTBlend(source, destination)
 	if !ok || t == nil || m == nil || m.Count == 0 || len(worlds) == 0 || len(worlds) != len(colors) {
 		return
@@ -24,7 +24,7 @@ func (s *Scene3D) DrawEffectBatch(m *Mesh, t *Texture, worlds []M4, colors [][4]
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(src, dst)
 	gl.DepthMask(false)
-	t.SetWrap(true)
+	t.SetWrap(len(clampTexture) == 0 || !clampTexture[0])
 	gl.BindTextureUnit(0, t.ID)
 	s.drawInstances(m)
 	t.SetWrap(false)
@@ -106,7 +106,7 @@ func EFTBlend(source, destination int32) (uint32, uint32, bool) {
 
 // DrawEffect renders texture * vertex-equivalent tint, depth tested without
 // depth writes (0x55cb10, native_effect_ports.cpp and native_controller_state.cpp).
-func (s *Scene3D) DrawEffect(m *Mesh, t *Texture, world M4, color [4]float32, source, destination int32) {
+func (s *Scene3D) DrawEffect(m *Mesh, t *Texture, world M4, color [4]float32, source, destination int32, clampTexture ...bool) {
 	src, dst, ok := EFTBlend(source, destination)
 	if !ok || t == nil {
 		return
@@ -119,7 +119,7 @@ func (s *Scene3D) DrawEffect(m *Mesh, t *Texture, world M4, color [4]float32, so
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(src, dst)
 	gl.DepthMask(false)
-	t.SetWrap(true)
+	t.SetWrap(len(clampTexture) == 0 || !clampTexture[0])
 	gl.BindTextureUnit(0, t.ID)
 	m.Draw()
 	t.SetWrap(false)

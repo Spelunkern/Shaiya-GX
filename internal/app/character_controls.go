@@ -61,6 +61,7 @@ func (v *worldView) faceCombatTarget(direction render.V3) {
 		v.combatHeading = v.facing
 	}
 	v.facing = direction
+	v.visualFacing = render.V3{}
 }
 
 func (v *worldView) restoreMovementHeading() {

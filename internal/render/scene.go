@@ -58,6 +58,7 @@ uniform int hasTerrainLight;
 uniform int mode;
 uniform float alphaRef;
 uniform vec3 fogColor;
+uniform float detailBias;
 uniform vec2 fogRange; // start, end; end <= start disables
 uniform float tileSize; // terrain layer tiling (world units per repeat)
 uniform vec4 tint;      // mode 3 colour (sky, clouds)
@@ -76,14 +77,14 @@ out vec4 frag;
 void main() {
 	vec4 c;
 	if (mode == 7) {
-		float a = alphaRef < 0.0 ? 1.0 : texture(tex0, vUV).a;
+		float a = alphaRef < 0.0 ? 1.0 : texture(tex0, vUV, detailBias).a;
 		if (a <= alphaRef) discard;
 		frag = vec4(0, 0, 0, a);
 		return;
 	} else if (mode == 8) {
-		c = texture(tex0, vUV) * vEffectColor;
+		c = texture(tex0, vUV, detailBias) * vEffectColor;
 	} else if (mode == 6) {
-		c = texture(tex0, vUV2 / tileSize) * tint;
+		c = texture(tex0, vUV2 / tileSize, detailBias) * tint;
 		if (hasWaterReflection != 0) {
 			vec2 uv = (gl_FragCoord.xy - waterViewport.xy) / waterViewport.zw;
 			if (hasWaterNormals != 0) {
@@ -112,19 +113,19 @@ void main() {
 	} else if (mode == 5) {
 		c = tint;
 	} else if (mode == 1) {
-		c = vec4(texture(tex1, vUV2 / tileSize).rgb, texture(tex0, vUV).a);
+		c = vec4(texture(tex1, vUV2 / tileSize, detailBias).rgb, texture(tex0, vUV, detailBias).a);
 		if (hasTerrainLight != 0) c.rgb *= texture(terrainLight, vUV).rgb;
 	} else if (mode == 4) {
-		c = texture(tex0, vUV);
-		c.rgb *= texture(tex1, vUV2).rgb;
+		c = texture(tex0, vUV, detailBias);
+		c.rgb *= texture(tex1, vUV2, detailBias).rgb;
 	} else if (mode == 3) {
 		frag = texture(tex0, vUV + uvOffset) * tint * vEffectColor;
 		return;
 	} else if (mode == 2) {
-		frag = vec4(texture(tex0, vUV).rgb, 1.0);
+		frag = vec4(texture(tex0, vUV, detailBias).rgb, 1.0);
 		return;
 	} else {
-		c = texture(tex0, vUV);
+		c = texture(tex0, vUV, detailBias);
 		c.rgb *= vDiffuse;
 	}
 	if (c.a <= alphaRef) discard;
@@ -137,6 +138,9 @@ void main() {
 
 // Scene3D holds the shared 3D program and per-frame camera state.
 type Scene3D struct {
+	HideWeaponEffects                                         bool
+	DetailBias                                                float32
+	uDetailBias                                               int32
 	ReverseDepth                                              bool
 	cameraView                                                M4
 	cameraEye                                                 V3
@@ -183,7 +187,7 @@ func NewScene3D() (*Scene3D, error) {
 	}
 	u := func(n string) int32 { return gl.GetUniformLocation(p, gl.Str(n+"\x00")) }
 	return &Scene3D{prog: p, uInstanced: u("instanced"), uEffectColors: u("effectColorsEnabled"), uTerrainLight: u("hasTerrainLight"), uWorld: u("world"), uViewProj: u("worldViewProj"), uView: u("worldView"), uLight: u("lightDir"),
-		uAmb: u("ambient"), uLit: u("lit"), uMode: u("mode"), uRef: u("alphaRef"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uTile: u("tileSize"), uTint: u("tint"), uUVOff: u("uvOffset"), uClipPlane: u("clipPlane"), uWaterReflection: u("hasWaterReflection"), uWaterViewport: u("waterViewport"), uWaterNormals: u("hasWaterNormals"), uWaterTime: u("waterTime"), uWaterBelow: u("waterBelow"),
+		uDetailBias: u("detailBias"), uAmb: u("ambient"), uLit: u("lit"), uMode: u("mode"), uRef: u("alphaRef"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uTile: u("tileSize"), uTint: u("tint"), uUVOff: u("uvOffset"), uClipPlane: u("clipPlane"), uWaterReflection: u("hasWaterReflection"), uWaterViewport: u("waterViewport"), uWaterNormals: u("hasWaterNormals"), uWaterTime: u("waterTime"), uWaterBelow: u("waterBelow"),
 		LightDir: V3{-1, -1, -1}, Ambient: 128.0 / 255}, nil
 }
 
@@ -207,6 +211,7 @@ func (s *Scene3D) Begin() {
 	gl.Uniform1f(s.uAmb, s.Ambient)
 	gl.Uniform3f(s.uFogColor, s.FogColor[0], s.FogColor[1], s.FogColor[2])
 	gl.Uniform2f(s.uFogRange, s.FogStart, s.FogEnd)
+	gl.Uniform1f(s.uDetailBias, s.DetailBias)
 }
 
 // End restores the 2D state.

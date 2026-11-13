@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/effect"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
@@ -16,8 +17,11 @@ type inventoryView struct {
 	hovered                 bool
 	source                  [2]uint8
 	deadline                float64
+	cooldowns               map[uint8]float64
+	restoration             *potionRestoration
 	message                 string
 	dragging                bool
+	pressX, pressY          int
 	preview                 *scene.Character
 	previewAppearance       scene.Appearance
 	previewLoaded           bool
@@ -58,24 +62,12 @@ func (a *App) updateInventory(in *platform.Input, w, h int) bool {
 	if v.selected && !a.state.Self.Dead {
 		for _, r := range in.Chars {
 			if r == 'u' || r == 'U' {
-				if v.source == [2]uint8{0, 13} {
-					a.requestVehicle()
-					v.selected = false
-					return true
-				}
-				if a.openAppearanceEditor(v.source) {
-					v.selected = false
-					return true
-				}
-				if err := a.world.Send(proto.UseItemPacket(v.source[0], v.source[1])); err != nil {
-					a.backToLogin("Unable to use item.")
-					return true
-				}
-				v.pending, v.deadline, v.selected = true, a.clock+10, false
+				a.useInventoryItem(v.source)
 				return true
 			}
 		}
 	}
+
 	merchant := a.state.Entities[a.shop.npcID]
 	if v.selected && v.source[0] != 0 && merchant != nil && merchant.NpcType == 1 && !a.shop.questMode {
 		for _, r := range in.Chars {
@@ -86,11 +78,15 @@ func (a *App) updateInventory(in *platform.Input, w, h int) bool {
 		}
 	}
 	v.hover, v.hovered = ui.InventoryHit(in.MouseX-x, in.MouseY-y, v.bag)
-	// A click keeps the item selected; releasing over another cell also
-	// supports dragging. Wire positions stay unchanged until the response.
-	if in.Pressed && v.hovered && (!v.selected || v.source == v.hover) && !a.state.Self.Dead {
+	// Clicking uses an item; dragging keeps native bag positions authoritative.
+	if in.RightPressed && v.hovered && !a.state.Self.Dead {
+		a.equipInventoryItem(v.hover)
+		return true
+	}
+	if in.Pressed && v.hovered && !a.state.Self.Dead {
 		if _, ok := a.state.Inventory[v.hover]; ok {
 			v.source, v.selected, v.dragging = v.hover, true, true
+			v.pressX, v.pressY = in.MouseX, in.MouseY
 		}
 	}
 	if in.Clicked {
@@ -109,8 +105,11 @@ func (a *App) updateInventory(in *platform.Input, w, h int) bool {
 					return true
 				}
 				v.pending, v.deadline = true, a.clock+10
-			} else if !wasDrag {
+			} else {
 				v.selected = false
+				if wasDrag && in.MouseX-v.pressX > -4 && in.MouseX-v.pressX < 4 && in.MouseY-v.pressY > -4 && in.MouseY-v.pressY < 4 {
+					a.useInventoryItem(key)
+				}
 			}
 		}
 	}
@@ -124,24 +123,8 @@ func (a *App) drawInventory(w, h int) {
 	}
 	x, y := a.inventoryUI.Origin(w, h)
 	a.clearTooltipUnderPanel(x, y, ui.InventoryWidth, ui.InventoryHeight)
-	message := "Select item, then destination."
-	if a.warehouseOpen() {
-		message = "Drag items between inventory and warehouse."
-	} else if a.blacksmithOpen() {
-		message = "Drag equipment and lapis to the blacksmith."
-	} else if e := a.state.Entities[a.shop.npcID]; e != nil && e.NpcType == 1 {
-		message = "V: sell 1 | U: use selected item"
-	}
-	if v.selected && v.source == [2]uint8{0, 13} {
-		message = "U: mount or dismount | /mount"
-	}
-	if v.message != "" {
-		message = v.message
-	}
-	if v.pending || a.shop.pending {
-		message = "Waiting for server..."
-	}
-	a.inventoryUI.Draw(a.sprites, a.font, w, h, v.bag, a.state.Details.Money, message)
+	a.inventoryUI.Draw(a.sprites, a.font, w, h, v.bag, a.state.Details.Money, "")
+
 	a.drawInventoryPreview(w, h)
 	for key, it := range a.state.Inventory {
 		if key[0] != 0 && key[0] != v.bag {
@@ -157,6 +140,7 @@ func (a *App) drawInventory(w, h int) {
 		}
 		if d := a.itemsItem(it.Type, it.TypeID); d != nil {
 			a.drawItemIcon(d, cx, cy, size, white)
+			a.drawItemCooldown(it, cx, cy, size)
 		}
 		if it.Count > 1 {
 			text := fmt.Sprint(it.Count)
@@ -185,5 +169,72 @@ func (a *App) drawInventory(w, h int) {
 		return
 	}
 	left, top := max(0, x-304), min(y+260, max(0, h-110))
-	a.drawItemDetails(def, &it, it.Count, left, top, w, h, fmt.Sprintf("Sell: %d gold", def.SellPrice))
+	a.drawItemDetails(def, &it, it.Count, left, top, w, h, itemSellingPrice(def.SellPrice))
+}
+
+// Server validation decides whether an item can be used or equipped.
+func (a *App) useInventoryItem(key [2]uint8) {
+	if a.world == nil || a.state == nil || a.state.Self.Dead || a.inventory.pending || a.shop.pending {
+		return
+	}
+	it, ok := a.state.Inventory[key]
+	if !ok {
+		return
+	}
+	if key == [2]uint8{0, 13} {
+		a.requestVehicle()
+		return
+	}
+	if a.openAppearanceEditor(key) || a.itemCooldown(it) > 0 {
+		return
+	}
+	if err := a.world.Send(proto.UseItemPacket(key[0], key[1])); err != nil {
+		a.backToLogin("Unable to use item.")
+		return
+	}
+	a.inventory.pending, a.inventory.deadline = true, a.clock+10
+}
+func itemSellingPrice(price uint32) string {
+	if price == 0 {
+		return ""
+	}
+	return fmt.Sprintf("Sell: %d gold", price)
+}
+func (a *App) equipInventoryItem(key [2]uint8) {
+	it, ok := a.state.Inventory[key]
+	if !ok || key[0] == 0 || a.world == nil {
+		return
+	}
+	slots := inventoryEquipSlots(it.Type)
+	if len(slots) == 0 {
+		return
+	}
+	slot := slots[0]
+	for _, candidate := range slots {
+		if a.state.Inventory[[2]uint8{0, candidate}].Type == 0 {
+			slot = candidate
+			break
+		}
+	}
+	if err := a.world.Send(proto.ItemMovePacket(key[0], key[1], 0, slot)); err != nil {
+		a.backToLogin("Unable to equip item.")
+		return
+	}
+	a.inventory.selected, a.inventory.dragging = false, false
+	a.inventory.pending, a.inventory.deadline = true, a.clock+10
+}
+func inventoryEquipSlots(typ uint8) []uint8 {
+	if effect.WeaponFamily(typ) != 0 {
+		return []uint8{5}
+	}
+	groups := [][]uint8{{16, 31, 66, 72, 81, 87}, {17, 32, 67, 73, 82, 88}, {18, 33, 68, 74, 83, 89}, {20, 35, 70, 76, 85, 91}, {21, 36, 71, 77, 86, 92}, {19, 34, 69, 75, 84, 90}, {24, 39}, {23, 38}, {22, 37}, {40, 41}, {42}}
+	slots := [][]uint8{{0}, {1}, {2}, {3}, {4}, {6}, {7}, {8}, {9, 10}, {11, 12}, {13}}
+	for i, group := range groups {
+		for _, t := range group {
+			if typ == t {
+				return slots[i]
+			}
+		}
+	}
+	return nil
 }

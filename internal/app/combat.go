@@ -8,6 +8,7 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
+	"github.com/Spelunkern/Shaiya-GX/internal/render"
 	"github.com/Spelunkern/Shaiya-GX/internal/ui"
 )
 
@@ -30,7 +31,12 @@ func (a *App) confirmedPickup(p []byte) {
 	case 4:
 		message = "That item is too far away."
 	}
-	a.questMessage(message)
+	ids := map[byte]int{0: 202, 1: 238, 3: 239, 4: 233}
+	if id := ids[p[3]]; id != 0 && a.msg.Get(id) != "" {
+		a.systemMessage(1, id, nil)
+	} else {
+		a.questMessage(message)
+	}
 }
 
 // Delivery controls: click a player or mob to select;
@@ -68,8 +74,14 @@ func (a *App) updateCombat(in *platform.Input, w, h int) {
 		a.openNPC(id)
 		return
 	}
-	if in.Clicked || in.HasKey(platform.KeyTarget) {
+	if in.Clicked || in.HasKey(platform.KeyTarget) || in.HasKey(platform.KeyPreviousTarget) {
 		target := a.pickMob(in, w, h)
+		if in.HasKey(platform.KeyPreviousTarget) {
+			target = a.state.PreviousTarget
+			if e := a.state.Entities[target]; e == nil || e.Dead {
+				return
+			}
+		}
 		if e := a.state.Entities[target]; e != nil && e.Kind == game.KindUser && target != a.state.Target {
 			if old := a.state.Entities[a.state.Target]; old != nil && old.Kind == game.KindMob {
 				if err := a.world.Send(proto.StopAttackPacket()); err != nil {
@@ -83,6 +95,9 @@ func (a *App) updateCombat(in *platform.Input, w, h int) {
 				a.backToLogin("Unable to select target.")
 				return
 			}
+		}
+		if target != a.state.Target {
+			a.state.PreviousTarget = a.state.Target
 		}
 		a.state.Target = target
 		if in.Clicked {
@@ -157,6 +172,19 @@ func (a *App) attackTarget() bool {
 		}
 		return true
 	}
+	a.wv.approachTarget, a.wv.approachSkill = 0, nil
+	a.wv.approachNPC = false
+	a.wv.travel, a.wv.autoRun = false, false
+	if !a.faceRequestedTarget(e.ID) {
+		return false
+	}
+	delta := render.V3{e.X - a.wv.pos[0], 0, e.Z - a.wv.pos[2]}
+	if delta.Len() > a.attackReach() {
+		a.wv.autoRun = false
+		a.wv.approachTarget, a.wv.approachLoot = e.ID, false
+		a.wv.approachSkill = nil
+		return a.updateActionApproach(&platform.Input{})
+	}
 	// Rapture decides whether a player is hostile (faction, PvP map, duel,
 	// guild duel). A client-side duel-only check would block normal PvP.
 	if e != nil && e.Kind == game.KindUser && e.ID != a.state.SelfID && !e.Dead {
@@ -176,6 +204,7 @@ func (a *App) attackTarget() bool {
 }
 
 func (a *App) drawCombat(w, h int) {
+	a.drawCombatNumbers(w, h)
 	s := a.state
 	if a.clock < a.combatNoticeUntil {
 		a.font.Draw(a.sprites, a.combatNotice, w/2-45, h/2-80, white, 0)
@@ -216,6 +245,8 @@ func (a *App) drawCombat(w, h int) {
 		view.TargetName = fmt.Sprintf("Target %d", e.TypeID)
 		if def, err := a.assets.MonsterDefinition(e.TypeID); err == nil {
 			view.TargetName, view.TargetHP.Max = def.Name, def.HP
+			view.TargetColor = ui.RGBColor(ui.MobNameRGB(def.Level, view.Level))
+			view.TargetElement = def.Element
 		} else if !a.assets.Missing[err.Error()] {
 			log.Printf("target definition: %v", err)
 			a.assets.Missing[err.Error()] = true
@@ -230,5 +261,6 @@ func (a *App) drawCombat(w, h int) {
 		}
 	}
 	a.hud.Draw(a.sprites, a.font, view)
+	a.bottom.QuestOpen, a.bottom.GuildOpen = a.questLog.open, a.guild.open
 	a.bottom.Draw(a.sprites, a.font, a.white, w, h, view, a.inventory.open, a.skills.open, a.status.open, a.subActionsOpen)
 }

@@ -66,6 +66,9 @@ func TestNativeControlsAgainstRapture(t *testing.T) {
 			time.Sleep(time.Millisecond)
 		}
 	}
+	verifyNativeChat(t, a, b, pump)
+	verifyNativeWeaponEnchants(t, a, b, pump)
+	verifyNativeSocial(t, a, b, pump)
 	v := a.wv
 	// Land on the map's real terrain before measuring the jump.
 	v.step(render.V3{})
@@ -265,7 +268,10 @@ func TestNativeControlsAgainstRapture(t *testing.T) {
 	}
 	v.place(start)
 	if os.Getenv("SHAIYA_TEST_ACTIONS") == "1" {
+		verifyNativeCloakAndHealing(t, a, b, pump)
+		verifyInstantSkillTiming(t, a, pump)
 		verifyNativeApproach(t, a, pump)
+		verifyPotionReuse(t, a, pump)
 	}
 	a.chatOpen = true
 	a.chatUI.Channel = proto.ChannelNormal

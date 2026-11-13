@@ -60,7 +60,7 @@ func TestRealWAV(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer a.Close()
-	for _, file := range []string{"Sound/ui_button001.wav", "Sound/mob_ape_att01.wav", "Sound/Music/bgm_login001.wav"} {
+	for _, file := range []string{"Sound/ui_button001.wav", "Sound/mob_ape_att01.wav", "Sound/Music/bgm_title.wav"} {
 		raw, err := a.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)

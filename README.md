@@ -1,86 +1,58 @@
 # Shaiya GX
 
-A native 64-bit Shaiya EP5.4 client written in Go, using OpenGL 4.5 and the Rapture protocol.
+Shaiya GX is a native 64-bit Shaiya EP5.4 client **and its integrated GX Server**, written in Go for Linux and Windows. The former Rapture server now lives in `server/`; there is one repository, one Go module and one place to build, contribute and report issues.
 
-Shaiya GX is an independent client implementation in active development. It reads your existing game archives locally. **This repository does not include game data, original executables, textures, models, audio, account databases, or credentials.**
+GX reads your own compatible `data.sah` / `data.saf` archives. Client game archives, original executables, textures, models, music and fonts are not included. The repository **does include server maps/configuration and the requested development database snapshot, including test accounts, characters and inventory**. It is test data, not a fresh production database.
 
-## Current status
+**SQLite is used during development because an embedded database makes setup and distribution easy. It is temporary: the database backend will change in the future. The replacement and migration format are not selected yet.**
 
-The Linux client supports login, character selection and creation, world rendering, character movement, combat, skills, inventory, equipment, chat, NPC services, and a growing set of social and gameplay interfaces. It connects to Rapture; the server remains authoritative for game rules and outcomes.
+## Get started
 
-Implemented systems include:
+1. Download `gx-server-windows-amd64.zip` or `gx-server-linux-amd64.tar.gz` from [GX releases](https://github.com/Spelunkern/Shaiya-GX/releases/latest), plus `SHA256SUMS.txt`. Extract the entire folder to a writable location. See [download verification](docs/quickstart.md#verify-a-download).
+2. Open `build/gx_server.exe` on Windows or `build/gx_server` on Linux. The window is named **GX Server**. Click **Start server**. The terminal launcher `Start GX Server.bat` / `Start GX Server.sh` also works: type `start server` and later `shutdown server`.
+3. Build the GX client following [Windows and Linux instructions](docs/building.md), or use a locally prepared client folder. Supply your own archives and a Tahoma-compatible font, then connect to `127.0.0.1:30800`.
+4. Log in with your test account. To create another, use the optional Python account tool described in the [first-run guide](docs/quickstart.md).
 
-- Original archive and asset readers, skinned characters, terrain and objects, map fog, effects, water and actor shadows.
-- Third-person and first-person cameras, jumping, evasive steps, walking, automatic movement and click-to-move.
-- Player/target HUD, draggable action bars, skill-book drag and drop, item/skill tooltips, inventory character preview, Status resource bars and Item Mall icons.
-- Draggable buff/debuff strips with native duration bars, minimap and full map, map information plate, and a resizable two-pane chat with channel selection and input history.
-- Nonmodal options, audio and mouse settings, party/raid, quests, trade, duels, guild interfaces, storage, blacksmith services and portals.
-- Action-panel auto attack and pickup that approach their selected nearby target before sending the request.
+The portable server includes login, world, console, the one-button micro app, seed database, maps and configuration. Running its console or headless servers needs no Go, Docker, SQL Server, Python or external SQLite installation. The micro app also needs working desktop graphics libraries/drivers. Linux runtime packages and Windows build prerequisites are documented in [building](docs/building.md).
 
-This is a **development build**, not a finished replacement for the original client. Interface parity, navigation/collision, visual effects and several service variants remain incomplete. Windows is a planned target and is not currently validated. See [interface status](docs/interface.md) and [architecture](docs/architecture.md).
+Closing the micro app or console leaves login/world running. Use **Stop server** or `shutdown server` before moving an installation or its database. [Operating and updating](docs/server.md) covers persistence, LAN connections, logs and backups.
 
-## Build on Linux
+## Status
 
-Requirements:
+This is a development project. Linux and Windows amd64 are supported build targets for client and server. CI builds and runs ordinary tests on both native operating systems and starts each native portable server in an isolated relocated folder. Client graphics/gameplay testing requires local assets and a real OpenGL 4.5 driver; CI compilation does not establish complete visual parity or compatibility with every GPU.
 
-- Go 1.27.3 and a C compiler; CGO must be enabled.
-- OpenGL 4.5-capable graphics drivers.
-- Development libraries for OpenGL, X11/GLFW and ALSA, plus `pkg-config`.
-- Your own compatible `data.sah` and `data.saf` archives, kept outside this repository.
-- A Tahoma-compatible TrueType font. Set `SHAIYA_FONT` to its local path; the default lookup also checks `fonts/tahoma.ttf` beside the executable and Wine's system font directory.
+The client implements login, character creation/selection, world rendering, movement, combat, skills, inventory/equipment, NPC shops, loot, chat, party/raid, quests, trade, guilds, storage, blacksmith services, portals and social interfaces. Graphics include fog, water, actor shadows, effects and original UI artwork read from the archives. Remaining limitations include visual/service variants, collision/navigation and some options. See [interface status](docs/interface.md).
 
-```sh
-go build -o build/shaiya ./cmd/shaiya
-SHAIYA_DATA=/path/to/local/game-data \
-SHAIYA_FONT=/path/to/tahoma.ttf \
-./build/shaiya -login 127.0.0.1:30800
-```
+GX Server retains Rapture's gameplay and protocol behavior. Its process names are now `gx_login`, `gx_world`, `gx_console` and `gx_server`; the advertised server name and micro app title are **GX Server**. Existing `RAPTURE_*` environment keys and `rapture.sqlite` filenames remain compatible to avoid changing operation or storage semantics.
 
-The graphical client asks for the account at login. Passwords are not persisted. The headless diagnostic client reads its password from `SHAIYA_PASSWORD`.
+## Guides
 
-Open Sans SemiBold is embedded for the interface elements that require it. Its [SIL Open Font License](internal/ui/fonts/OFL.txt) is included. No original game font is bundled.
+- [First run on Windows and Linux](docs/quickstart.md)
+- [Build, test and package](docs/building.md)
+- [Server operation, LAN, backup and updates](docs/server.md)
+- [Architecture](docs/architecture.md), [protocol](docs/protocol.md), [interface status](docs/interface.md)
+- [Server database](server/docs/sqlite.md), [distribution](server/docs/distribution.md), [gameplay parity](server/docs/original-parity.md)
+- [Contributing](CONTRIBUTING.md) and [agent instructions](AGENTS.md)
 
-## Controls
+## Common controls
 
 | Input | Action |
 |---|---|
-| W / S | Forward / backward |
-| A / D | Turn |
-| Q / E | Side step |
-| Right mouse | Steer; A / D become side steps |
-| Both mouse buttons | Move forward |
-| Mouse wheel | Zoom |
-| Space / C | Jump / sit or stand |
-| Tab / NumLock | Walk or run / automatic movement |
-| F / X / H | Attack selected target / stop attack / approach nearby loot |
+| W/S, A/D, Q/E | Forward/back, turn, side step |
+| Right mouse / both buttons | Steer / move forward |
+| Wheel / F9 / F10 | Zoom / reset camera / first person |
+| Space / C / Tab / NumLock | Jump / sit / walk or run / automatic movement |
+| F / X / H | Attack target / stop attack / approach nearby loot |
 | I / T / K / B | Inventory / Status / skills / actions |
-| U / G / M | Quests / guild / map |
-| O / Escape | Options; Escape closes an active panel first |
-| Enter / Up / Down | Chat; navigate sent-message history while typing |
+| U / G / M / O | Quests / guild / map / options |
+| Enter / Up / Down | Chat / sent-message history while typing |
 | 1–9, 0 / numeric keypad | First / second action bar |
-| F9 / F10 | Reset camera / first-person view |
+| Grave accent / Backspace | Cycle enemies / previous target |
 
-Drag window headers to move supported windows. Buff/debuff strips drag from their icons; drag the minimap rim or information plate, and the full-map header. Resize chat histories from their top edges. UI positions and supported settings are stored in the user's configuration directory.
+Inventory: left-click uses an item, right-click equips/replaces it, drag moves it. Supported window headers and action bars are draggable. Escape closes the active panel first. Chat uses `!name message` for whisper, `@message` for party, `#message` for guild and `$message` for trade. Settings are kept in the user's configuration directory; passwords are not saved by the graphical client.
 
-## Validation
+## Source layout and licenses
 
-```sh
-go vet ./...
-go test ./...
-staticcheck ./...
-python3 tools/check_publication.py --history
-```
+`cmd/`, `internal/` and `tools/` contain the client and its helpers. `server/cmd/`, `server/internal/`, `server/tools/` and `server/data/` contain GX Server and its distributed test fixtures. Build output, mutable databases, local overrides, logs and private analysis stay outside Git. Portable binaries are release assets, rather than source-history blobs.
 
-Tests that require a graphics context, local game archives or a server are opt-in. [Building and testing](docs/building.md) describes these checks. Integration probes use disposable accounts and an isolated database; they must not be pointed at a production account or database.
-
-## Repository contents
-
-`cmd/` contains the graphical client, headless client and archive-inspection utility. `internal/` contains networking, protocol, state, data readers, rendering, UI and audio. `tools/` contains local build, packaging and analysis helpers. `docs/` contains English public documentation.
-
-Game assets and generated files belong outside Git. See [.gitignore](.gitignore), [third-party notices](NOTICE), and the [protocol notes](docs/protocol.md).
-
-Shaiya and its original game content belong to their respective rights holders. Public source availability does not grant rights to the original game's assets or branding.
-
-## License
-
-Shaiya GX source code is licensed under the [BSD 3-Clause License](LICENSE). Third-party components retain their own licenses; see [NOTICE](NOTICE). Original game data, assets and trademarks are not covered by this license.
+Source is [BSD 3-Clause](LICENSE). The original server copyright and terms are retained in [server/LICENSE](server/LICENSE). Third-party notices are in [NOTICE](NOTICE). Original Shaiya game content and trademarks retain their respective ownership; the source license does not grant rights to game assets.

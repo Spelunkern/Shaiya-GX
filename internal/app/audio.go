@@ -56,7 +56,7 @@ func (a *App) updateAudio() {
 	music := ""
 	switch a.screen {
 	case screenLogin, screenServers:
-		music = "bgm_login001.wav"
+		music = "bgm_title.wav"
 	case screenWorld:
 		if a.wv != nil && a.wv.world != nil {
 			music = mapMusic(a.wv.world.WLD, a.wv.pos[0], a.wv.pos[2])
@@ -94,6 +94,12 @@ func (a *App) confirmedSound(p []byte) {
 		r := a.state.LastSkill
 		if r.Result <= 3 && !(r.Result == 3 && r.Target == 0) {
 			a.playSkillSound(r.Source, r.ID, r.Level, false)
+		}
+	case proto.MobSkillUse, proto.MobSkillDrain, proto.MobSkillOther:
+		r := a.state.LastSkill
+		if m := a.wv.mobs[r.Source]; m != nil && m.actor != nil && (m.soundSkill != r.ID || a.clock-m.soundAt > .15) {
+			m.soundSkill, m.soundAt = r.ID, a.clock
+			a.playSound(m.actor.Sound(int(min(r.AttackSlot, 2))), m.pos[0], m.pos[2])
 		}
 	case proto.MobAttackCharacter:
 		id := a.state.LastAttack.Source

@@ -1,0 +1,691 @@
+package world
+
+import (
+	"github.com/Spelunkern/Shaiya-GX/server/internal/db"
+	"github.com/Spelunkern/Shaiya-GX/server/internal/packet"
+)
+
+const (
+	defaultCharacterID = 1
+	basePoolPerLevel   = 100
+	hpPerReaction      = 5
+	spPerDexterity     = 5
+	mpPerWisdom        = 5
+
+	specialNone                 = 0
+	specialPercentHealingPotion = 17
+	specialChangeAppearance     = 44
+	specialChangeSex            = 45
+	specialChangeName           = 51
+	specialResetStats           = 34
+	specialRecreationRune       = 62
+
+	InventoryFirstBag  = 1
+	InventoryLastBag   = 5
+	InventorySlotCount = 24
+
+	FactionLight      = 0
+	FactionDark       = 1
+	FactionNone       = 2
+	MaxModeUltimate   = 3
+	MaxCharacterSlots = 5
+
+	MotionSitDown = 1
+	MotionStandUp = 0
+)
+
+var consumableItemTypes = []uint8{25, 44, 100, 101, 102}
+
+func isConsumableType(t uint8) bool {
+	for _, c := range consumableItemTypes {
+		if c == t {
+			return true
+		}
+	}
+	return false
+}
+
+func satAdd(a, b uint32) uint32 {
+	if s := a + b; s >= a {
+		return s
+	}
+	return ^uint32(0)
+}
+
+func satSub(a, b uint32) uint32 {
+	if a > b {
+		return a - b
+	}
+	return 0
+}
+
+func satMul(a, b uint32) uint32 {
+	r := uint64(a) * uint64(b)
+	if r > uint64(^uint32(0)) {
+		return ^uint32(0)
+	}
+	return uint32(r)
+}
+
+// EquipmentStats aggregates equipped items, gems and craft bonuses.
+type EquipmentStats struct {
+	Str, Rec, Int, Wis, Dex, Luc uint32
+	MaxHP, MaxMP, MaxSP          uint32
+	// CUser::GemEquipmentAdd/ItemEquipmentAdd: Effect1 is the item attack
+	// and Effect2 its random variance (weapons and accessories), Effect3
+	// physical and Effect4 magic defense (everything but weapons).
+	ItemAttack, Variance uint32
+	Defense, Resistance  uint32
+	Absorption           uint32
+	AttackAttr           uint8 // the weapon's (or its gem's) element
+	DefenseAttr          uint8 // the armour's (slot 1) element, CUser::SetAttrDef
+	RangedWeapon         bool
+	// CUser::SetSkillAbility / AddSkillPassive / gems: per-category
+	// (melee, ranged, magic) additions and other modifiers.
+	Mods          [3]CategoryMods
+	Critical      int32
+	Range         int32 // added to the weapon's reach
+	AttackSpeed   int32 // added to the swing-speed index
+	MoveSpeed     int32
+	CrossRoad     int32    // passive detail 9: no close-range bow penalty
+	SitRecoverPct [3]int32 // abilities 10-12: extra sitting recovery % (HP, SP, MP)
+	// Flat recovery from Special 16 gems (CUser +0x1250 sitting, +0x1268
+	// standing; HP, SP, MP).
+	GemRecover [3]uint32
+	// Country kill count tier (CUser::UpdateKCStatus) percents.
+	KCPoolPct    [3]int32 // types 1-3: max HP, MP, SP
+	KCRecoverPct [3]int32 // types 10-12: sitting/standing recovery, of max HP, SP, MP
+	KCCombatPct  [3]int32 // types 13-15: in-combat recovery, of max HP, SP, MP
+	KCGuardPct   [2]int32 // types 18-19: melee/ranged defense
+	SPCostCut    int32    // ability 13 / 14: percent off skill costs
+	MPCostCut    int32
+	Disabled     [3]int32 // abilities 32-34: no attacks of that category
+	WeaponType   uint8    // real type of the equipped weapon (0 none)
+	ShieldType   uint8    // real type of the equipped shield (0 none)
+}
+
+// CategoryMods are SetSkillAbility's per-category additions.
+type CategoryMods struct{ Accuracy, Attack, Defense, Evasion int32 }
+
+// itemElement is CUser::SetAttrAtk / SetAttrDef: the item's element, or
+// its gems' when it has none; two different elements cancel to 0.
+func itemElement(it *db.Item, d *db.ItemDef) uint8 {
+	value := uint8(0)
+	if d != nil && d.Attrib <= 8 {
+		value = d.Attrib
+	}
+	defs := db.MustDefs()
+	for _, gem := range it.Gems {
+		if gem == 0 {
+			continue
+		}
+		g := defs.Item(gemItemType, gem)
+		if g == nil || g.Attrib == 0 || g.Attrib == value || g.Attrib > 8 {
+			continue
+		}
+		if value != 0 {
+			return 0
+		}
+		value = g.Attrib
+	}
+	return value
+}
+
+const gemItemType = 30
+
+// specialRecoverGem is the gem Special that turns its pools into recovery.
+const specialRecoverGem = 16
+
+// IsWeaponItemType: Type 1-15 and 45-65.
+func IsWeaponItemType(t uint8) bool { return (t >= 1 && t <= 15) || (t >= 45 && t <= 65) }
+
+// IsArmorItemType: Type 16-21, 31-36 and 66-92.
+func IsArmorItemType(t uint8) bool {
+	return (t >= 16 && t <= 21) || (t >= 31 && t <= 36) || (t >= 66 && t <= 92)
+}
+
+var weaponEnchantAttackBonus = [21]uint32{0, 7, 14, 21, 31, 41, 51, 64, 77, 90, 106, 122, 138, 157, 176, 195, 217, 239, 261, 286, 311}
+var armorEnchantAbsorption = [21]uint32{0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100}
+
+// CraftStats is the decoded 20-digit Craftname: str dex rec int wis luc
+// hp/100 mp/100 sp/100 enchant, two digits each.
+type CraftStats struct {
+	Str, Dex, Rec, Int, Wis, Luc uint32
+	MaxHP, MaxMP, MaxSP          uint32
+	EnchantLevel                 uint8
+}
+
+func ParseCraftName(name string) (CraftStats, bool) {
+	for len(name) > 0 && name[len(name)-1] == ' ' {
+		name = name[:len(name)-1]
+	}
+	if len(name) != 20 {
+		return CraftStats{}, false
+	}
+	for i := 0; i < 20; i++ {
+		if name[i] < '0' || name[i] > '9' {
+			return CraftStats{}, false
+		}
+	}
+	pair := func(i int) uint32 { return uint32(name[i]-'0')*10 + uint32(name[i+1]-'0') }
+	return CraftStats{Str: pair(0), Dex: pair(2), Rec: pair(4), Int: pair(6), Wis: pair(8), Luc: pair(10),
+		MaxHP: pair(12) * 100, MaxMP: pair(14) * 100, MaxSP: pair(16) * 100, EnchantLevel: uint8(pair(18))}, true
+}
+
+func pos16(v int16) uint32 { return uint32(max(v, 0)) }
+
+func isAccessoryType(t uint8) bool { return t == 22 || t == 23 || t == 40 }
+
+// addItemDef adds an item's effects at its quality level
+// (ItemEquipmentAttackAddQ: accessories and gems always use level 0).
+func (e *EquipmentStats) addItemDef(itemType uint8, d *db.ItemDef, level uint8) {
+	weapon := IsWeaponItemType(itemType)
+	if isAccessoryType(itemType) || itemType == gemItemType {
+		level = 0
+	}
+	if weapon || isAccessoryType(itemType) || itemType == gemItemType {
+		e.ItemAttack, e.Variance = satAdd(e.ItemAttack, effectAtLevel(d.Effect1, level)), satAdd(e.Variance, effectAtLevel(d.Effect2, level))
+	}
+	if !weapon {
+		e.Defense, e.Resistance = satAdd(e.Defense, effectAtLevel(d.Effect3, level)), satAdd(e.Resistance, effectAtLevel(d.Effect4, level))
+	}
+	e.MaxHP, e.MaxSP, e.MaxMP = satAdd(e.MaxHP, pos16(d.ConstHP)), satAdd(e.MaxSP, pos16(d.ConstSP)), satAdd(e.MaxMP, pos16(d.ConstMP))
+	e.Str, e.Dex, e.Rec = satAdd(e.Str, pos16(d.ConstStr)), satAdd(e.Dex, pos16(d.ConstDex)), satAdd(e.Rec, pos16(d.ConstRec))
+	e.Int, e.Wis, e.Luc = satAdd(e.Int, pos16(d.ConstInt)), satAdd(e.Wis, pos16(d.ConstWis)), satAdd(e.Luc, pos16(d.ConstLuc))
+}
+
+// realType is GetItemRType (0x004bdad0): item types grouped by family.
+func realType(t uint8) uint8 {
+	groups := [][]uint8{{1, 45}, {2, 46}, {3, 47}, {4, 48}, {5, 49, 50}, {6, 51, 52}, {7, 53, 54}, {8, 55, 56}, {9, 57},
+		{10, 58}, {11, 59}, {12, 60, 61}, {13, 62, 63}, {14, 64}, {15, 65}, {16, 31, 66, 72, 81, 87},
+		{17, 32, 67, 73, 82, 88}, {18, 33, 68, 74, 83, 89}, {19, 34, 69, 75, 84, 90}, {20, 35, 70, 76, 85, 91},
+		{21, 36, 71, 77, 86, 92}, {22, 37}, {23, 38}, {24, 39}, {40, 41}, {25, 44, 100}, {27, 28, 29}}
+	for i, g := range groups {
+		for _, v := range g {
+			if v == t {
+				return uint8(i + 1)
+			}
+		}
+	}
+	return 0
+}
+
+// GetEquipmentStats sums every bag-0 item, its gems and craft bonuses.
+func GetEquipmentStats(items []db.Item) EquipmentStats {
+	defs := db.MustDefs()
+	var e EquipmentStats
+	for i := range items {
+		it := &items[i]
+		if it.Bag != 0 {
+			continue
+		}
+		d := defs.Item(it.Type, it.TypeID)
+		if d != nil {
+			e.addItemDef(it.Type, d, itemQualityLevel(it, d))
+		}
+		for _, gem := range it.Gems {
+			if gem == 0 {
+				continue
+			}
+			if g := defs.Item(gemItemType, gem); g != nil {
+				if g.Special == specialRecoverGem {
+					// GemEquipmentAdd: Special 16 turns the gem's HP/SP/MP
+					// into sitting and standing recovery.
+					rg := *g
+					rg.ConstHP, rg.ConstSP, rg.ConstMP = 0, 0, 0
+					e.GemRecover[0] = satAdd(e.GemRecover[0], pos16(g.ConstHP))
+					e.GemRecover[1] = satAdd(e.GemRecover[1], pos16(g.ConstSP))
+					e.GemRecover[2] = satAdd(e.GemRecover[2], pos16(g.ConstMP))
+					g = &rg
+				}
+				e.addItemDef(gemItemType, g, 0)
+				// CUser::GemEquipmentAdd: gems also add reach and speed.
+				e.Range += int32(g.Range)
+				e.AttackSpeed += int32(g.AttackTime)
+			}
+		}
+		if it.Slot == weaponSlot && IsWeaponItemType(it.Type) {
+			e.AttackAttr = itemElement(it, d)
+			rt := realType(it.Type)
+			e.WeaponType = rt
+			e.RangedWeapon = rt == 11 || rt == 13 || rt == 14
+		}
+		if it.Slot == 1 {
+			e.DefenseAttr = itemElement(it, d)
+		}
+		if it.Slot == 6 {
+			e.ShieldType = realType(it.Type)
+		}
+		// CUser::ItemEquipmentAdd: Items.Exp absorbs damage; the Craftname
+		// counts only on items with Server set and ReqWis 1-99
+		// (CItem::CopyCraftExpassion). Its enchant pair is the weapon step
+		// (attack) up to 50, the armour step + 50 above (absorption).
+		if d != nil {
+			e.Absorption = satAdd(e.Absorption, uint32(d.ExpAbsorb))
+		}
+		if c, ok := ParseCraftName(it.CraftName); ok && d != nil && d.Server != 0 && d.ReqWis > 0 && d.ReqWis < 100 {
+			e.Str, e.Dex, e.Rec = satAdd(e.Str, c.Str), satAdd(e.Dex, c.Dex), satAdd(e.Rec, c.Rec)
+			e.Int, e.Wis, e.Luc = satAdd(e.Int, c.Int), satAdd(e.Wis, c.Wis), satAdd(e.Luc, c.Luc)
+			e.MaxHP, e.MaxMP, e.MaxSP = satAdd(e.MaxHP, c.MaxHP), satAdd(e.MaxMP, c.MaxMP), satAdd(e.MaxSP, c.MaxSP)
+			switch step := c.EnchantLevel; {
+			case step > 50 && step-50 <= enchantMaxLevel:
+				e.Absorption = satAdd(e.Absorption, armorEnchantAbsorption[step-50])
+			case step > 0 && step <= enchantMaxLevel:
+				e.ItemAttack = satAdd(e.ItemAttack, weaponEnchantAttackBonus[step])
+			}
+		}
+	}
+	return e
+}
+
+// CharacterStats are the effective stats. Invariant: Character.CurrentHP/
+// MP/SP are BASE values; this adds the equipment and stat-derived bonus and
+// clamps to the effective max. Changes to current HP/MP/SP must be applied
+// to the base field as deltas, never by assigning an effective value.
+type CharacterStats struct {
+	Str, Rec, Int, Wis, Dex, Luc    uint32
+	MaxHP, MaxMP, MaxSP             uint32
+	CurrentHP, CurrentMP, CurrentSP uint32
+	// Display ranges for 0x0526: attack to attack + variance.
+	MinAttack, MaxAttack            uint32
+	MinMagic, MaxMagic              uint32
+	Defense, Resistance, Absorption uint32
+	// CUser::SetAttack per category (melee, ranged, magic).
+	Level        uint16
+	Attack       [3]int32
+	Accuracy     [3]int32
+	Evasion      [3]int32
+	Guard        [3]int32 // defense per category
+	Critical     int32
+	Variance     uint32
+	ItemAttack   uint32 // the weapon's own attack (CUser +0x12d8)
+	AttackAttr   uint8
+	DefenseAttr  uint8
+	RangedWeapon bool
+	CrossRoad    int32
+	Range        int32
+	AttackSpeed  int32
+	MoveSpeed    int32
+	Disabled     [3]int32
+	SitRecover   [3]int32
+	// Recover is CUser::UpdateRecover's flat amounts per mode (0 sitting,
+	// 1 standing, 2 in combat) and pool (HP, SP, MP): InitEquipment's 28
+	// sitting and 4 standing, plus gems and the country tier.
+	Recover   [3][3]uint32
+	SPCostCut int32
+	MPCostCut int32
+}
+
+func StatsFor(ch *db.Character, e EquipmentStats) CharacterStats {
+	var s0 CharacterStats
+	var bStr, bRec, bInt, bWis, bDex, bLuc uint32
+	baseHP, baseMP, baseSP := uint32(100), uint32(100), uint32(100)
+	curHP, curMP, curSP := uint32(100), uint32(100), uint32(100)
+	if ch != nil {
+		bStr, bRec, bInt, bWis, bDex, bLuc = uint32(ch.Str), uint32(ch.Rec), uint32(ch.Int), uint32(ch.Wis), uint32(ch.Dex), uint32(ch.Luc)
+		baseHP, baseMP, baseSP = basePools(ch)
+		curHP, curMP, curSP = ch.CurrentHP, ch.CurrentMP, ch.CurrentSP
+		s0.Level = ch.Level
+	}
+	s := s0
+	s.Str, s.Rec, s.Int = satAdd(bStr, e.Str), satAdd(bRec, e.Rec), satAdd(bInt, e.Int)
+	s.Wis, s.Dex, s.Luc = satAdd(bWis, e.Wis), satAdd(bDex, e.Dex), satAdd(bLuc, e.Luc)
+	// basePools already counts the character's own REC/WIS/DEX; equipment
+	// stats add 5 per point on top.
+	dHP, dMP, dSP := satMul(e.Rec, hpPerReaction), satMul(e.Wis, mpPerWisdom), satMul(e.Dex, spPerDexterity)
+	s.MaxHP = satAdd(satAdd(baseHP, e.MaxHP), dHP)
+	s.MaxMP = satAdd(satAdd(baseMP, e.MaxMP), dMP)
+	s.MaxSP = satAdd(satAdd(baseSP, e.MaxSP), dSP)
+	s.CurrentHP = min(satAdd(satAdd(curHP, e.MaxHP), dHP), s.MaxHP)
+	s.CurrentMP = min(satAdd(satAdd(curMP, e.MaxMP), dMP), s.MaxMP)
+	s.CurrentSP = min(satAdd(satAdd(curSP, e.MaxSP), dSP), s.MaxSP)
+	// Country tier: percents of the maximum pools (types 1-3).
+	for i, p := range []*[2]*uint32{{&s.MaxHP, &s.CurrentHP}, {&s.MaxMP, &s.CurrentMP}, {&s.MaxSP, &s.CurrentSP}} {
+		if add := kcPercent(*p[0], e.KCPoolPct[i]); add > 0 {
+			*p[0] = satAdd(*p[0], add)
+			*p[1] = min(satAdd(*p[1], add), *p[0])
+		}
+	}
+	setAttack(&s, e)
+	// Types 18/19: a percent of the melee / ranged defense.
+	for k := 0; k < 2; k++ {
+		if e.KCGuardPct[k] != 0 {
+			s.Guard[k] += int32(kcPercent(uint32(max(s.Guard[k], 0)), e.KCGuardPct[k]))
+		}
+	}
+	s.Defense = uint32(max(s.Guard[attackMelee], 0))
+	s.Absorption = e.Absorption
+	pools := [3]uint32{s.MaxHP, s.MaxSP, s.MaxMP}
+	for i := 0; i < 3; i++ {
+		kc := kcPercent(pools[i], e.KCRecoverPct[i])
+		s.Recover[0][i] = satAdd(satAdd(recoverBaseSitting, e.GemRecover[i]), kc)
+		s.Recover[1][i] = satAdd(satAdd(recoverBaseStanding, e.GemRecover[i]), kc)
+		s.Recover[2][i] = kcPercent(pools[i], e.KCCombatPct[i])
+	}
+	return s
+}
+
+// InitEquipment's base recovery: 28 per pool sitting, 4 standing, 0 in
+// combat.
+const (
+	recoverBaseSitting  = 28
+	recoverBaseStanding = 4
+)
+
+func recoveryAmount(value, maxValue uint32, special uint8) uint32 {
+	if special == specialPercentHealingPotion {
+		return satMul(maxValue, value) / 100
+	}
+	return value
+}
+
+func charID(ch *db.Character) uint32 {
+	if ch == nil {
+		return defaultCharacterID
+	}
+	return ch.ID
+}
+
+func charName(ch *db.Character) string {
+	if ch == nil || ch.Name == "" {
+		return "GX Server"
+	}
+	return ch.Name
+}
+
+func charPos(ch *db.Character) (float32, float32, float32) {
+	if ch == nil {
+		return 0, 0, 0
+	}
+	return ch.PosX, ch.PosY, ch.PosZ
+}
+
+// buildCharacterDetails (0x0105), per the client's reader (0x0058dbd0):
+// stat point, skill point (u16), max HP, MP, SP (u32), direction (u16),
+// then eleven u32 and the 25-byte guild name. The three exp fields are
+// the cumulative exp at the level's start, the total for the next level
+// and the current total; their order is not yet confirmed in game.
+func buildCharacterDetails(ch *db.Character, s *CharacterStats) []byte {
+	guildName := ""
+	if ch != nil {
+		guildName = guildNameFor(ch.ID)
+	}
+	w := packet.New(packet.CharacterDetails)
+	var statPoint, skillPoint uint16
+	var exp, money, k1, k2, k3, k4 uint32
+	if ch != nil {
+		statPoint, skillPoint, exp, money = ch.StatPoint, ch.SkillPoint, ch.Exp, ch.Money
+		k1, k2, k3, k4 = ch.Kills, ch.Deaths, ch.Victories, ch.Defeats
+	}
+	x, y, z := charPos(ch)
+	var dir uint16
+	var prev, next uint32
+	if ch != nil {
+		dir = uint16(ch.Dir)
+		prev, next = expBounds(ch)
+	}
+	w.U16(statPoint)
+	w.U16(skillPoint)
+	w.U32(s.MaxHP)
+	w.U32(s.MaxMP)
+	w.U32(s.MaxSP)
+	w.U16(dir)
+	w.U32(prev)
+	w.U32(next)
+	w.U32(exp)
+	w.U32(money)
+	w.F32(x)
+	w.F32(y)
+	w.F32(z)
+	w.U32(k1)
+	w.U32(k2)
+	w.U32(k3)
+	w.U32(k4)
+	w.FixedString(guildName, 25)
+	return w.MustFinish()
+}
+
+func buildAdditionalStats(s *CharacterStats) []byte {
+	w := packet.New(packet.CharacterAdditionalStats)
+	for _, v := range []uint32{s.Str, s.Rec, s.Int, s.Wis, s.Dex, s.Luc, s.MinAttack, s.MaxAttack,
+		s.MinMagic, s.MaxMagic, s.Defense, s.Resistance} {
+		w.U32(v)
+	}
+	return w.MustFinish()
+}
+
+func buildStatsReset(statPoint, str, rec, intel, wis, dex, luc uint16) []byte {
+	w := packet.New(packet.StatsReset)
+	w.U8(1)
+	for _, v := range []uint16{statPoint, str, rec, intel, wis, dex, luc} {
+		w.U16(v)
+	}
+	return w.MustFinish()
+}
+
+func buildCurrentHitpoints(s *CharacterStats) []byte {
+	w := packet.New(packet.CharacterCurrentHitpoints)
+	w.U32(s.CurrentHP)
+	w.U32(s.CurrentMP)
+	w.U32(s.CurrentSP)
+	return w.MustFinish()
+}
+
+func buildMaxHPMPSP(ch *db.Character, s *CharacterStats) []byte {
+	w := packet.New(packet.CharacterMaxHpMpSp)
+	w.U32(charID(ch))
+	w.U32(s.MaxHP)
+	w.U32(s.MaxMP)
+	w.U32(s.MaxSP)
+	return w.MustFinish()
+}
+
+// buildMaxEnergy (0x050B): hitpointType 0 hp, 1 sp, 2 mp.
+func buildMaxEnergy(ch *db.Character, hitpointType uint8, value uint32) []byte {
+	w := packet.New(packet.CharacterMaxEnergy)
+	w.U32(charID(ch))
+	w.U8(hitpointType)
+	w.U32(value)
+	return w.MustFinish()
+}
+
+// buildCharacterEnteredMap: marker 0 already present, 1 own first load, 2 admin.
+func buildCharacterEnteredMap(ch *db.Character, isAdmin, firstLoad bool) []byte {
+	return buildCharacterEnteredMapGuild(ch, isAdmin, firstLoad, guildIDFor(charID(ch)))
+}
+
+func buildCharacterEnteredMapGuild(ch *db.Character, isAdmin, firstLoad bool, guildID uint32) []byte {
+	marker := uint8(0)
+	if isAdmin {
+		marker = 2
+	} else if firstLoad {
+		marker = 1
+	}
+	x, y, z := charPos(ch)
+	w := packet.New(packet.CharacterEnteredMap)
+	w.U32(charID(ch))
+	w.U8(marker)
+	w.U16(0)
+	w.F32(x)
+	w.F32(y)
+	w.F32(z)
+	w.U32(guildID)
+	w.U32(0) // vehicle id
+	return w.MustFinish()
+}
+
+func buildCharacterMapPosition(ch *db.Character) []byte {
+	mapID := uint16(0)
+	if ch != nil {
+		mapID = ch.MapID
+	}
+	x, y, z := charPos(ch)
+	w := packet.New(packet.CharacterMapTeleport)
+	w.U32(charID(ch))
+	w.U16(realMap(mapID))
+	w.F32(x)
+	w.F32(y)
+	w.F32(z)
+	return w.MustFinish()
+}
+
+func buildCharacterMove(ch *db.Character, motion uint8, direction uint16) []byte {
+	x, y, z := charPos(ch)
+	w := packet.New(packet.CharacterMove)
+	w.U32(charID(ch))
+	w.U8(motion)
+	w.U16(direction)
+	w.F32(x)
+	w.F32(y)
+	w.F32(z)
+	return w.MustFinish()
+}
+
+func buildCharacterMotion(characterID uint32, motion uint8) []byte {
+	w := packet.New(packet.CharacterMotion)
+	w.U32(characterID)
+	w.U8(motion)
+	return w.MustFinish()
+}
+
+func buildLeaveWorldAck(characterID uint32) []byte {
+	w := packet.New(packet.Logout)
+	w.U32(characterID)
+	return w.MustFinish()
+}
+
+func equippedItem(items []db.Item, slot uint8) *db.Item {
+	for i := range items {
+		if items[i].Bag == 0 && items[i].Slot == slot {
+			return &items[i]
+		}
+	}
+	return nil
+}
+
+func enchantLevel(it *db.Item) uint8 {
+	if c, ok := ParseCraftName(it.CraftName); ok {
+		return c.EnchantLevel
+	}
+	return 0
+}
+
+func buildCharacterEquipment(ch *db.Character, items []db.Item, slot uint8) []byte {
+	w := packet.New(packet.CharacterEquipment)
+	w.U32(ch.ID)
+	w.U8(slot)
+	it := equippedItem(items, slot)
+	if it != nil {
+		w.U8(it.Type)
+		w.U8(it.TypeID)
+		w.U8(enchantLevel(it))
+		// The client always reads 6 more bytes (0x0058f980): the cloak
+		// badge, zero for other slots.
+		if slot == 7 {
+			w.Bytes(it.Gems[:])
+		} else {
+			w.Bytes(make([]byte, 6))
+		}
+	} else {
+		w.Bytes(make([]byte, 9))
+	}
+	return w.MustFinish()
+}
+
+func buildChangeAppearance(characterID uint32, hair, face, height, sex uint8) []byte {
+	w := packet.New(packet.ChangeAppearance)
+	w.U32(characterID)
+	w.Bytes([]byte{hair, face, height, sex})
+	return w.MustFinish()
+}
+
+// buildCharacterShape (0x0303). The persistent motion is 1 only for sitting.
+func buildCharacterShape(ch *db.Character, faction uint8, items []db.Item, motion uint8) []byte {
+	return buildCharacterShapeGuild(ch, faction, items, motion, guildNameFor(charID(ch)))
+}
+
+func buildCharacterShapeGuild(ch *db.Character, faction uint8, items []db.Item, motion uint8, guildName string) []byte {
+	w := packet.New(packet.CharacterShape)
+	w.U32(charID(ch))
+	w.U8(0) // alive
+	if motion == 1 {
+		w.U8(1)
+	} else {
+		w.U8(0)
+	}
+	w.U8(faction)
+	if ch != nil {
+		w.Bytes([]byte{ch.Race, ch.Hair, ch.Face, ch.Height, ch.Class, ch.Gender, 0, ch.Mode})
+	} else {
+		w.Bytes(make([]byte, 8))
+	}
+	w.U32(0) // kills
+	for slot := uint8(0); slot < 8; slot++ {
+		if it := equippedItem(items, slot); it != nil {
+			w.Bytes([]byte{it.Type, it.TypeID, enchantLevel(it)})
+		} else {
+			w.Bytes([]byte{0, 0, 0})
+		}
+	}
+	w.FixedString(charName(ch), 21)
+	if cloak := equippedItem(items, 7); cloak != nil {
+		w.Bytes(cloak.Gems[:])
+	} else {
+		w.Bytes(make([]byte, 6))
+	}
+	w.FixedString(guildName, 25)
+	return w.MustFinish()
+}
+
+func statPackets(ch *db.Character, s *CharacterStats) []labeled {
+	return []labeled{
+		{buildAdditionalStats(s), "0x0526 additional stats"},
+		{buildMaxHPMPSP(ch, s), "0x051F max hp/mp/sp"},
+		{buildMaxEnergy(ch, 0, s.MaxHP), "0x050B max hp"},
+		{buildMaxEnergy(ch, 1, s.MaxSP), "0x050B max sp"},
+		{buildMaxEnergy(ch, 2, s.MaxMP), "0x050B max mp"},
+		{buildCurrentHitpoints(s), "0x0521 current hp/mp/sp"},
+	}
+}
+
+func buildEmptyCharacterListSlot(slot uint8) []byte {
+	w := packet.New(packet.CharacterList)
+	w.U8(slot)
+	w.U32(0)
+	return w.MustFinish()
+}
+
+func buildCharacterListSlot(ch *db.Character, items []db.Item) []byte {
+	w := packet.New(packet.CharacterList)
+	w.U8(ch.Slot)
+	w.U32(ch.ID)
+	w.U32(0)
+	w.U16(ch.Level)
+	w.Bytes([]byte{ch.Race, ch.Mode, ch.Hair, ch.Face, ch.Height, ch.Class, ch.Gender})
+	w.U16(ch.MapID)
+	for _, v := range []uint16{ch.Str, ch.Rec, ch.Int, ch.Wis, ch.Dex, ch.Luc} {
+		w.U16(v)
+	}
+	w.U16(uint16(ch.MaxHP))
+	w.U16(uint16(ch.MaxMP))
+	w.U16(uint16(ch.MaxSP))
+	for slot := uint8(0); slot < 8; slot++ {
+		if it := equippedItem(items, slot); it != nil {
+			w.U8(it.Type)
+		} else {
+			w.U8(0)
+		}
+	}
+	for slot := uint8(0); slot < 8; slot++ {
+		if it := equippedItem(items, slot); it != nil {
+			w.U8(it.TypeID)
+		} else {
+			w.U8(0)
+		}
+	}
+	w.FixedString(ch.Name, 19)
+	w.Bool(ch.PendingDelete)
+	w.Bool(ch.RenamePending)
+	w.Bytes(make([]byte, 6))
+	return w.MustFinish()
+}

@@ -48,6 +48,22 @@ func (a *App) questIDs() []uint16 {
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	return ids
 }
+func (a *App) toggleQuestLog() {
+	v := &a.questLog
+	v.open = !v.open
+	if !v.open {
+		return
+	}
+	a.guild.open = false
+	if err := a.loadQuests(); err != nil {
+		v.open = false
+		a.questMessage("Quest data unavailable.")
+		return
+	}
+	a.inventory.open, a.skills.open, a.status.open = false, false, false
+	a.skills.assign = nil
+}
+
 func (a *App) updateQuestLog(in *platform.Input, w, h int) bool {
 	if a.questUI == nil || a.questConfirm == nil {
 		return false
@@ -66,16 +82,7 @@ func (a *App) updateQuestLog(in *platform.Input, w, h int) bool {
 	}
 	for _, r := range in.Chars {
 		if (r == 'u' || r == 'U') && !(a.inventory.open && a.inventory.selected) {
-			v.open = !v.open
-			if v.open {
-				if err := a.loadQuests(); err != nil {
-					v.open = false
-					a.questMessage("Quest data unavailable.")
-				} else {
-					a.inventory.open, a.skills.open, a.status.open = false, false, false
-					a.skills.assign = nil
-				}
-			}
+			a.toggleQuestLog()
 			return true
 		}
 	}
@@ -210,9 +217,13 @@ func (a *App) drawQuestLog(w, h int) {
 	a.clearTooltipUnderPanel(x, y, ui.QuestWidth, ui.QuestHeight)
 	ids := a.questIDs()
 	names := make([]string, len(ids))
+	a.questUI.Ready = make([]bool, len(ids))
 	selected := -1
 	for i, id := range ids {
 		names[i] = a.questName(id)
+		if id > 0 && int(id) <= len(a.questDefs) {
+			a.questUI.Ready[i] = a.questObjectivesReady(a.questDefs[id-1], a.state.Quests[id])
+		}
 		if id == a.questLog.selected {
 			selected = i
 		}
@@ -236,4 +247,41 @@ func (a *App) drawQuestLog(w, h int) {
 		}
 	}
 	a.questUI.Draw(a.sprites, a.font, w, h, names, a.questLog.offset, selected, title, description, objective)
+}
+
+// This changes only the journal icon. Hand-in and rewards stay server-owned.
+func (a *App) questObjectivesReady(def sdata.Quest, q proto.ActiveQuest) bool {
+	switch def.EndType {
+	case 0:
+		return true
+	case 1:
+		for i, item := range def.FarmItems {
+			if item.Type == 0 || item.Count == 0 {
+				continue
+			}
+			count := int(q.Counters[i])
+			if a.state.InventoryReady {
+				count = 0
+				for key, it := range a.state.Inventory {
+					if key[0] >= 1 && key[0] <= 5 && it.Type == item.Type && it.TypeID == item.ID {
+						count += int(it.Count)
+					}
+				}
+			}
+			if count < int(item.Count) {
+				return false
+			}
+		}
+		return true
+	case 2:
+		for i, id := range def.MobIDs {
+			if id != 0 && q.Counters[i] < def.MobCounts[i] {
+				return false
+			}
+		}
+		return true
+	case 3:
+		return q.Counters[0] >= def.PVPKills
+	}
+	return false
 }

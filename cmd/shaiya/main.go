@@ -87,6 +87,8 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 		return err
 	}
 	defer a.Close()
+	cursors := a.LoadCursors(win)
+	defer cursors.Close()
 	queue := win.InstallInput()
 	var auto *app.Autoplay
 	inWorld := false
@@ -106,6 +108,7 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 		gl.ClearDepth(1)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		a.Draw(fw, fh)
+		cursors.Set(a.CursorIndex(fw, fh))
 	}
 	if auto != nil {
 		start := platform.Time()

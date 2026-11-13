@@ -34,33 +34,38 @@ const (
 
 // Entity is anything placed in view.
 type Entity struct {
-	Sitting             bool
-	Gesture             uint8
-	GestureSerial       uint64
-	PartyBadge          uint8
-	MountShape          uint8
-	Mounted             bool
-	GuildID             uint32
-	HP                  int32
-	HealthKnown         bool
-	PvPKills            uint32
-	PvPKillsKnown       bool
-	Dead                bool
-	Kind                Kind
-	ID                  uint32
-	TypeID              uint16 // mob id or npc type id
-	NpcType             uint8
-	X, Y, Z             float32
-	Motion              uint8
-	MoveSerial          uint64
-	PositionResetSerial uint64
-	Dir                 uint16
-	Shape               *proto.UserShape
-	Speed               *proto.CharacterSpeed
+	MobSpeedKnown                bool
+	MobAttackSpeed, MobMoveSpeed uint8
+	Sitting                      bool
+	Gesture                      uint8
+	GestureSerial                uint64
+	PartyBadge                   uint8
+	MountShape                   uint8
+	Mounted                      bool
+	GuildID                      uint32
+	HP                           int32
+	HealthKnown                  bool
+	PvPKills                     uint32
+	PvPKillsKnown                bool
+	Dead                         bool
+	Kind                         Kind
+	ID                           uint32
+	TypeID                       uint16 // mob id or npc type id
+	NpcType                      uint8
+	X, Y, Z                      float32
+	Motion                       uint8
+	MoveSerial                   uint64
+	PositionResetSerial          uint64
+	Dir                          uint16
+	Shape                        *proto.UserShape
+	Speed                        *proto.CharacterSpeed
 }
 
 // ChatLine is one received message.
 type ChatLine struct {
+	Raid      bool
+	MessageID int
+	Style     uint8
 	Op        proto.Opcode
 	Direction uint8
 	SenderID  uint32
@@ -75,6 +80,7 @@ type Event struct {
 }
 
 type State struct {
+	Social               SocialState
 	LastDetectInfo       proto.DetectInfo
 	LastPeriodicEffect   proto.PeriodicEffect
 	DeathLossFree        bool
@@ -121,6 +127,7 @@ type State struct {
 	InventoryReady       bool
 	Inventory            map[[2]uint8]proto.InventoryItem
 	Target               uint32
+	PreviousTarget       uint32
 	Pools                proto.Pools
 	LastAttack           proto.AttackResult
 	PvPCountsKnown       [4]bool
@@ -149,8 +156,6 @@ func New() *State {
 	return &State{Skills: map[uint8]proto.LearnedSkill{}, GroundItems: map[uint32]proto.GroundItem{}, Inventory: map[[2]uint8]proto.InventoryItem{}, Slots: map[uint8]proto.CharacterSlot{}, Entities: map[uint32]*Entity{}, Unknown: map[proto.Opcode]int{}}
 }
 
-const maxChat = 200
-
 // Apply updates the state from one payload. Malformed packets are
 // reported as an error and leave the state as it was.
 func (s *State) Apply(p []byte) (Event, error) {
@@ -158,6 +163,10 @@ func (s *State) Apply(p []byte) (Event, error) {
 	ev := Event{Op: op}
 	fail := func(err error) (Event, error) { return ev, fmt.Errorf("0x%04X: %w", uint16(op), err) }
 	switch op {
+	case proto.FriendList, proto.FriendInvite, proto.FriendAnswer, proto.FriendAdded, proto.FriendDelete, proto.FriendMemo, proto.FriendPresence, proto.BlockList, proto.BlockAdd, proto.BlockDelete, proto.BlockMemo, proto.PartySearchRequest, proto.PartySearchList, proto.SocialError:
+		if err := s.applySocial(p); err != nil {
+			return fail(err)
+		}
 	case proto.CharacterMotion:
 		m, err := proto.DecodeCharacterMotion(p)
 		if err != nil {
@@ -595,7 +604,7 @@ func (s *State) Apply(p []byte) (Event, error) {
 			return fail(err)
 		}
 		s.LastDetectInfo = result
-	case proto.SkillUse, proto.SkillUseNoTarget, proto.SkillUserDrain, proto.SkillMobDrain, proto.SkillPartyMember, proto.SkillMobOther:
+	case proto.SkillUse, proto.SkillUseNoTarget, proto.SkillUserDrain, proto.SkillMobDrain, proto.SkillPartyMember, proto.SkillMobOther, proto.MobSkillUse, proto.MobSkillDrain, proto.MobSkillOther:
 		result, err := proto.DecodeSkillResult(p)
 		if err != nil {
 			return fail(err)
@@ -735,17 +744,28 @@ func (s *State) Apply(p []byte) (Event, error) {
 			return fail(err)
 		}
 		s.Details.Money = money
+	case proto.MobSpeed:
+		r := proto.NewReader(p)
+		id, attack, move := r.U32(), r.U8(), r.U8()
+		if err := r.Err(); err != nil {
+			return fail(err)
+		}
+		if e := s.Entities[id]; e != nil && e.Kind == KindMob {
+			e.MobSpeedKnown = true
+			e.MobAttackSpeed, e.MobMoveSpeed = attack, move
+		}
 	case proto.TargetMobGetState:
 		r := proto.NewReader(p)
 		id, hp := r.U32(), r.I32()
-		r.U8()
-		r.U8()
+		attack, move := r.U8(), r.U8()
 		if err := r.Err(); err != nil {
 			return fail(err)
 		}
 		if e := s.Entities[id]; e != nil && e.Kind == KindMob {
 			e.HP = hp
 			e.HealthKnown = true
+			e.MobSpeedKnown = true
+			e.MobAttackSpeed, e.MobMoveSpeed = attack, move
 			e.Dead = hp == 0
 		}
 	case proto.CharacterResurrect:
@@ -1058,7 +1078,7 @@ func (s *State) Apply(p []byte) (Event, error) {
 		if err != nil {
 			return fail(err)
 		}
-		s.addChat(ChatLine{Op: op, SenderID: c.SenderID, Text: c.Text})
+		s.addChat(ChatLine{Op: op, SenderID: c.SenderID, Text: c.Text, Raid: op == proto.ChatParty && s.Party.Raid})
 		ev.Text = fmt.Sprintf("chat %d: %s", c.SenderID, c.Text)
 	case proto.ChatWorld, proto.ChatGuild, proto.ChatMap, proto.ChatWorldShout, proto.ChatWorldAdmin:
 		c, err := proto.DecodeChatByName(p)
@@ -1083,7 +1103,11 @@ func (s *State) Apply(p []byte) (Event, error) {
 		if code == 1 {
 			message = "Whisper recipient not found or unavailable."
 		}
-		s.addChat(ChatLine{Op: op, Text: message})
+		id := 0
+		if code == 1 {
+			id = 347
+		}
+		s.addChat(ChatLine{Op: op, Text: message, MessageID: id, Style: 1})
 	case proto.Logout:
 		s.Party = PartyState{}
 		s.Guild = GuildState{}
@@ -1098,7 +1122,10 @@ func (s *State) Apply(p []byte) (Event, error) {
 	return ev, nil
 }
 
-func (s *State) addChat(l ChatLine) {
+func (s *State) addChat(l ChatLine) { s.AddChat(l) }
+
+// AddChat keeps Phoenix's shared 300-message history; each pane scrolls independently.
+func (s *State) AddChat(l ChatLine) {
 	if l.Sender == "" && l.SenderID != 0 {
 		if e := s.Entities[l.SenderID]; e != nil && e.Shape != nil {
 			l.Sender = e.Shape.Name
@@ -1112,9 +1139,14 @@ func (s *State) addChat(l ChatLine) {
 			}
 		}
 	}
+	if s.blockedChat(l) {
+		return
+	}
 	s.Chat = append(s.Chat, l)
-	if len(s.Chat) > maxChat {
-		s.Chat = s.Chat[len(s.Chat)-maxChat:]
+	if len(s.Chat) > 300 {
+		copy(s.Chat, s.Chat[len(s.Chat)-300:])
+		clear(s.Chat[300:])
+		s.Chat = s.Chat[:300]
 	}
 }
 

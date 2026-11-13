@@ -8,6 +8,7 @@ import (
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/world"
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
+	"github.com/go-gl/gl/v4.5-core/gl"
 )
 
 type vaniPart struct {
@@ -27,9 +28,13 @@ func loadVani(a *Assets, file string) (*vaniAsset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", file, err)
 	}
-	asset := &vaniAsset{frame: -1, count: parsed.FrameCount, center: render.V3(parsed.Center), radius: parsed.Radius}
+	asset := &vaniAsset{frame: -1, count: parsed.FrameCount, frameMilliseconds: parsed.FrameMilliseconds, center: render.V3(parsed.Center), radius: parsed.Radius}
+	asset.cascade = strings.EqualFold(path.Base(file), "Login_effect_water01a.VANI")
 	for _, m := range parsed.Meshes {
 		part := vaniPart{texture: a.FindTexture(m.Texture), frames: m.Frames, faces: m.Faces, vertices: make([]render.Vertex, len(m.Frames[0]))}
+		if part.texture != nil {
+			part.texture.SetWrap(true)
+		}
 		indices := make([]uint32, 0, len(m.Faces)*3)
 		for _, face := range m.Faces {
 			indices = append(indices, uint32(face[0]), uint32(face[1]), uint32(face[2]))
@@ -41,19 +46,21 @@ func loadVani(a *Assets, file string) (*vaniAsset, error) {
 }
 
 type vaniAsset struct {
-	parts  []vaniPart
-	worlds []render.M4
-	frame  int
-	count  int
-	center render.V3
-	radius float32
+	parts             []vaniPart
+	frameMilliseconds int32
+	cascade           bool
+	worlds            []render.M4
+	frame             int
+	count             int
+	center            render.V3
+	radius            float32
 }
 
 func (v *vaniAsset) draw(s *render.Scene3D, elapsed float64) {
 	if len(v.worlds) == 0 || v.count == 0 {
 		return
 	}
-	frame := int(math.Mod(math.Floor(elapsed*12), float64(v.count)))
+	frame := v.frameAt(elapsed)
 	if frame != v.frame {
 		for i := range v.parts {
 			p := &v.parts[i]
@@ -63,6 +70,19 @@ func (v *vaniAsset) draw(s *render.Scene3D, elapsed float64) {
 			p.mesh.UpdateVertices(p.vertices)
 		}
 		v.frame = frame
+	}
+	if v.cascade {
+		// Phoenix's login cascade reference: preserve smooth texture alpha,
+		// emit unlit water and leave the backdrop's depth unchanged.
+		if !s.Shadow {
+			for _, matrix := range v.worlds {
+				for _, part := range v.parts {
+					s.DrawEffect(part.mesh, part.texture, matrix, [4]float32{1, 1, 1, 1}, 4, 5)
+				}
+			}
+			gl.DepthMask(true)
+		}
+		return
 	}
 	if len(v.worlds) == 1 {
 		for _, part := range v.parts {
@@ -83,7 +103,7 @@ func (v *vaniAsset) close() {
 }
 
 // addVanis shares one dynamic vertex stream per asset, irrespective of the
-// number of WLD placements. The original Phoenix clock uses 12 frames/second.
+// number of WLD placements. Each asset retains its authored frame interval.
 func (w *World) addVanis(a *Assets) {
 	assets := make(map[string]*vaniAsset)
 	for _, group := range []world.Group{w.WLD.VaniA, w.WLD.VaniB} {
@@ -107,4 +127,15 @@ func (w *World) addVanis(a *Assets) {
 			}
 		}
 	}
+}
+
+func (v *vaniAsset) frameAt(elapsed float64) int {
+	if v.count <= 0 {
+		return 0
+	}
+	interval := v.frameMilliseconds
+	if interval <= 0 {
+		interval = 33
+	}
+	return int(math.Mod(math.Floor(max(0, elapsed)*1000/float64(interval)), float64(v.count)))
 }

@@ -114,6 +114,7 @@ type Skinner struct {
 	prog                                               uint32
 	uBoneCount, uWorld, uViewProj, uView, uLight, uAmb int32
 	uMode, uRef, uFogColor, uFogRange                  int32
+	uDetailBias                                        int32
 	uClipPlane                                         int32
 }
 
@@ -129,7 +130,7 @@ func NewSkinner() (*Skinner, error) {
 	addGPUBytes(MaxBones * 64)
 	return &Skinner{prog: p, palette: palette, uBoneCount: u("boneCount"), uWorld: u("world"), uViewProj: u("worldViewProj"), uView: u("worldView"),
 		uLight: u("lightDir"), uAmb: u("ambient"), uMode: u("mode"), uRef: u("alphaRef"),
-		uFogColor: u("fogColor"), uFogRange: u("fogRange"), uClipPlane: u("clipPlane")}, nil
+		uDetailBias: u("detailBias"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uClipPlane: u("clipPlane")}, nil
 }
 
 // Begin binds the program with the scene's camera, light and fog.
@@ -143,6 +144,7 @@ func (k *Skinner) Begin(s *Scene3D, ambient float32) {
 	gl.Uniform1f(k.uAmb, ambient)
 	gl.Uniform3f(k.uFogColor, s.FogColor[0], s.FogColor[1], s.FogColor[2])
 	gl.Uniform2f(k.uFogRange, s.FogStart, s.FogEnd)
+	gl.Uniform1f(k.uDetailBias, s.DetailBias)
 	gl.Uniform1i(k.uMode, 0)
 	if s.Shadow {
 		gl.Uniform1i(k.uMode, 7)

@@ -1,0 +1,274 @@
+package world
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/Spelunkern/Shaiya-GX/server/internal/config"
+	"github.com/Spelunkern/Shaiya-GX/server/internal/logx"
+	"time"
+)
+
+// The original PS_Game configuration (data/game/, copied from the EP4.5
+// server's PS_Game/Data): Map.ini (start positions, map types, rebirth
+// points) and ItemEnchant.ini (lapisia success rates and bonuses).
+
+func gameDataDir() string { return filepath.Join(config.DataDir(), "game") }
+
+type iniFile map[string]map[string]string
+
+var blockComment = regexp.MustCompile(`(?s)/\*.*?\*/`)
+
+// readIni parses the original server's ini dialect: [SECTION], key = value,
+// with ;, // and /* */ comments. Section and key names are upper-cased.
+func readIni(path string) (iniFile, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	text := blockComment.ReplaceAllString(string(raw), "")
+	out := iniFile{}
+	section := ""
+	for _, line := range strings.Split(text, "\n") {
+		if i := strings.Index(line, "//"); i >= 0 {
+			line = line[:i]
+		}
+		if i := strings.Index(line, ";"); i >= 0 {
+			line = line[:i]
+		}
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "":
+		case strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]"):
+			section = strings.ToUpper(strings.TrimSpace(line[1 : len(line)-1]))
+			if out[section] == nil {
+				out[section] = map[string]string{}
+			}
+		default:
+			k, v, ok := strings.Cut(line, "=")
+			if ok && section != "" {
+				out[section][strings.ToUpper(strings.TrimSpace(k))] = strings.TrimSpace(v)
+			}
+		}
+	}
+	return out, nil
+}
+
+// numbers extracts every number in s ("(1, 577.98, 78.56, 1762.12)").
+var numberRE = regexp.MustCompile(`-?\d+(\.\d+)?`)
+
+func numbers(s string) []float64 {
+	var out []float64
+	for _, m := range numberRE.FindAllString(s, -1) {
+		if v, err := strconv.ParseFloat(m, 64); err == nil {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// MapPos is a map and position from the original configs.
+type MapPos struct {
+	MapID   uint16
+	X, Y, Z float32
+}
+
+// parseMapPos reads "map, x, y, z"; map -1 or all-zero coordinates mean
+// "not set", as the original Map.ini documents.
+func parseMapPos(s string) (MapPos, bool) {
+	n := numbers(s)
+	if len(n) < 4 || n[0] < 0 || (n[1] == 0 && n[2] == 0 && n[3] == 0) {
+		return MapPos{}, false
+	}
+	return MapPos{uint16(n[0]), float32(n[1]), float32(n[2]), float32(n[3])}, true
+}
+
+// ZoneConfig is one Map.ini [SET_ZONE_n] entry.
+type ZoneConfig struct {
+	Dungeon bool // MapType D (F is a field)
+	// Rebirth applies to every faction; RebirthLight/RebirthFury
+	// (RebirthMapPos1/2) are the per-faction alternatives.
+	Rebirth, RebirthLight, RebirthFury *MapPos
+	WarType                            string
+	CreateType                         string // instanced maps (R, H, P)
+	// CreateTime (day of week, start hour, hours) entries, up to 7 as
+	// CMap::LoadConfig stores them (the ranking battle reads two).
+	Schedule []grbSlot
+	// CreateMinUser (party members to enter a P map), EnterMaxUser (an
+	// instance's capacity, 30 by default) and ExpireTime (minutes; an empty
+	// instance goes ExpireTime x 60 s + 30 s after it first empties).
+	CreateMinUser, EnterMaxUser int
+	Expire                      time.Duration
+}
+
+// MapConfig is the parsed Map.ini.
+type MapConfig struct {
+	// Start is the new-character position per race (Chars.Family): human,
+	// elf, vail, deatheater.
+	Start [4]MapPos
+	Zones map[uint16]ZoneConfig
+}
+
+var mapConfig = MapConfig{
+	Start: [4]MapPos{{1, 577.98, 78.56, 1762.12}, {1, 1678.92, 38.92, 1776.91},
+		{2, 165.25, 118.50, 397.89}, {2, 1838.93, 129.33, 443.43}},
+	Zones: map[uint16]ZoneConfig{},
+}
+
+var enchantConfig = struct {
+	WeaponRate, DefenseRate [enchantMaxLevel + 1]uint32 // per million, step N -> N+1
+}{}
+
+func loadMapIni(log *logx.Logger) error {
+	ini, err := readIni(filepath.Join(gameDataDir(), "Map.ini"))
+	if err != nil {
+		return err
+	}
+	for i, key := range []string{"HUGAMESTARTMAPPOS", "ELGAMESTARTMAPPOS", "BAGAMESTARTMAPPOS", "DEGAMESTARTMAPPOS"} {
+		if p, ok := parseMapPos(ini["BASE"][key]); ok {
+			mapConfig.Start[i] = p
+		}
+	}
+	defaults := ini["DEFAULT_SET_ZONE"]
+	get := func(sec map[string]string, k string) string {
+		if v, ok := sec[k]; ok {
+			return v
+		}
+		return defaults[k]
+	}
+	for name, sec := range ini {
+		if !strings.HasPrefix(name, "SET_ZONE_") {
+			continue
+		}
+		id, err := strconv.Atoi(strings.TrimPrefix(name, "SET_ZONE_"))
+		if err != nil || id < 0 || id > 65535 {
+			continue
+		}
+		z := ZoneConfig{Dungeon: strings.EqualFold(get(sec, "MAPTYPE"), "D"), WarType: get(sec, "WARTYPE"),
+			CreateType: get(sec, "CREATETYPE")}
+		z.CreateMinUser, _ = strconv.Atoi(strings.TrimSpace(get(sec, "CREATEMINUSER")))
+		z.EnterMaxUser = 30
+		if v, err := strconv.Atoi(strings.TrimSpace(get(sec, "ENTERMAXUSER"))); err == nil {
+			z.EnterMaxUser = v
+		}
+		expire, _ := strconv.Atoi(strings.TrimSpace(get(sec, "EXPIRETIME")))
+		z.Expire = time.Duration(expire)*time.Minute + 30*time.Second
+		if n := numbers(get(sec, "CREATETIME")); len(n) >= 3 {
+			for i := 0; i+2 < len(n) && len(z.Schedule) < 7; i += 3 {
+				z.Schedule = append(z.Schedule, grbSlot{Day: int(n[i]), Hour: int(n[i+1]), Hours: int(n[i+2])})
+			}
+		}
+		for key, dst := range map[string]**MapPos{"REBIRTHMAPPOS": &z.Rebirth, "REBIRTHMAPPOS1": &z.RebirthLight, "REBIRTHMAPPOS2": &z.RebirthFury} {
+			if p, ok := parseMapPos(get(sec, key)); ok {
+				*dst = &p
+			}
+		}
+		mapConfig.Zones[uint16(id)] = z
+	}
+	log.Printf("GX Server World loaded Map.ini zones=%d start=%v", len(mapConfig.Zones), mapConfig.Start)
+	return nil
+}
+
+func loadItemEnchantIni(log *logx.Logger) error {
+	ini, err := readIni(filepath.Join(gameDataDir(), "ItemEnchant.ini"))
+	if err != nil {
+		return err
+	}
+	rates := ini["LAPISIANENCHANTPERCENTRATE"]
+	for step := 0; step <= enchantMaxLevel; step++ {
+		for prefix, dst := range map[string]*[enchantMaxLevel + 1]uint32{"WEAPON": &enchantConfig.WeaponRate, "DEFENSE": &enchantConfig.DefenseRate} {
+			v, ok := rates[fmt.Sprintf("%sSTEP%02d", prefix, step)]
+			if !ok {
+				return fmt.Errorf("ItemEnchant.ini: missing %sStep%02d", prefix, step)
+			}
+			n, err := strconv.ParseUint(strings.TrimSpace(v), 10, 32)
+			if err != nil {
+				return fmt.Errorf("ItemEnchant.ini: %sStep%02d: %w", prefix, step, err)
+			}
+			dst[step] = uint32(n)
+		}
+	}
+	add := ini["LAPISIANENCHANTADDVALUE"]
+	for step := 0; step <= enchantMaxLevel; step++ {
+		if v, err := strconv.Atoi(add[fmt.Sprintf("WEAPONSTEP%02d", step)]); err == nil {
+			weaponEnchantAttackBonus[step] = uint32(max(v, 0))
+		}
+		if v, err := strconv.Atoi(add[fmt.Sprintf("DEFENSESTEP%02d", step)]); err == nil {
+			armorEnchantAbsorption[step] = uint32(max(v, 0))
+		}
+	}
+	log.Printf("GX Server World loaded ItemEnchant.ini weapon=%v defense=%v", enchantConfig.WeaponRate, enchantConfig.DefenseRate)
+	return nil
+}
+
+// LoadGameConfig loads the original PS_Game ini files from data/game/.
+func LoadGameConfig(log *logx.Logger) error {
+	if err := loadMapIni(log); err != nil {
+		return fmt.Errorf("Map.ini: %w", err)
+	}
+	if err := loadItemEnchantIni(log); err != nil {
+		return fmt.Errorf("ItemEnchant.ini: %w", err)
+	}
+	if err := loadSequenceItems(log); err != nil {
+		return fmt.Errorf("SequenceItemCreate.ini: %w", err)
+	}
+	buildDropCatalog()
+	if err := loadNpcQuest(log); err != nil {
+		return fmt.Errorf("NpcQuest.SData: %w", err)
+	}
+	if err := loadKillStatus(log); err != nil {
+		return fmt.Errorf("KillStatus.SData: %w", err)
+	}
+	return nil
+}
+
+// rebirthPosition is where a character of faction revives on mapID, per
+// CMap::LoadConfig: RebirthMapPos for every faction when the zone sets it,
+// otherwise RebirthMapPos1 (light) / RebirthMapPos2 (fury); ok is false
+// where the map defines none (map -1).
+func rebirthPosition(mapID uint16, faction uint8) (MapPos, bool) {
+	z, found := mapConfig.Zones[realMap(mapID)]
+	if !found {
+		return MapPos{}, false
+	}
+	switch {
+	case z.Rebirth != nil:
+		return *z.Rebirth, true
+	case faction == FactionLight && z.RebirthLight != nil:
+		return *z.RebirthLight, true
+	case faction == FactionDark && z.RebirthFury != nil:
+		return *z.RebirthFury, true
+	}
+	return MapPos{}, false
+}
+
+// bindPosition is CMap::GetBindPos 0x004295a0: the Map.ini rebirth point
+// when its map exists and the point lies inside it (0.9 above), else a
+// random point of the nearest svmap rebirth group of this map, else the
+// current position (zeroed if outside the map).
+func bindPosition(mapID uint16, faction uint8, x, y, z float32) (uint16, float32, float32, float32) {
+	m, x, y, z, _ := bindPositionFound(mapID, faction, x, y, z)
+	return m, x, y, z
+}
+
+// bindPositionFound is bindPosition with GetBindPos's result: false when
+// neither a Map.ini point nor a rebirth group applies.
+func bindPositionFound(mapID uint16, faction uint8, x, y, z float32) (uint16, float32, float32, float32, bool) {
+	if p, ok := rebirthPosition(mapID, faction); ok {
+		if size, ok := mapSize(p.MapID); ok && p.X >= 0 && p.X < size && p.Z >= 0 && p.Z < size {
+			return p.MapID, p.X, p.Y + 0.9, p.Z, true
+		}
+	}
+	if area, ok := FindNearestSpawnArea(mapID, faction, x, z); ok {
+		x, y, z := area.RandomPoint()
+		return mapID, x, y, z, true
+	}
+	if size, ok := mapSize(mapID); ok && (x < 0 || x >= size || z < 0 || z >= size) {
+		x, z = 0, 0
+	}
+	return mapID, x, y, z, false
+}

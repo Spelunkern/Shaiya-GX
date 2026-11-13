@@ -95,6 +95,13 @@ func (a *App) drawBuffs(w, h int) {
 		} else {
 			a.sprites.Draw(a.white, float32(x), float32(y), 32, 32, 0, 0, 1, 1, gray)
 		}
+		if buffGroup(b) == 1 {
+			a.sprites.Draw(a.white, float32(x), float32(y), 32, 32, 0, 0, 1, 1, [4]float32{1, 1, 1, debuffFlash(a.clock)})
+		}
+		if b.buff.Level > 0 && b.buff.Level != 100 {
+			level := fmt.Sprint(b.buff.Level)
+			a.font.Draw(a.sprites, level, x+32-a.font.Width(level), y+18, [4]float32{1, 1, 0, 1}, 32)
+		}
 		if b.timed && b.duration > 0 {
 			a.sprites.Draw(a.white, float32(x), float32(y+32), 32, 5, 0, 0, 1, 1, [4]float32{0, 0, 0, 1})
 			ratio := min(float32(1), float32(max(0, b.until-a.clock))/float32(b.duration))
@@ -156,3 +163,6 @@ func (a *App) buffHit(w, h, mx, my int) int {
 	}
 	return -1
 }
+
+// Native 0x4bff80 decreases the white overlay alpha by frame time and wraps at one.
+func debuffFlash(now float64) float32 { return float32(1 - (now - math.Floor(now))) }

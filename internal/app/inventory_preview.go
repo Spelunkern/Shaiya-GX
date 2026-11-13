@@ -8,8 +8,8 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/scene"
 )
 
-// The reference panel reserves (54,43), 136x207 for its full-body model.
-// Camera and lighting are delivery settings pending original-client comparison.
+// The full-body opening starts below the title at y=33 and ends at the bags.
+// Fit height, not the wider bind-pose arm span, to preserve the reference size.
 // A separate actor owns its idle time, sharing only cached geometry/assets.
 func (a *App) drawInventoryPreview(w, h int) {
 	slot, ok := a.selfSlot()
@@ -35,11 +35,11 @@ func (a *App) drawInventoryPreview(w, h int) {
 	}
 	a.sprites.Flush()
 	x, y := a.inventoryUI.Origin(w, h)
-	render.InViewport(x+54, y+43, 136, 207, h, func() {
+	render.InViewport(x+54, y+33, 136, 217, h, func() {
 		s := a.actorPreviewScene()
-		centerY, distance := v.preview.PortraitFrame(136.0/207, 34*math.Pi/180, ap.HeightScale())
+		centerY, distance := v.preview.InventoryFrame(34*math.Pi/180, ap.HeightScale())
 		s.SetCameraView(render.V3{0, centerY, distance}, render.V3{0, centerY, 0}, render.V3{0, 1, 0})
-		s.Proj = render.PerspectiveFovLH(34*math.Pi/180, 136.0/207, .1, 100)
+		s.Proj = render.PerspectiveFovLH(34*math.Pi/180, 136.0/217, .1, 100)
 		s.FogStart, s.FogEnd = 10000, 20000
 		s.LightDir = render.V3{-.513, -1, .858}
 		s.Begin()
