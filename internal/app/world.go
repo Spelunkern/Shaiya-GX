@@ -291,7 +291,7 @@ func (a *App) updateWorldStep(in *platform.Input, dt float64) {
 	if !a.updateActionApproach(in) {
 		return
 	}
-	if !in.SuppressAutoRun && (intent.forward || intent.back || intent.side != 0 || intent.turn != 0 || in.RightDown) {
+	if !in.SuppressAutoRun && (intent.forward || intent.back || intent.side != 0 || intent.turn != 0) {
 		v.restoreMovementHeading()
 	}
 	var dir render.V3
@@ -345,8 +345,12 @@ func (a *App) updateWorldStep(in *platform.Input, dt float64) {
 	if yaw != 0 || pitch != 0 {
 		v.orbitCamera(yaw, pitch)
 	}
-	if in.RightDown && !blocked && speed > 0 && !a.state.Self.Dead {
-		// Right drag steers immediately; A/D become strafe keys.
+	if (intent.forward || intent.back || intent.side != 0) && !blocked && speed > 0 && !a.state.Self.Dead {
+		// Standing still, right drag is a free camera orbit that leaves the
+		// character's facing alone. Any key movement (W/S, strafe, autorun,
+		// mouse chord) walks where the camera looks, so after a free orbit the
+		// character turns to the camera before moving. Click-to-move keeps its
+		// own heading toward the destination.
 		v.facing = cameraHeading(v.target().Sub(v.eye), v.facing)
 	}
 	fwd := v.facing
