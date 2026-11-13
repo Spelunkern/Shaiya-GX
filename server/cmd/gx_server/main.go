@@ -22,6 +22,10 @@ var iconPNG []byte
 const pollInterval = 2 * time.Second
 
 func main() {
+	app.SetMetadata(fyne.AppMetadata{
+		ID: "com.spelunkern.gx.server", Name: "GX Server",
+		Migrations: map[string]bool{"fyneDo": true},
+	})
 	a := app.NewWithID("com.spelunkern.gx.server")
 	icon := fyne.NewStaticResource("icon.png", iconPNG)
 	a.SetIcon(icon)
