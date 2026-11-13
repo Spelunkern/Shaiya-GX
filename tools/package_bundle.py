@@ -23,6 +23,17 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
+def text_content(data):
+    if b'\0' in data:
+        return None
+    for encoding in ('utf-8', 'cp1252'):
+        try:
+            return data.decode(encoding).replace('\r\n', '\n')
+        except UnicodeDecodeError:
+            pass
+    return None
+
+
 def merge(source, destination):
     for path in sorted(source.rglob('*')):
         if path.is_symlink():
@@ -34,7 +45,7 @@ def merge(source, destination):
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists():
             a, b = path.read_bytes(), target.read_bytes()
-            if a == b or b'\0' not in a + b and a.replace(b'\r\n', b'\n') == b.replace(b'\r\n', b'\n'):
+            if a == b or text_content(a) is not None and text_content(a) == text_content(b):
                 continue
             raise ValueError('native packages disagree: ' + str(relative))
         shutil.copy2(path, target)
