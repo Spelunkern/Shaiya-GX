@@ -66,7 +66,9 @@ func TestWindowDragOwnsMotionReleaseAndRespectsClose(t *testing.T) {
 }
 
 func TestUILayoutPersistsAcrossAppAndPreservesCaptureDefaults(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	testConfigDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", testConfigDir)
+	t.Setenv("APPDATA", testConfigDir)
 	a := inputApp()
 	a.cfg.RememberLayout = true
 	a.inventoryUI.Position.Move(200, 100, 1024, 768, ui.InventoryWidth, ui.InventoryHeight)

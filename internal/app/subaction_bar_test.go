@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
@@ -10,7 +11,9 @@ import (
 )
 
 func TestLocalActionsPersistPerCharacterAndServer(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	testConfigDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", testConfigDir)
+	t.Setenv("APPDATA", testConfigDir)
 	a := inputApp()
 	a.cfg.LoginAddr = "localhost"
 	a.cfg.WorldPort = 30810
@@ -51,7 +54,8 @@ func TestLocalActionsPersistPerCharacterAndServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	info, err := os.Stat(path)
-	if err != nil || info.Mode().Perm() != 0600 {
+	// Windows uses ACLs rather than Unix permission bits.
+	if err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0600) {
 		t.Fatalf("shortcut file: %v %v", info, err)
 	}
 }
