@@ -37,6 +37,19 @@ func (l *Logger) write(line string) {
 
 func (l *Logger) Printf(format string, args ...any) { l.write(fmt.Sprintf(format, args...)) }
 
+// Close releases the log file. Tagged views can still write to stdout after
+// closing, so a connection finishing concurrently cannot use a closed file.
+func (l *Logger) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.file == nil {
+		return nil
+	}
+	err := l.file.Close()
+	l.file = nil
+	return err
+}
+
 // Tagged returns a view that prefixes every line, used per connection so
 // concurrent sessions stay distinguishable in the shared log.
 func (l *Logger) Tagged(tag string) *Tag { return &Tag{logger: l, tag: tag} }

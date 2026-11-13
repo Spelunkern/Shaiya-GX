@@ -50,6 +50,7 @@ func TestLoginAgainstSQLite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { pool.Close() })
 	if _, err = pool.Exec(`INSERT INTO PS_UserData_Users_Master(UserUID,UserID,Pw,Admin,AdminLevel,UseQueue,Status,Leave,UserType,Point) VALUES(990010,'sqlite_login','localtest',0,0,0,0,0,'N',0)`); err != nil {
 		t.Fatal(err)
 	}
@@ -62,11 +63,15 @@ func TestLoginAgainstSQLite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { logger.Close() })
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { listener.Close() })
+	finished := make(chan struct{})
 	go func() {
+		defer close(finished)
 		conn, err := listener.Accept()
 		if err == nil {
 			handle(conn, logger.Tagged("test"))
@@ -77,7 +82,14 @@ func TestLoginAgainstSQLite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() {
+		conn.Close()
+		select {
+		case <-finished:
+		case <-time.After(5 * time.Second):
+			t.Error("login handler did not finish")
+		}
+	})
 
 	hello := readFrame(t, conn)
 	if op, _ := packet.U16(hello[2:]); packet.Opcode(op) != packet.LoginHandshake {
