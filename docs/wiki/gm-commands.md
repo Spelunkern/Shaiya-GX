@@ -24,6 +24,7 @@ death still prevent movement.
 | `/mmake mobid quantity` | Spawns 1–100 live mobs around the GM, with their normal stats, AI and drops, without automatic respawn. |
 | `/nmake type id` | Spawns exactly one static NPC around the GM, retaining its definition and services. `/nmake 1 1` selects merchant 1; `/nmake 2 1` selects gatekeeper 1. Type and row ID are separate arguments. |
 | `/cmove mapid` | Teleports to the nearest safe arrival relative to the current map position. Uses rebirth boxes, or authored portal/gatekeeper arrivals when no box is available. GM travel can inspect base instance maps without party/guild entry requirements. |
+| `/goto x z [y]` | Teleports within the current map to world X/Z, which must be inside the map and walkable. Without `y` the current height is kept. A GM click (without dragging) on the full map opened with **M** sends this command for the clicked point, with the client's terrain height as `y`. |
 
 Item quantities are positive integers, up to 119,880; grants that do not fit are
 rejected entirely. Inventory changes are transactional. Spawns use expanding

@@ -138,6 +138,30 @@ func (s *Session) handleGMCommand(text string) bool {
 			break
 		}
 		err = s.gmMove(uint16(n))
+	case "/goto":
+		if len(args) != 2 && len(args) != 3 {
+			s.gmReply("Uso: /goto x z [y]")
+			break
+		}
+		var v [3]float64
+		ok := true
+		for i, a := range args {
+			f, e := strconv.ParseFloat(a, 32)
+			if e != nil || math.IsNaN(f) || math.IsInf(f, 0) {
+				ok = false
+				break
+			}
+			v[i] = f
+		}
+		if !ok {
+			s.gmReply("Uso: /goto x z [y]")
+			break
+		}
+		y := s.char.PosY
+		if len(args) == 3 {
+			y = float32(v[2])
+		}
+		err = s.gmGoto(float32(v[0]), float32(v[1]), y)
 	}
 	if err != nil {
 		s.gmReply("GM: " + err.Error())
@@ -334,6 +358,33 @@ func (s *Session) gmSpawn(id uint16, count int, npcType uint8) error {
 		}
 	}
 	s.gmReply(fmt.Sprintf("GM: summoned %d (id %d).", count, id))
+	return nil
+}
+
+// gmGoto teleports within the current map (the GM World Map click). X/Z must
+// lie inside the map and on walkable ground; the server has no terrain heights,
+// so the client supplies Y and the normal movement path corrects it afterwards.
+func (s *Session) gmGoto(x, z, y float32) error {
+	zone := s.char.MapID
+	base := realMap(zone)
+	size, ok := mapSize(base)
+	if !ok || size <= 0 {
+		return fmt.Errorf("mapa desconocido")
+	}
+	if x < 0 || z < 0 || x > size || z > size {
+		return fmt.Errorf("fuera del mapa (0-%.0f)", size)
+	}
+	if y < -1000 || y > 10000 {
+		return fmt.Errorf("altura invalida")
+	}
+	if !IsMapWalkable(base, x, z) {
+		return fmt.Errorf("destino no caminable")
+	}
+	s.cast = nil
+	s.autoAttack = false
+	s.useNpc(0)
+	s.applyTeleport(zone, x, y, z, "GM goto", true)
+	s.gmReply(fmt.Sprintf("GM: %.0f, %.0f.", x, z))
 	return nil
 }
 

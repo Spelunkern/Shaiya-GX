@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
+	"github.com/Spelunkern/Shaiya-GX/internal/gm"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 	"github.com/Spelunkern/Shaiya-GX/server/internal/crypto"
 	"github.com/Spelunkern/Shaiya-GX/server/internal/db"
@@ -65,7 +66,7 @@ func gmResponse(t *testing.T, packets <-chan []byte) proto.GMState {
 
 func TestGMCommandsRequireRoleAndToggleAuthoritativeState(t *testing.T) {
 	s, packets := gmWireSession(t, db.Character{ID: 990020}, false)
-	for _, command := range []string{"/turbo", "/iclear", "/getitem 25 1 200", "/mmake 1 3", "/nmake 1 1", "/cmove 1"} {
+	for _, command := range []string{"/turbo", "/iclear", "/getitem 25 1 200", "/mmake 1 3", "/nmake 1 1", "/cmove 1", "/goto 10 10"} {
 		if !s.handleGMCommand(command) {
 			t.Fatal("GM command escaped to public chat")
 		}
@@ -90,7 +91,7 @@ func TestGMCommandsRequireRoleAndToggleAuthoritativeState(t *testing.T) {
 			t.Fatal("client GM state", e)
 		}
 	}
-	for _, bad := range []string{"/turbo 1", "/getitem 25 1 -1", "/mmake 1 101", "/nmake 1", "/nmake 14 1", "/nmake 1001", "/nmake 1 1 2", "/cmove 65536"} {
+	for _, bad := range []string{"/turbo 1", "/getitem 25 1 -1", "/mmake 1 101", "/nmake 1", "/nmake 14 1", "/nmake 1001", "/nmake 1 1 2", "/cmove 65536", "/goto 1", "/goto a b", "/goto 1 2 3 4", "/goto NaN 1"} {
 		s.handleGMCommand(bad)
 		gmResponse(t, packets)
 	}
@@ -261,6 +262,38 @@ func TestGMSpawnsAreSeparatedAndVisibleImmediately(t *testing.T) {
 	n := entities.NPCs[0]
 	if n.Type != 1 || n.TypeID != 1 || n.PosY != 77 || !n.Summoned || !s.player.knows(viewNpc, n.ID) {
 		t.Fatal("NPC not at server height or missing view")
+	}
+}
+
+func TestGMGotoTeleportsWithinCurrentMap(t *testing.T) {
+	const mapID = 975
+	RegisterMapGrid(mapID, 200, nil)
+	t.Cleanup(func() {
+		shardsMu.Lock()
+		delete(shards, mapID)
+		shardsMu.Unlock()
+		gridsMu.Lock()
+		delete(grids, mapID)
+		gridsMu.Unlock()
+	})
+	s, packets := gmWireSession(t, db.Character{ID: 990031, MapID: mapID, PosX: 10, PosY: 5, PosZ: 10}, true)
+	s.handleGMCommand(gm.GotoCommand(120.5, 80.25, 12.5))
+	gmResponse(t, packets)
+	if s.char.MapID != mapID || s.char.PosX != 120.5 || s.char.PosZ != 80.25 || s.char.PosY != 12.5 {
+		t.Fatalf("goto did not move within the map: %+v", s.char)
+	}
+	// Without Y the current height is kept.
+	s.handleGMCommand("/goto 30 40")
+	gmResponse(t, packets)
+	if s.char.PosX != 30 || s.char.PosZ != 40 || s.char.PosY != 12.5 {
+		t.Fatalf("goto without height: %+v", s.char)
+	}
+	for _, bad := range []string{"/goto 250 10", "/goto -1 10", "/goto 10 10 99999"} {
+		s.handleGMCommand(bad)
+		gmResponse(t, packets)
+		if s.char.PosX != 30 || s.char.PosZ != 40 {
+			t.Fatalf("%s moved the character: %+v", bad, s.char)
+		}
 	}
 }
 

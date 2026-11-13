@@ -23,6 +23,8 @@ type mapView struct {
 	u, v                   float32
 	lastX, lastY           int
 	markers                []ui.MapMarker
+	pressX, pressY         int  // full-map press origin, to tell a click from a drag
+	panned                 bool // the press moved the map; its release is not a click
 }
 
 // Quest readiness is only a presentation hint; Rapture validates turn-in.
@@ -226,11 +228,21 @@ func (a *App) updateMinimap(in *platform.Input, w, h int) bool {
 		over := in.MouseX >= mx && in.MouseX < mx+side && in.MouseY >= my && in.MouseY < my+side
 		if in.Pressed && over {
 			v.dragging, v.lastX, v.lastY = true, in.MouseX, in.MouseY
+			v.pressX, v.pressY, v.panned = in.MouseX, in.MouseY, false
 		}
 		if v.dragging && in.MouseDown {
 			v.u -= float32(in.MouseX-v.lastX) / float32(side) / v.zoom
 			v.v -= float32(in.MouseY-v.lastY) / float32(side) / v.zoom
 			v.lastX, v.lastY = in.MouseX, in.MouseY
+			if abs(in.MouseX-v.pressX) > 4 || abs(in.MouseY-v.pressY) > 4 {
+				v.panned = true
+			}
+		}
+		if in.Clicked && v.dragging && over && !v.panned && a.state.Self.IsGM {
+			// GM: a click without panning teleports to that point of this map.
+			view := ui.MapWindow(v.u, v.v, 1/v.zoom)
+			fx, fy := float32(in.MouseX-mx)/float32(side), float32(in.MouseY-my)/float32(side)
+			a.gmMapTeleport(view.U0+fx*(view.U1-view.U0), view.V0+fy*(view.V1-view.V0))
 		}
 		if !in.MouseDown {
 			v.dragging = false
