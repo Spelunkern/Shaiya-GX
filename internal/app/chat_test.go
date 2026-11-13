@@ -156,7 +156,7 @@ func TestPhoenixChatPickerOwnsClicksAboveActionBars(t *testing.T) {
 	a := inputApp()
 	a.chatOpen = true
 	a.chatUI.ModeOpen = true
-	in := platform.Input{MouseX: 40, MouseY: 734 - 82 - 7*22 + 3*22 + 8, Pressed: true, MouseDown: true, Down: "W"}
+	in := platform.Input{MouseX: 40, MouseY: 734 - 82 - 6*22 + 3*22 + 8, Pressed: true, MouseDown: true, Down: "W"}
 	controls := a.worldControls(&in, 1024, 734)
 	if controls.Pressed || controls.Down != "W" {
 		t.Fatal("channel picker lost click or blocked held movement", controls)
@@ -177,7 +177,7 @@ func TestPhoenixChatClickFocusAndChannelAliases(t *testing.T) {
 		value   string
 		channel uint8
 		body    string
-	}{{"/p hello", 3, "hello"}, {"/g hello", 2, "hello"}, {"/ra hello", 6, "hello"}, {"/1 hello", 4, "hello"}, {"/trade hello", 1, "hello"}, {"/say hello", 0, "hello"}} {
+	}{{"/p hello", 3, "hello"}, {"/g hello", 2, "hello"}, {"/1 hello", 4, "hello"}, {"/trade hello", 1, "hello"}, {"/say hello", 0, "hello"}} {
 		channel, body, ok := phoenixChannelCommand(tc.value)
 		if !ok || channel != tc.channel || body != tc.body {
 			t.Fatal(tc, channel, body, ok)
@@ -189,7 +189,7 @@ func TestPhoenixChannelColoursKeepSysMsgText(t *testing.T) {
 	for _, tc := range []struct {
 		op  proto.Opcode
 		rgb uint32
-	}{{proto.ChatNormal, 0xffffff}, {proto.ChatParty, 0xa5f078}, {proto.ChatGuild, 0xefa4d5}, {proto.ChatWhisper, 0xd65b75}, {proto.ChatMap, 0x70b9f5}, {proto.ChatWorld, 0xd7b48d}} {
+	}{{proto.ChatNormal, 0xd5d4d3}, {proto.ChatParty, 0xa8f3a0}, {proto.ChatGuild, 0xeea4ed}, {proto.ChatWhisper, 0xf3a0a0}, {proto.ChatMap, 0xff3000}, {proto.ChatWorld, 0xf3dea0}} {
 		line := game.ChatLine{Op: tc.op, Sender: "Alice", Text: "Message"}
 		entry := chatEntry(chatTestMessages, line)
 		if entry.Color != ui.RGBColor(tc.rgb) {

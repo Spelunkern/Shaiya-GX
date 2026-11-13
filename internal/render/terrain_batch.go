@@ -43,7 +43,7 @@ func (s *Scene3D) DrawTerrainRanges(m *Mesh, mask, tile, lightmap *Texture, tile
 	s.terrainLayerState(mask, tile, lightmap, tileSize, first)
 	gl.BindVertexArray(m.vao)
 	gl.BindBuffer(gl.DRAW_INDIRECT_BUFFER, s.terrainIndirect)
-	gl.MultiDrawElementsIndirect(gl.TRIANGLES, gl.UNSIGNED_INT, nil, int32(count), 0)
+	gl.MultiDrawElementsIndirect(gl.TRIANGLES, m.indexType, nil, int32(count), 0)
 	gl.BindBuffer(gl.DRAW_INDIRECT_BUFFER, 0)
 	drawCalls++
 }
@@ -56,6 +56,6 @@ func (s *Scene3D) DrawTerrainRange(m *Mesh, mask, tile, lightmap *Texture, tileS
 	}
 	s.terrainLayerState(mask, tile, lightmap, tileSize, first)
 	gl.BindVertexArray(m.vao)
-	gl.DrawElementsWithOffset(gl.TRIANGLES, int32(r.Count), gl.UNSIGNED_INT, uintptr(r.First)*4)
+	gl.DrawElementsWithOffset(gl.TRIANGLES, int32(r.Count), m.indexType, uintptr(r.First)*m.indexBytes)
 	drawCalls++
 }

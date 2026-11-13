@@ -34,6 +34,16 @@ func (w *World) SwimmingAt(x, y, z float32) bool {
 	return deep && y <= SwimSurfaceY
 }
 
+// WaterContactAt excludes dry ground, falling actors and deep divers. Surface
+// swimmers and grounded waders leave rings at the authored WTR surface.
+func (w *World) WaterContactAt(pos render.V3) bool {
+	if w == nil || w.water == nil || !w.HasTerrain() || pos[0] < 0 || pos[2] < 0 || pos[0] > float32(w.WLD.MapSize) || pos[2] > float32(w.WLD.MapSize) {
+		return false
+	}
+	floor := w.Height(pos[0], pos[2])
+	return floor < 0 && pos[1] < .1 && pos[1] >= SwimEntryY-.18 && pos[1] >= floor-.1
+}
+
 // UnderwaterFogAt follows the camera, including in shallow water. The fog
 // colour blends Phoenix's underwater reference with the map-authored WTR tint;
 // the precise original-client underwater shader remains unverified.

@@ -13,7 +13,7 @@ recovered constants (login/selection cameras, EP5 material rules, terrain
 blending) were used as reference; no code is copied.
 
 Open Sans SemiBold, Copyright 2020 The Open Sans Project Authors.
-Embedded under the SIL Open Font License 1.1; see internal/ui/fonts/OFL.txt.
+Retained as a historical source/test font under the SIL Open Font License 1.1; see internal/ui/fonts/OFL.txt.
 
 GX Server incorporates the former Rapture Go server. Copyright (c) 2026,
 Shaiya Core Contributors. BSD 3-Clause terms retained in server/LICENSE.
@@ -21,15 +21,19 @@ Server development database and supplied map/configuration data are distributed
 as test fixtures; original game content retains its respective ownership.
 
 Wine Tahoma, Copyright (c) 2004 Larry Snyder, based on Bitstream Vera Sans
-Copyright (c) 2003 Bitstream, Inc. Embedded unchanged under LGPL-2.1-or-later;
+Copyright (c) 2003 Bitstream, Inc. Distributed unchanged as an external font under LGPL-2.1-or-later;
 see internal/ui/fonts/Tahoma-NOTICE.txt and LGPL-2.1-or-later.txt in that folder.
 This is the Wine font, not Microsoft's proprietary Tahoma.
 
 Ogg Vorbis decoder: github.com/jfreymuth/oggvorbis and github.com/jfreymuth/vorbis,
 MIT License, Copyright Jonas Frey. See the upstream module LICENSE files.
 
-The current build embeds only Liberation Sans Regular 2.1.5, an unmodified
-Arial-metric-compatible face. Copyright (c) 2010 Google Corporation and
-Copyright (c) 2012 Red Hat, Inc.; SIL Open Font License 1.1.
-See internal/ui/fonts/LiberationSans-OFL.txt and LiberationSans-README.md.
-Wine Tahoma/Open Sans are retained historical source assets, not embedded faces.
+Liberation Sans Regular 2.1.5 is retained as an unmodified source/test reference.
+Copyright (c) 2010 Google Corporation and Copyright (c) 2012 Red Hat, Inc.;
+SIL Open Font License 1.1. See internal/ui/fonts/LiberationSans-OFL.txt.
+
+No game fonts are embedded. The external pack in resources/fonts/ contains
+Wine Tahoma and 217 unmodified Noto Unicode/colour-emoji fonts. Noto fonts use
+SIL OFL 1.1; retain resources/fonts/unicode/COPYRIGHTS.txt and the accompanying
+OFL/CJK/Emoji notices. The original local package's Apache notice is retained
+for provenance. All font copyright/license metadata remains unchanged.

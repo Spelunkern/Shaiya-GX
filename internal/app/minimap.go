@@ -16,6 +16,7 @@ import (
 )
 
 type mapView struct {
+	atlas                  worldMapView
 	image                  *render.Texture
 	loaded, full, dragging bool
 	diameter, zoom         float32
@@ -167,9 +168,23 @@ func (a *App) updateMinimap(in *platform.Input, w, h int) bool {
 		v.full, v.dragging = false, false
 		return true
 	}
+	if v.full {
+		a.loadWorldMap(v)
+	}
+	a.minimap.WorldAvailable = len(v.atlas.regions) > 0
+	a.minimap.WorldReturn = v.atlas.overview && v.atlas.preview < 0
 	action := a.minimap.Update(in, w, h, v.full)
 	if action.Close {
 		v.full, v.dragging = false, false
+		return true
+	}
+	if action.World {
+		if v.atlas.overview && v.atlas.preview >= 0 {
+			v.atlas.preview = -1
+		} else {
+			v.atlas.overview = !v.atlas.overview
+		}
+		v.atlas.warning = false
 		return true
 	}
 	if action.Toggle {
@@ -177,6 +192,11 @@ func (a *App) updateMinimap(in *platform.Input, w, h int) bool {
 		return true
 	}
 	if v.full {
+		worldWasOpen := v.atlas.overview
+		captured := a.updateWorldMap(in, w, h)
+		if captured || worldWasOpen || v.atlas.overview {
+			return captured
+		}
 		x, y, scale := a.minimap.FullRect(w, h)
 		mx, my, side := x+int(16*scale), y+int(43*scale), int(512*scale)
 		over := in.MouseX >= mx && in.MouseX < mx+side && in.MouseY >= my && in.MouseY < my+side
@@ -203,14 +223,14 @@ func (a *App) updateMinimap(in *platform.Input, w, h int) bool {
 		return v.dragging || panelPointer(in, x, y, int(544*scale), int(579*scale))
 	}
 	x, y := a.minimap.Origin(w, h)
-	if action.Zoom != 0 || in.Wheel != 0 && panelPointer(in, x, y, 196, 197) {
+	if action.Zoom != 0 || in.Wheel != 0 && panelPointer(in, x, y, ui.MinimapWidth, ui.MinimapHeight) {
 		steps := float64(action.Zoom)
 		if in.Wheel != 0 {
 			steps += in.Wheel / 120
 		}
 		v.diameter = min(2000, max(100, v.diameter*float32(math.Pow(1.2, -steps))))
 	}
-	return panelPointer(in, x, y, 196, 197)
+	return panelPointer(in, x, y, ui.MinimapWidth, ui.MinimapHeight)
 }
 
 func (a *App) drawMinimap(w, h int, full bool) {
@@ -237,6 +257,13 @@ func (a *App) drawMinimap(w, h int, full bool) {
 	markers = a.questMapMarkers(float32(a.wv.world.WLD.MapSize), markers)
 	a.minimap.MapName = ui.MapName(a.msg, a.wv.mapID)
 	if full {
+		a.loadWorldMap(v)
+		a.minimap.WorldAvailable = len(v.atlas.regions) > 0
+		a.minimap.WorldReturn = v.atlas.overview && v.atlas.preview < 0
+		if v.atlas.overview {
+			a.drawWorldMap(w, h)
+			return
+		}
 		a.minimap.DrawFull(a.sprites, a.font, v.image, a.white, w, h, ui.MapWindow(v.u, v.v, 1/v.zoom), u, z, heading, a.wv.mapID, markers)
 		return
 	}
@@ -244,6 +271,6 @@ func (a *App) drawMinimap(w, h int, full bool) {
 	if size := a.wv.world.WLD.MapSize; size > 0 {
 		span = v.diameter / float32(size)
 	}
-	a.minimap.Caption = time.Now().Format("15:04")
+	a.minimap.Caption = time.Now().Format("02/01/2006 15:04:05")
 	a.minimap.Draw(a.sprites, a.font, v.image, a.white, w, h, ui.MapWindow(u, z, span), u, z, heading, a.wv.mapID, a.wv.pos[0], a.wv.pos[2], markers)
 }

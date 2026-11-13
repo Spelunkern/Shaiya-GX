@@ -8,6 +8,10 @@ import "github.com/Spelunkern/Shaiya-GX/internal/render"
 // the real opaque terrain first. Unknown/underground cameras fail open.
 func (w *World) PrepareTerrainOcclusion(s *render.Scene3D, eye render.V3) {
 	s.Occlusion = nil
+	if w != nil && len(w.dg) > 0 {
+		w.prepareDungeonOcclusion(s, eye)
+		return
+	}
 	if w == nil || !w.HasTerrain() || w.stream == nil || len(w.stream.pending) != 0 || w.WLD == nil || eye[0] < 0 || eye[2] < 0 || eye[0] > float32(w.WLD.MapSize) || eye[2] > float32(w.WLD.MapSize) || eye[1] <= w.Height(eye[0], eye[2])+.1 {
 		return
 	}

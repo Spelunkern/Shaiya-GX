@@ -1,0 +1,650 @@
+NotoColorEmoji.ttf
+Copyright 2022 Google Inc.
+
+NotoFangsongKSSRotated-Regular.ttf
+Copyright 2022 Google LLC. All Rights Reserved.
+
+NotoFangsongKSSVertical-Regular.ttf
+Copyright 2022 Google LLC. All Rights Reserved.
+
+NotoKufiArabic-Regular.ttf
+Copyright 2019-2022 Google LLC. All Rights Reserved.
+
+NotoMusic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/music)
+
+NotoNaskhArabic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/arabic)
+
+NotoNastaliqUrdu-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/nastaliq)
+
+NotoRashiHebrew-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/hebrew)
+
+NotoSans-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+
+NotoSansAdlam-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/adlam)
+
+NotoSansAdlamUnjoined-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/adlam)
+
+NotoSansAnatolianHieroglyphs-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/anatolian-hieroglyphs)
+
+NotoSansArabic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/arabic)
+
+NotoSansArmenian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/armenian)
+
+NotoSansAvestan-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/avestan)
+
+NotoSansBalinese-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/balinese)
+
+NotoSansBamum-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/bamum)
+
+NotoSansBassaVah-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/bassa-vah)
+
+NotoSansBatak-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/batak)
+
+NotoSansBengali-Regular.ttf
+Copyright 2025 The Noto Project Authors (https://github.com/notofonts/bengali)
+
+NotoSansBhaiksuki-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/bhaiksuki)
+
+NotoSansBrahmi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/brahmi)
+
+NotoSansBuginese-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/buginese)
+
+NotoSansBuhid-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/buhid)
+
+NotoSansCJKsc-Regular.otf
+© 2014-2021 Adobe (http://www.adobe.com/).
+
+NotoSansCanadianAboriginal-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/canadian-aboriginal)
+
+NotoSansCarian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/carian)
+
+NotoSansCaucasianAlbanian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/caucasian-albanian)
+
+NotoSansChakma-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/chakma)
+
+NotoSansCham-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/cham)
+
+NotoSansCherokee-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/cherokee)
+
+NotoSansChorasmian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/chorasmian)
+
+NotoSansCoptic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/coptic)
+
+NotoSansCuneiform-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/cuneiform)
+
+NotoSansCypriot-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/cypriot)
+
+NotoSansCyproMinoan-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/cypro-minoan)
+
+NotoSansDeseret-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/deseret)
+
+NotoSansDevanagari-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/devanagari)
+
+NotoSansDuployan-Regular.ttf
+Copyright 2018-2019, 2022-2023 David Corbett. Copyright 2019-2022 Google LLC. All Rights Reserved.
+
+NotoSansEgyptianHieroglyphs-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/egyptian-hieroglyphs)
+
+NotoSansElbasan-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/elbasan)
+
+NotoSansElymaic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/elymaic)
+
+NotoSansEthiopic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/ethiopic)
+
+NotoSansGeorgian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/georgian)
+
+NotoSansGlagolitic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/glagolitic)
+
+NotoSansGothic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/gothic)
+
+NotoSansGrantha-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/grantha)
+
+NotoSansGujarati-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/gujarati)
+
+NotoSansGunjalaGondi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/gunjala-gondi)
+
+NotoSansGurmukhi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/gurmukhi)
+
+NotoSansHanifiRohingya-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/hanifi-rohingya)
+
+NotoSansHanunoo-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/hanunoo)
+
+NotoSansHatran-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/hatran)
+
+NotoSansHebrew-Regular.ttf
+Copyright 2024 The Noto Project Authors (https://github.com/notofonts/hebrew)
+
+NotoSansImperialAramaic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/imperial-aramaic)
+
+NotoSansIndicSiyaqNumbers-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/indic-siyaq-numbers)
+
+NotoSansInscriptionalPahlavi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/inscriptional-pahlavi)
+
+NotoSansInscriptionalParthian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/inscriptional-parthian)
+
+NotoSansJavanese-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/javanese)
+
+NotoSansKaithi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/kaithi)
+
+NotoSansKannada-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/kannada)
+
+NotoSansKawi-Regular.ttf
+Copyright 2023 The Noto Project Authors (https://github.com/notofonts/kawi)
+
+NotoSansKayahLi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/kayah-li)
+
+NotoSansKharoshthi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/kharoshthi)
+
+NotoSansKhmer-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/khmer)
+
+NotoSansKhojki-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/khojki)
+
+NotoSansKhudawadi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/khudawadi)
+
+NotoSansLao-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/lao)
+
+NotoSansLaoLooped-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/lao)
+
+NotoSansLepcha-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/lepcha)
+
+NotoSansLimbu-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/limbu)
+
+NotoSansLinearA-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/linear-a)
+
+NotoSansLinearB-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/linear-b)
+
+NotoSansLisu-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/lisu)
+
+NotoSansLycian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/lycian)
+
+NotoSansLydian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/lydian)
+
+NotoSansMahajani-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/mahajani)
+
+NotoSansMalayalam-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/malayalam)
+
+NotoSansMandaic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/mandaic)
+
+NotoSansManichaean-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/manichaean)
+
+NotoSansMarchen-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/marchen)
+
+NotoSansMasaramGondi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/masaram-gondi)
+
+NotoSansMath-Regular.ttf
+Copyright 2022 Google LLC. All Rights Reserved.
+
+NotoSansMayanNumerals-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/mayan-numerals)
+
+NotoSansMedefaidrin-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/medefaidrin)
+
+NotoSansMeeteiMayek-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/meetei-mayek)
+
+NotoSansMendeKikakui-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/mende-kikakui)
+
+NotoSansMeroitic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/meroitic)
+
+NotoSansMiao-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/miao)
+
+NotoSansModi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/modi)
+
+NotoSansMongolian-Regular.ttf
+Copyright 2023 The Noto Project Authors (https://github.com/notofonts/mongolian)
+
+NotoSansMono-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+
+NotoSansMro-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/mro)
+
+NotoSansMultani-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/multani)
+
+NotoSansMyanmar-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/myanmar)
+
+NotoSansNKo-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/nko)
+
+NotoSansNKoUnjoined-Regular.ttf
+Copyright 2023 The Noto Project Authors (https://github.com/notofonts/nko)
+
+NotoSansNabataean-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/nabataean)
+
+NotoSansNagMundari-Regular.ttf
+Copyright 2023 The Noto Project Authors (https://github.com/notofonts/nag-mundari)
+
+NotoSansNandinagari-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/nandinagari)
+
+NotoSansNewTaiLue-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/new-tai-lue)
+
+NotoSansNewa-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/newa)
+
+NotoSansNushu-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/nushu)
+
+NotoSansOgham-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/ogham)
+
+NotoSansOlChiki-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/ol-chiki)
+
+NotoSansOldHungarian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-hungarian)
+
+NotoSansOldItalic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-italic)
+
+NotoSansOldNorthArabian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-north-arabian)
+
+NotoSansOldPermic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-permic)
+
+NotoSansOldPersian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-persian)
+
+NotoSansOldSogdian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-sogdian)
+
+NotoSansOldSouthArabian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-south-arabian)
+
+NotoSansOldTurkic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-turkic)
+
+NotoSansOriya-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/oriya)
+
+NotoSansOsage-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/osage)
+
+NotoSansOsmanya-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/osmanya)
+
+NotoSansPahawhHmong-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/pahawh-hmong)
+
+NotoSansPalmyrene-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/palmyrene)
+
+NotoSansPauCinHau-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/pau-cin-hau)
+
+NotoSansPhagsPa-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/phags-pa)
+
+NotoSansPhoenician-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/phoenician)
+
+NotoSansPsalterPahlavi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/psalter-pahlavi)
+
+NotoSansRejang-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/rejang)
+
+NotoSansRunic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/runic)
+
+NotoSansSamaritan-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/samaritan)
+
+NotoSansSaurashtra-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/saurashtra)
+
+NotoSansSharada-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/sharada)
+
+NotoSansShavian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/shavian)
+
+NotoSansSiddham-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/siddham)
+
+NotoSansSignWriting-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/sign-writing)
+
+NotoSansSinhala-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/sinhala)
+
+NotoSansSogdian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/sogdian)
+
+NotoSansSoraSompeng-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/sora-sompeng)
+
+NotoSansSoyombo-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/soyombo)
+
+NotoSansSundanese-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/sundanese)
+
+NotoSansSunuwar-Regular.ttf
+Copyright 2021 The Noto Sunuwar Project Authors (https://github.com/ScriptEncodingInitiative/sunuwar)
+
+NotoSansSylotiNagri-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/syloti-nagri)
+
+NotoSansSymbols-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/symbols)
+
+NotoSansSymbols2-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/symbols)
+
+NotoSansSyriac-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/syriac)
+
+NotoSansSyriacEastern-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/syriac)
+
+NotoSansSyriacWestern-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/syriac)
+
+NotoSansTagalog-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tagalog)
+
+NotoSansTagbanwa-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tagbanwa)
+
+NotoSansTaiLe-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tai-le)
+
+NotoSansTaiTham-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tai-tham)
+
+NotoSansTaiViet-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tai-viet)
+
+NotoSansTakri-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/takri)
+
+NotoSansTamil-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tamil)
+
+NotoSansTamilSupplement-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tamil)
+
+NotoSansTangsa-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tangsa)
+
+NotoSansTelugu-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/telugu)
+
+NotoSansTest-Regular.ttf
+Copyright 2022 Google Inc. All Rights Reserved.
+
+NotoSansThaana-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/thaana)
+
+NotoSansThai-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/thai)
+
+NotoSansThaiLooped-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/thai)
+
+NotoSansTifinagh-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghAPT-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghAdrar-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghAgrawImazighen-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghAhaggar-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghAir-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghAzawagh-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghGhat-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghHawad-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghRhissaIxa-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghSIL-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTifinaghTawellemmet-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tifinagh)
+
+NotoSansTirhuta-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tirhuta)
+
+NotoSansUgaritic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/ugaritic)
+
+NotoSansVai-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/vai)
+
+NotoSansVithkuqi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/vithkuqi)
+
+NotoSansWancho-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/wancho)
+
+NotoSansWarangCiti-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/warang-citi)
+
+NotoSansYi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/yi)
+
+NotoSansZanabazarSquare-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/zanabazar-square)
+
+NotoSerif-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+
+NotoSerifAhom-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/ahom)
+
+NotoSerifArmenian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/armenian)
+
+NotoSerifBalinese-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/balinese)
+
+NotoSerifBengali-Regular.ttf
+Copyright 2025 The Noto Project Authors (https://github.com/notofonts/bengali)
+
+NotoSerifDevanagari-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/devanagari)
+
+NotoSerifDisplay-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+
+NotoSerifDivesAkuru-Regular.ttf
+Copyright 2024 The Noto Project Authors (https://github.com/notofonts/dives-akuru)
+
+NotoSerifDogra-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/dogra)
+
+NotoSerifEthiopic-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/ethiopic)
+
+NotoSerifGeorgian-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/georgian)
+
+NotoSerifGrantha-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/grantha)
+
+NotoSerifGujarati-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/gujarati)
+
+NotoSerifGurmukhi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/gurmukhi)
+
+NotoSerifHebrew-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/hebrew)
+
+NotoSerifHentaigana-Regular.ttf
+Copyright 2023 The Noto Project Authors (https://github.com/notofonts/hentaigana)
+
+NotoSerifKannada-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/kannada)
+
+NotoSerifKhitanSmallScript-Regular.ttf
+Copyright 2022 Google LLC. All Rights Reserved.
+
+NotoSerifKhmer-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/khmer)
+
+NotoSerifKhojki-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/khojki)
+
+NotoSerifLao-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/lao)
+
+NotoSerifMakasar-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/makasar)
+
+NotoSerifMalayalam-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/malayalam)
+
+NotoSerifMyanmar-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/myanmar)
+
+NotoSerifNPHmong-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/nyiakeng-puachue-hmong)
+
+NotoSerifOldUyghur-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/old-uyghur)
+
+NotoSerifOriya-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/oriya)
+
+NotoSerifOttomanSiyaq-Regular.ttf
+Copyright 2022 Google LLC. All Rights Reserved.
+
+NotoSerifSinhala-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/sinhala)
+
+NotoSerifTamil-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tamil)
+
+NotoSerifTangut-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tangut)
+
+NotoSerifTelugu-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/telugu)
+
+NotoSerifTest-Regular.ttf
+Copyright 2022 Google Inc. All Rights Reserved.
+
+NotoSerifThai-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/thai)
+
+NotoSerifTibetan-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/tibetan)
+
+NotoSerifTodhri-Regular.ttf
+Copyright 2024 The Noto Project Authors (https://github.com/notofonts/todhri)
+
+NotoSerifToto-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/toto)
+
+NotoSerifVithkuqi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/vithkuqi)
+
+NotoSerifYezidi-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/yezidi)
+
+NotoTraditionalNushu-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/nushu)
+
+NotoZnamennyMusicalNotation-Regular.ttf
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/znamenny)

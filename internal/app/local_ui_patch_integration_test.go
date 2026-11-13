@@ -80,7 +80,7 @@ func TestLocalHUDUnicodeMapAndCastGL(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		a.Draw(1280, 800)
 	}
-	if !regexp.MustCompile(`^[0-9]{2}:[0-9]{2}$`).MatchString(a.minimap.Caption) {
+	if !regexp.MustCompile(`^[0-9]{2}/[0-9]{2}/[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}$`).MatchString(a.minimap.Caption) {
 		t.Fatal("clock contains map name", a.minimap.Caption)
 	}
 	dir := os.Getenv("SHAIYA_TEST_ARTIFACTS")

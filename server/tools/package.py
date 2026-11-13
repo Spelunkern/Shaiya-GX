@@ -188,11 +188,11 @@ def build_package(platform, output, go):
         for document in ("sqlite.md", "distribution.md", "social.md"):
             text = (ROOT / "docs" / document).read_text().replace("../../docs/", "")
             (root / "docs" / document).write_text(text)
-        for document in ("server.md", "quickstart.md", "building.md"):
+        for document in ("server.md", "quickstart.md", "building.md", "gm.md"):
             text = (ROOT.parent / "docs" / document).read_text().replace("../server/docs/", "")
             (root / "docs" / document).write_text(text)
         (root / "tools").mkdir()
-        for tool in ("sqlite.py", "snapshot_sqlite.py"):
+        for tool in ("sqlite.py", "snapshot_sqlite.py", "enable_test_gms.sql"):
             shutil.copy2(ROOT / "tools" / tool, root / "tools" / tool)
         if system == "windows":
             (root / "Start GX Server.bat").write_bytes(b'@echo off\r\ncd /d "%~dp0"\r\n"%~dp0build\\gx_console.exe"\r\n')
@@ -213,6 +213,9 @@ Run Start GX Server.sh (Linux) or Start GX Server.bat (Windows).
 Type: start server
 To stop: shutdown server
 Closing the console leaves the server processes running.
+
+GM commands and Admin 0/1 account roles: see docs/gm.md.
+Example: /nmake 1 1 creates merchant 1. Test accounts in the seed are GMs.
 
 No Go, Docker, SQL Server, Python or database installation is needed to run
 this package. Python 3 is optional for the tools in tools/.

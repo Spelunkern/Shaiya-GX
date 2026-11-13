@@ -44,6 +44,9 @@ func (a *App) drawWorld(w *scene.World, eye, target render.V3, width, height int
 		return
 	}
 	s := a.scene3d
+	settings := a.clientSettings()
+	s.DetailBias = float32(2 - settings.Details)
+	s.HideWeaponEffects = !settings.SkillEffects
 	nav := &a.chars.Navigation
 	if !a.chars.Busy {
 		nav.Advance(a.frameDT, 1)

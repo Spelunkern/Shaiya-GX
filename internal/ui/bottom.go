@@ -157,42 +157,4 @@ func (b *BottomBar) Draw(s *render.Sprites, f *Font, blank *render.Texture, w, h
 	for i := range b.buttons {
 		b.buttons[i].Draw(s)
 	}
-	label := ""
-	left := x + ex
-	if b.hover == 0 {
-		label = "Item Mall"
-		left = b.buttons[0].X()
-	} else if b.hover == 1 {
-		label = "Status (T)"
-		left = b.buttons[1].X()
-	} else if b.hover == 2 {
-		label = "Inventory (I)"
-		left = b.buttons[2].X()
-	} else if b.hover == 3 {
-		label = "Skills (K)"
-		left = b.buttons[3].X()
-	} else if b.hover == 4 {
-		label = "Sub Skill (B)"
-		left = b.buttons[4].X()
-	} else if b.hover == 5 {
-		label = "Quest (U)"
-		left = b.buttons[5].X()
-	} else if b.hover == 6 {
-		label = "Guild (G)"
-		left = b.buttons[6].X()
-	} else if b.hover == 7 {
-		label = "Options (O)"
-		left = b.buttons[7].X()
-	} else if b.expHover {
-		label = fmt.Sprintf("Exp %d / %d", state.Exp, state.NextExp)
-	} else if b.blessHover && state.BlessKnown && state.BlessMax > 0 {
-		label = fmt.Sprintf("Blessing %d / %d", state.BlessCount, state.BlessMax)
-		bx, _, _ := blessingLayout(g.variant)
-		left = x + bx
-	}
-	if label != "" {
-		left = max(0, min(left, w-f.Width(label)-16))
-		s.Draw(blank, float32(left), float32(y-28), float32(f.Width(label)+16), 24, 0, 0, 1, 1, [4]float32{.03, .03, .03, .95})
-		f.Draw(s, label, left+8, y-24, white, 0)
-	}
 }

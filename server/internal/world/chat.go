@@ -42,6 +42,9 @@ func (s *Session) handleChat(op packet.Opcode, p []byte) {
 	if err != nil {
 		return
 	}
+	if s.handleGMCommand(msg) {
+		return
+	}
 	if isTownCommand(msg) {
 		s.executeTown()
 		return

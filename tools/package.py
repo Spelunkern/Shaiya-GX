@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+from font_pack import FONT_PACK, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,6 +25,8 @@ def main():
     staged = output/'.Shaiya GX.next'
     subprocess.run(['go','build','-o',str(staged),'./cmd/shaiya'],cwd=ROOT,env=env,check=True)
     if not args.update: shutil.copytree(source,output/'data')
+    validate()
+    shutil.copytree(FONT_PACK,output/'data/fonts',dirs_exist_ok=True)
     staged.replace(output/'Shaiya GX')
     print(f'Client ready: {output}/Shaiya GX + data/',flush=True)
 

@@ -30,7 +30,7 @@ type ChatPanel struct {
 	FocusRequested                   bool
 	Resized, ChannelChanged          bool
 	scroll, input                    *render.Texture
-	ChannelNames                     [7]string
+	ChannelNames                     [6]string
 	Recipient                        string
 	entries                          []ChatEntry
 	panes                            [2]chatPane
@@ -53,7 +53,7 @@ func NewChatPanel(t Textures) (*ChatPanel, error) {
 	return c, ld.err
 }
 
-func ChatOrigin(h int) int { return max(0, h-344) }
+func ChatOrigin(h int) int { return max(0, h-348) }
 
 func (c *ChatPanel) paneGeometry(h, index int) (y, height, capacity int) {
 	rows := c.Rows[index]
@@ -63,9 +63,9 @@ func (c *ChatPanel) paneGeometry(h, index int) (y, height, capacity int) {
 	height = (rows + 2 + 2*index) * 16
 	y = h - 84 - (lowerRows+4)*16
 	if index == 0 {
-		y -= 4 + height
+		y -= 8 + height
 	}
-	return max(0, y), height, max(1, (height-8)/16)
+	return max(0, y), height, max(1, height/16)
 }
 
 func (c *ChatPanel) SetEntries(f *Font, entries []ChatEntry) {
@@ -173,8 +173,8 @@ func (c *ChatPanel) Update(in *platform.Input, h int) bool {
 	}
 	if c.ModeOpen {
 		row := -1
-		if in.MouseX >= 0 && in.MouseX < 120 && in.MouseY >= inputY-7*22 && in.MouseY < inputY {
-			row = (in.MouseY - (inputY - 7*22)) / 22
+		if in.MouseX >= 0 && in.MouseX < 120 && in.MouseY >= inputY-len(chatChannelOrder)*22 && in.MouseY < inputY {
+			row = (in.MouseY - (inputY - len(chatChannelOrder)*22)) / 22
 		}
 		if in.Pressed {
 			c.modeHeld = row
@@ -244,11 +244,11 @@ func (c *ChatPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, h in
 	for i := range c.panes {
 		p := &c.panes[i]
 		y, height, capacity := c.paneGeometry(h, i)
-		s.Draw(blank, 0, float32(y), 350, float32(height), 0, 0, 1, 1, [4]float32{.114, .122, .141, .54})
+		s.Draw(blank, 0, float32(y), 350, float32(height), 0, 0, 1, 1, [4]float32{29.0 / 255, 31.0 / 255, 36.0 / 255, 154.0 / 255})
 		end := max(0, len(p.lines)-p.offset)
 		start := max(0, end-capacity)
 		for row := start; row < end; row++ {
-			yText := y + height - 8 - capacity*16 + 2 + (capacity-(end-start)+row-start)*16
+			yText := y + 5 + (capacity-(end-start)+row-start)*16
 			for _, run := range p.runs[row] {
 				tint := run.color
 				if tint[3] == 0 {
@@ -268,7 +268,7 @@ func (c *ChatPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, h in
 	y := h - 82
 	c.modeButton.OriginY = y
 	c.modeButton.Draw(s)
-	label := c.ChannelNames[min(int(c.Channel), 6)]
+	label := c.ChannelNames[min(int(c.Channel), 5)]
 	scale := float32(11.0 / 12)
 	if c.Channel == 5 {
 		scale = 10.0 / 12
@@ -290,8 +290,8 @@ func (c *ChatPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, h in
 	f.Draw(s, shown, 70, y+2, white, 274)
 }
 
-var chatChannelNames = [7]string{"Normal", "Trade", "Guild", "Party", "Area", "Whisper", "Raid"}
-var chatChannelOrder = [7]uint8{0, 3, 2, 5, 4, 1, 6}
+var chatChannelNames = [6]string{"Normal", "Trade", "Guild", "Party", "Area", "Whisper"}
+var chatChannelOrder = [6]uint8{0, 3, 2, 5, 4, 1}
 
 func (c *ChatPanel) capacity(index int) int { _, _, n := c.paneGeometry(768, index); return n }
 
@@ -300,8 +300,8 @@ func (c *ChatPanel) DrawOverlay(s *render.Sprites, f *Font, blank *render.Textur
 	if !c.ModeOpen {
 		return
 	}
-	top := h - 82 - 7*22
-	s.Draw(blank, 0, float32(top), 120, 154, 0, 0, 1, 1, [4]float32{.114, .122, .141, .97})
+	top := h - 82 - len(chatChannelOrder)*22
+	s.Draw(blank, 0, float32(top), 120, float32(len(chatChannelOrder)*22), 0, 0, 1, 1, [4]float32{.114, .122, .141, .97})
 	for i, channel := range chatChannelOrder {
 		tint := white
 		if channel == c.Channel {

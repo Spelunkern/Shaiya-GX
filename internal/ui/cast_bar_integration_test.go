@@ -52,7 +52,7 @@ func TestNativeBlueCastPixelsGL(t *testing.T) {
 					want = [4]byte{0, 0, 0, 255}
 				}
 				fill := state.fill
-				if left > 0 && x >= 21 && x < 24 && y >= 11 && y < 11+fill {
+				if left > 0 && x >= 21 && x < 24 && y >= 73-fill && y < 73 {
 					want = [4]byte{0, 0, 255, 255}
 				}
 				i := ((95-y)*64 + x) * 4

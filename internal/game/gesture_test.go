@@ -10,7 +10,8 @@ func TestConfirmedGesturesPreservePostureAndCountRepeats(t *testing.T) {
 	s.SelfID = 1
 	for code := uint8(116); code <= 125; code++ {
 		action, ok := proto.GestureAction(code)
-		if !ok || action != int(code^1) {
+		expected := [...]int{117, 116, 119, 118, 121, 120, 123, 122, 124, 125}
+		if !ok || action != expected[code-116] {
 			t.Fatalf("motion %d: %d/%v", code, action, ok)
 		}
 		w := proto.NewWriter(proto.CharacterMotion)

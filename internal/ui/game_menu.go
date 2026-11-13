@@ -52,7 +52,7 @@ type ClientSettings struct {
 	DisplayMode                               platform.DisplayMode
 	ChatRows                                  [2]int
 	ChatChannel                               uint8
-	Music, Effects                            float64
+	Music, Effects, Ambient                   float64
 	Glow, Brightness, Details, VisualDistance int
 	HideCloak, HideHelmet                     bool
 	MouseSensitivity                          int
@@ -62,7 +62,7 @@ type ClientSettings struct {
 }
 
 func DefaultClientSettings() ClientSettings {
-	return ClientSettings{Glow: 2, Brightness: 2, Details: 2, VisualDistance: 2, ChatRows: [2]int{5, 5}, Music: 1, Effects: 1, MouseSensitivity: 3, UseMouse: true,
+	return ClientSettings{Glow: 2, Brightness: 2, Details: 2, VisualDistance: 2, ChatRows: [2]int{5, 5}, Music: 1, Effects: 1, Ambient: 1, MouseSensitivity: 3, UseMouse: true,
 		OwnName: true, PlayerNames: true, MonsterNames: true, Shadows: true, Water: true, SkillEffects: true}
 }
 
@@ -72,7 +72,7 @@ func (c ClientSettings) Valid() bool {
 			return false
 		}
 	}
-	return c.DisplayMode.Valid() && c.Glow >= 0 && c.Glow <= 2 && c.Brightness >= 0 && c.Brightness <= 4 && c.Details >= 0 && c.Details <= 2 && c.VisualDistance >= 0 && c.VisualDistance <= 2 && c.ChatChannel <= 6 && !math.IsNaN(c.Music) && !math.IsNaN(c.Effects) && c.Music >= 0 && c.Music <= 1 && c.Effects >= 0 && c.Effects <= 1 && c.MouseSensitivity >= 0 && c.MouseSensitivity <= 6
+	return c.DisplayMode.Valid() && c.Glow >= 0 && c.Glow <= 2 && c.Brightness >= 0 && c.Brightness <= 4 && c.Details >= 0 && c.Details <= 2 && c.VisualDistance >= 0 && c.VisualDistance <= 2 && c.ChatChannel <= 5 && !math.IsNaN(c.Music) && !math.IsNaN(c.Effects) && c.Music >= 0 && c.Music <= 1 && c.Effects >= 0 && c.Effects <= 1 && !math.IsNaN(c.Ambient) && c.Ambient >= 0 && c.Ambient <= 1 && c.MouseSensitivity >= 0 && c.MouseSensitivity <= 6
 }
 
 func NewGameMenu(t Textures) (*GameMenu, error) {
@@ -249,7 +249,7 @@ func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 		defaults := DefaultClientSettings()
 		switch m.Page {
 		case MenuSound:
-			m.Settings.Music, m.Settings.Effects = defaults.Music, defaults.Effects
+			m.Settings.Music, m.Settings.Effects, m.Settings.Ambient = defaults.Music, defaults.Effects, defaults.Ambient
 		case MenuUser:
 			m.Settings.UseMouse, m.Settings.InvertY, m.Settings.MouseSensitivity = true, false, 3
 			m.Settings.OwnName, m.Settings.PlayerNames, m.Settings.MonsterNames = true, true, true
@@ -280,7 +280,7 @@ func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 		}
 	}
 	if m.Page == MenuSound || m.Page == MenuUser {
-		count := 2
+		count := 3
 		if m.Page == MenuUser {
 			count = 1
 		}
@@ -297,8 +297,10 @@ func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 				if m.Page == MenuSound {
 					if i == 0 {
 						m.Settings.Music = math.Round(value*6) / 6
-					} else {
+					} else if i == 1 {
 						m.Settings.Effects = math.Round(value*6) / 6
+					} else {
+						m.Settings.Ambient = math.Round(value*6) / 6
 					}
 				} else {
 					m.Settings.MouseSensitivity = int(math.Round(value * 6))
@@ -372,6 +374,7 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int, solid ...*render.T
 	case MenuSound:
 		knob(35, 106, m.Settings.Music, 185)
 		knob(35, 156, m.Settings.Effects, 185)
+		knob(35, 206, m.Settings.Ambient, 185)
 	case MenuUser:
 		knob(36, 140, float64(m.Settings.MouseSensitivity)/6, 185)
 	case MenuGraphics:

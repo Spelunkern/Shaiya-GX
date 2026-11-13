@@ -66,6 +66,7 @@ void main() {
 type SkinMesh struct {
 	vao, vbo, ebo uint32
 	Count         int32
+	indexType     uint32
 	bytes         uint64
 }
 
@@ -78,8 +79,9 @@ func NewSkinMesh(v []SkinVertex, idx []uint32) *SkinMesh {
 	gl.CreateBuffers(1, &m.vbo)
 	gl.NamedBufferStorage(m.vbo, len(v)*size, unsafe.Pointer(&v[0]), 0)
 	gl.CreateBuffers(1, &m.ebo)
-	gl.NamedBufferStorage(m.ebo, len(idx)*4, unsafe.Pointer(&idx[0]), 0)
-	m.bytes = uint64(len(v)*size + len(idx)*4)
+	var indexBytes uintptr
+	m.indexType, indexBytes = uploadMeshIndices(m.ebo, idx)
+	m.bytes = uint64(len(v)*size + len(idx)*int(indexBytes))
 	addGPUBytes(m.bytes)
 	gl.CreateVertexArrays(1, &m.vao)
 	gl.VertexArrayVertexBuffer(m.vao, 0, m.vbo, 0, int32(size))
@@ -185,6 +187,6 @@ func (k *Skinner) Draw(m *SkinMesh, t *Texture, alphaRef float32) {
 	gl.Disable(gl.BLEND)
 	bindDiffuse(t)
 	gl.BindVertexArray(m.vao)
-	gl.DrawElements(gl.TRIANGLES, m.Count, gl.UNSIGNED_INT, nil)
+	gl.DrawElements(gl.TRIANGLES, m.Count, m.indexType, nil)
 	drawCalls++
 }

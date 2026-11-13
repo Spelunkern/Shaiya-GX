@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/gm"
 	"log"
 	"math"
 
@@ -85,6 +86,7 @@ type worldView struct {
 	sitAttack               uint32
 	selfGestureSerial       uint64
 	waterDirty              bool
+	waterPresentation       waterPresentation
 	waterFallSpeed          float32
 	sendT                   float64
 	motion                  uint8
@@ -129,6 +131,7 @@ func (a *App) enterWorld() {
 	}
 	v.resetCamera()
 	a.wv = v
+	a.chatBubbles = nil
 	a.loadLocalActions()
 }
 
@@ -433,6 +436,9 @@ func (a *App) updateWorldStep(in *platform.Input, dt float64) {
 		} else if back || v.walking && !swimming {
 			speed /= 2
 		}
+		if a.state.Self.IsGM && a.state.GMTurbo {
+			speed *= gm.TurboMultiplier
+		}
 		moving = v.step(dir.Scale(min(speed*float32(dt), remaining)))
 	}
 	if v.evading {
@@ -452,6 +458,10 @@ func (a *App) updateWorldStep(in *platform.Input, dt float64) {
 		v.waterDirty = true
 	}
 	swimming = v.world.SwimmingAt(v.pos[0], v.pos[1], v.pos[2])
+	if swimming && !v.waterPresentation.swimming && v.self != nil && !a.state.Self.Dead && !a.state.Self.Mounted {
+		v.self.ReleaseAction()
+	}
+	a.updateWaterPresentation(float32(dt), moving, swimming)
 	if v.self != nil {
 		if moving || v.jumping {
 			v.self.CancelCast()
@@ -477,12 +487,12 @@ func (a *App) updateWorldStep(in *platform.Input, dt float64) {
 			v.self.SetMountedClip(moving, scene.VehicleAlternate(a.state.Self.MountShape))
 		case v.jumping:
 			v.self.SetClip("008_jump")
-		case a.state.Self.Sitting:
-			v.self.SetClip("012_sit")
 		case swimming && moving:
 			v.self.SetClip("007_swim")
 		case swimming:
 			v.self.SetClip("006_swnormal")
+		case a.state.Self.Sitting:
+			v.self.SetClip("012_sit")
 		case moving && back:
 			v.self.SetClip("003_bstep")
 		case moving && !forward && strafe < 0:
@@ -555,6 +565,9 @@ func (a *App) drawWorldView(w, h int) {
 	aspect := projectionAspect(w, h)
 	distanceScale := []float32{.5, .75, 1}[a.clientSettings().VisualDistance]
 	far := max(float32(200), max(float32(400), v.world.FogEnd)*distanceScale)
+	if v.world.WLD != nil && v.world.WLD.Dungeon {
+		far = max(far, v.world.WLD.FogEnd*distanceScale)
+	}
 	// Enclose every frustum corner, including wide viewports and pitched cameras.
 	tangent := float32(math.Tan(nativeWorldFOV / 2))
 	radius := far * float32(math.Sqrt(float64(1+tangent*tangent*(1+aspect*aspect))))
@@ -643,6 +656,9 @@ func (a *App) drawWorldView(w, h int) {
 	}
 	// Water Surface Effect controls reflection/refraction, not water visibility.
 	v.world.DrawWater(s)
+	for _, e := range v.waterPresentation.effects {
+		e.Draw(s)
+	}
 	v.world.RenderMapEffects(s)
 	s.WaterReflection = nil
 	s.WaterBelow = false
@@ -714,12 +730,11 @@ func (a *App) drawSelf() {
 		if v.selfMount.Visible(frustum, a.scene3d.ClipPlane) {
 			v.selfMount.Draw(a.skinner, a.scene3d)
 		}
-		a.drawActorShadow(v.selfMount.Character)
 	}
 	if v.self.Visible(frustum, a.scene3d.ClipPlane) {
 		v.self.Draw(a.skinner, a.scene3d)
 	}
-	a.drawActorShadow(v.self)
+	a.drawSelfShadow()
 }
 
 var _ = game.PhaseInWorld
@@ -822,6 +837,9 @@ func (a *App) releaseWorld() {
 
 // SceneReady is used by offline captures, not by the player's movement/input.
 func (a *App) SceneReady() bool {
+	if a.loading.active {
+		return false
+	}
 	if a.screen == screenWorld {
 		return a.wv != nil && a.wv.world != nil && a.wv.world.Ready()
 	}

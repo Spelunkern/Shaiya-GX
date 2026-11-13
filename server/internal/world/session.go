@@ -26,6 +26,7 @@ const (
 // Session is one client connection. Only its own goroutine touches its
 // fields; other sessions reach it through its ConnectedPlayer.
 type Session struct {
+	gmTurbo       bool
 	socialChecked time.Time
 	conn          net.Conn
 	out           *connWriter
@@ -413,7 +414,8 @@ func (s *Session) handshake(f []byte) error {
 	s.accountID, s.sessionID = uid, h.SessionID
 	if a, err := db.AccountByUID(int32(uid)); err == nil {
 		s.account = a
-		s.faction, s.maxMode, s.isAdmin = a.Country, a.MaxGrow, a.Admin || a.AdminLevel > 0
+		s.gmTurbo = a.Admin
+		s.faction, s.maxMode, s.isAdmin = a.Country, a.MaxGrow, a.Admin
 		if !isValidFaction(s.faction) {
 			s.faction = FactionNone
 		}
@@ -862,6 +864,7 @@ func (s *Session) handleMapLoaded() {
 	}
 	s.send(buildCharacterMapPosition(ch), "0x020B set map position")
 	s.send(buildCharacterEnteredMap(ch, s.isAdmin, true), "0x0201 entered map")
+	s.gmReply("")
 	s.send(buildCharacterShape(ch, s.faction, s.items, 0), "0x0303 character shape")
 	s.send(buildCharacterMove(ch, 0, 0), "0x0501 character move")
 	if s.player == nil {

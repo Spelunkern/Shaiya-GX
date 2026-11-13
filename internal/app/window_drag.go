@@ -13,6 +13,8 @@ import (
 )
 
 type windowDrag struct {
+	portrait, moved                 bool
+	pressX, pressY                  int
 	position                        *ui.WindowPosition
 	offsetX, offsetY, width, height int
 }
@@ -20,8 +22,16 @@ type windowDrag struct {
 func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 	d := &a.windowDrag
 	if d.position != nil {
-		d.position.Move(in.MouseX-d.offsetX, in.MouseY-d.offsetY, w, h, d.width, d.height)
+		if !d.portrait || absInt(in.MouseX-d.pressX) > 4 || absInt(in.MouseY-d.pressY) > 4 {
+			d.moved = true
+		}
+		if d.moved {
+			d.position.Move(in.MouseX-d.offsetX, in.MouseY-d.offsetY, w, h, d.width, d.height)
+		}
 		if in.Clicked || !in.MouseDown {
+			if d.portrait && !d.moved && in.Clicked {
+				a.selectSelf()
+			}
 			a.finishWindowDrag()
 		}
 		return true
@@ -39,7 +49,7 @@ func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 	}
 	if a.minimap != nil && a.wv.mapView.full {
 		x, y, scale := a.minimap.FullRect(w, h)
-		return start(&a.minimap.FullPosition, x, y, int(544*scale), int(579*scale), 8, int(495*scale))
+		return start(&a.minimap.FullPosition, x, y, int(544*scale), int(579*scale), 8, int(450*scale))
 	}
 	// Match drawing order: the quest journal is above the other panels.
 	if a.mall.open && a.mallUI != nil {
@@ -138,34 +148,85 @@ func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 			return false
 		}
 	}
+	if e := a.state.Entities[a.shop.npcID]; e != nil && a.npcQuestUI != nil && (a.shop.questMode || e.NpcType != 1 && e.NpcType != 2 && e.NpcType != 3 && e.NpcType != 6 && e.NpcType != 11) {
+		x, y := a.npcQuestUI.Origin(w, h)
+		if start(&a.npcQuestUI.Position, x, y, ui.NPCQuestWidth, 512, 75, 145) {
+			return true
+		}
+		height := 391
+		if a.npcQuest.selected != 0 {
+			height = 512
+		}
+		if pointInside(in, x, y, ui.NPCQuestWidth, height) {
+			return false
+		}
+	}
 	if e := a.state.Entities[a.shop.npcID]; e != nil && e.NpcType == 2 && !a.shop.questMode && a.gateUI != nil {
 		x, y := a.gateUI.Origin(w, h)
-		return start(&a.gateUI.Position, x, y, ui.GatekeeperWidth, ui.GatekeeperHeight, 265, 190)
+		if start(&a.gateUI.Position, x, y, ui.GatekeeperWidth, ui.GatekeeperHeight, 265, 190) {
+			return true
+		}
+		if pointInside(in, x, y, ui.GatekeeperWidth, ui.GatekeeperHeight) {
+			return false
+		}
 	}
 	if a.blacksmithOpen() {
 		x, y := a.blacksmithUI.Origin(w, h)
-		return start(&a.blacksmithUI.Position, x, y, ui.BlacksmithWidth, ui.BlacksmithHeight, 270, 190)
+		if start(&a.blacksmithUI.Position, x, y, ui.BlacksmithWidth, ui.BlacksmithHeight, 270, 190) {
+			return true
+		}
+		if pointInside(in, x, y, ui.BlacksmithWidth, ui.BlacksmithHeight) {
+			return false
+		}
 	}
 	if e := a.state.Entities[a.shop.npcID]; e != nil && e.NpcType == 1 && !a.shop.questMode && a.marketUI != nil {
 		x, y := a.marketUI.Origin(w, h)
-		return start(&a.marketUI.Position, x, y, ui.MarketWidth, ui.MarketHeight, 8, 212)
+		if start(&a.marketUI.Position, x, y, ui.MarketWidth, ui.MarketHeight, 8, 212) {
+			return true
+		}
+		if pointInside(in, x, y, ui.MarketWidth, ui.MarketHeight) {
+			return false
+		}
 	}
 	if e := a.state.Entities[a.shop.npcID]; e != nil && e.NpcType == 11 && a.guildDirectoryUI != nil {
 		x, y := a.guildDirectoryUI.Origin(w, h)
-		return start(&a.guildDirectoryUI.Position, x, y, ui.GuildDirectoryWidth, ui.GuildDirectoryHeight, 268, 280)
+		if start(&a.guildDirectoryUI.Position, x, y, ui.GuildDirectoryWidth, ui.GuildDirectoryHeight, 268, 280) {
+			return true
+		}
+		if pointInside(in, x, y, ui.GuildDirectoryWidth, ui.GuildDirectoryHeight) {
+			return false
+		}
 	}
 	if a.warehouseOpen() {
 		x, y := a.bankUI.Origin(w, h)
-		return start(&a.bankUI.Position, x, y, ui.WarehouseWidth, ui.WarehouseHeight, 75, 226)
+		if start(&a.bankUI.Position, x, y, ui.WarehouseWidth, ui.WarehouseHeight, 75, 226) {
+			return true
+		}
+		if pointInside(in, x, y, ui.WarehouseWidth, ui.WarehouseHeight) {
+			return false
+		}
+	}
+	xq, yq := ui.QuickPotionOrigin(a.quickPotions.Position, w, h)
+	if pointInside(in, xq, yq, 94, 54) && ui.QuickPotionCell(in.MouseX, in.MouseY, xq, yq) < 0 && !a.barCovered(in, w, h) {
+		a.windowDrag = windowDrag{position: &a.quickPotions.Position, offsetX: in.MouseX - xq, offsetY: in.MouseY - yq, width: 94, height: 54}
+		a.wv.uiLeft = -2
+		return true
 	}
 	if a.hud != nil {
 		if a.state.Target != 0 {
 			x, y := a.hud.TargetOrigin(w, h)
-			if start(&a.hud.TargetPosition, x, y, 256, 64, 8, 240) {
+			if pointInside(in, x, y, 256, 64) {
+				a.windowDrag = windowDrag{position: &a.hud.TargetPosition, offsetX: in.MouseX - x, offsetY: in.MouseY - y, width: 256, height: 64}
+				a.wv.uiLeft = -2
 				return true
 			}
 		}
 		x, y := a.hud.Origin(w, h)
+		if pointInside(in, x+17, y+26, 55, 53) {
+			a.windowDrag = windowDrag{position: &a.hud.Position, offsetX: in.MouseX - x, offsetY: in.MouseY - y, width: 213, height: 114, portrait: true, pressX: in.MouseX, pressY: in.MouseY}
+			a.wv.uiLeft = -2
+			return true
+		}
 		if start(&a.hud.Position, x, y, 213, 114, 80, 125) {
 			return true
 		}
@@ -173,8 +234,8 @@ func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 	if a.minimap != nil {
 		x, y := a.minimap.Origin(w, h)
 		// Drag the rim or lower information plate; leave buttons and map zoom free.
-		if pointInside(in, x+9, y+157, 150, 40) || pointInside(in, x+35, y, 75, 20) {
-			a.windowDrag = windowDrag{position: &a.minimap.Position, offsetX: in.MouseX - x, offsetY: in.MouseY - y, width: 196, height: 197}
+		if a.minimap.DragHandleAt(in.MouseX, in.MouseY, w, h) {
+			a.windowDrag = windowDrag{position: &a.minimap.Position, offsetX: in.MouseX - x, offsetY: in.MouseY - y, width: ui.MinimapWidth, height: ui.MinimapHeight}
 			a.wv.uiLeft = -2
 			return true
 		}
@@ -208,7 +269,7 @@ func (a *App) finishWindowDrag() {
 	}
 }
 func (a *App) layoutPositions() map[string]*ui.WindowPosition {
-	out := map[string]*ui.WindowPosition{"buffs": &a.buffLayout.Position[0], "debuffs": &a.buffLayout.Position[1]}
+	out := map[string]*ui.WindowPosition{"quick_potions": &a.quickPotions.Position, "buffs": &a.buffLayout.Position[0], "debuffs": &a.buffLayout.Position[1]}
 	if a.hud != nil {
 		out["portrait_hud"] = &a.hud.Position
 		out["target_hud"] = &a.hud.TargetPosition
@@ -257,6 +318,9 @@ func (a *App) layoutPositions() map[string]*ui.WindowPosition {
 	}
 	if a.statusUI != nil {
 		out["status"] = &a.statusUI.Position
+	}
+	if a.npcQuestUI != nil {
+		out["npc_quest"] = &a.npcQuestUI.Position
 	}
 	if a.marketUI != nil {
 		out["shop"] = &a.marketUI.Position

@@ -48,7 +48,14 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./tools/build.ps1
-      - name: Package client without game data
+      - name: Validate external fonts and Unicode coverage
+        shell: bash
+        env:
+          SHAIYA_DATA: ${{ github.workspace }}/resources
+        run: |
+          python tools/font_pack.py
+          go test ./internal/ui -run '^TestExternalFontLazyCoverageAndEmojiClusters$' -count=1
+      - name: Package client with fonts, without game artwork
         shell: bash
         run: python tools/package_client.py --platform '${{ matrix.platform }}' --output out/client
       - uses: actions/upload-artifact@v4

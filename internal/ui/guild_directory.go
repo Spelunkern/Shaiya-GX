@@ -37,7 +37,7 @@ func NewGuildDirectory(t Textures) (*GuildDirectory, error) {
 }
 
 func (p *GuildDirectory) Origin(w, h int) (int, int) {
-	return p.Position.Origin(w, h, GuildDirectoryWidth, GuildDirectoryHeight, max(0, (w-GuildDirectoryWidth)/2), max(0, (h-GuildDirectoryHeight)/2))
+	return p.Position.Origin(w, h, GuildDirectoryWidth, GuildDirectoryHeight, min(32, max(0, w-GuildDirectoryWidth)), min(82, max(0, h-GuildDirectoryHeight)))
 }
 
 func (p *GuildDirectory) Update(in *platform.Input, w, h, count, offset int, canJoin, canCreate, canLeave, canDisband bool) (row, scroll int, join, create, leave, disband, close bool) {

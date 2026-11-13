@@ -6,6 +6,7 @@ package scene
 import (
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/archive"
@@ -103,25 +104,17 @@ func (s *Assets) modelTexture(file string) *render.Texture {
 
 // Part is one textured mesh of a model.
 type Part struct {
-	lods           []staticMeshLOD
-	Mesh           *render.Mesh
-	Tex            *render.Texture
-	Alpha          bool
-	boundMin       render.V3
-	boundMax       render.V3
-	bounded        bool
-	shadowVertices []shadowVertex
-	shadowIndices  []uint16
-	shadowCenter   render.V3
-	shadowRadius   float32
-}
-
-type shadowVertex struct {
-	Pos render.V3
-	UV  [2]float32
+	lods     []staticMeshLOD
+	Mesh     *render.Mesh
+	Tex      *render.Texture
+	Alpha    bool
+	boundMin render.V3
+	boundMax render.V3
+	bounded  bool
 }
 
 type Model struct {
+	occluders    [][3]render.V3
 	lodErrors    [2]float32
 	lodAvailable [2]bool
 	colliders    []world.CollisionMesh
@@ -153,15 +146,8 @@ func (s *Assets) uploadSMOD(key string, sm *world.SMOD, preparedLODs ...[][]stat
 	hasBounds := false
 	for meshIndex, mesh := range sm.Meshes {
 		v := make([]render.Vertex, len(mesh.Vertices))
-		var partLo, partHi render.V3
 		for i, x := range mesh.Vertices {
 			point := render.V3(x.Pos)
-			if i == 0 {
-				partLo, partHi = point, point
-			}
-			for axis := range 3 {
-				partLo[axis], partHi[axis] = min(partLo[axis], point[axis]), max(partHi[axis], point[axis])
-			}
 			if !hasBounds {
 				lo, hi, hasBounds = point, point, true
 			}
@@ -177,15 +163,7 @@ func (s *Assets) uploadSMOD(key string, sm *world.SMOD, preparedLODs ...[][]stat
 				idx = append(idx, uint32(f[0]), uint32(f[1]), uint32(f[2]))
 			}
 		}
-		p := Part{Mesh: render.NewMesh(v, idx), shadowVertices: make([]shadowVertex, len(v)), shadowIndices: make([]uint16, len(idx))}
-		p.shadowCenter = partLo.Add(partHi).Scale(.5)
-		p.shadowRadius = partHi.Sub(partLo).Len() * .5
-		for i := range v {
-			p.shadowVertices[i] = shadowVertex{Pos: v[i].Pos, UV: v[i].UV}
-		}
-		for i := range idx {
-			p.shadowIndices[i] = uint16(idx[i])
-		}
+		p := Part{Mesh: render.NewMesh(v, idx)}
 		if mesh.Texture != "" {
 			p.Tex = s.worldTexture("Entity/Texture/" + DDSName(path.Base(strings.ReplaceAll(mesh.Texture, `\`, "/"))))
 			p.Alpha = p.Tex != nil
@@ -204,7 +182,19 @@ func (s *Assets) uploadSMOD(key string, sm *world.SMOD, preparedLODs ...[][]stat
 				m.lodErrors[level] = max(m.lodErrors[level], lod.error)
 			}
 		}
+		if p.Tex == nil || p.Tex.Opaque {
+			for i := 0; i < len(idx); i += 3 {
+				tri := [3]render.V3{v[idx[i]].Pos, v[idx[i+1]].Pos, v[idx[i+2]].Pos}
+				if triangleArea2(tri) >= 2 {
+					m.occluders = append(m.occluders, tri)
+				}
+			}
+		}
 		m.Parts = append(m.Parts, p)
+	}
+	sort.Slice(m.occluders, func(i, j int) bool { return triangleArea2(m.occluders[i]) > triangleArea2(m.occluders[j]) })
+	if len(m.occluders) > 32 {
+		m.occluders = append([][3]render.V3(nil), m.occluders[:32]...)
 	}
 	m.center = lo.Add(hi).Scale(.5)
 	m.radius = hi.Sub(lo).Len() * .5

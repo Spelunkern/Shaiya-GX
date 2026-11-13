@@ -81,6 +81,6 @@ func (s *Scene3D) drawInstances(m *Mesh) {
 		m.instanceBuffer = s.instanceBuffer
 	}
 	gl.BindVertexArray(m.vao)
-	gl.DrawElementsInstanced(gl.TRIANGLES, m.Count, gl.UNSIGNED_INT, nil, int32(s.instanceCount))
+	gl.DrawElementsInstanced(gl.TRIANGLES, m.Count, m.indexType, nil, int32(s.instanceCount))
 	drawCalls++
 }

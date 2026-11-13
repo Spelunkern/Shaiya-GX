@@ -1,5 +1,2 @@
-server/data/game/** -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
-server/data/maps/*.svmap binary
-server/data/rapture.sqlite binary
-
-*.bat text eol=crlf
+# Font pack hashes and licenses must be byte-identical on both native OSes.
+/resources/fonts/** -text

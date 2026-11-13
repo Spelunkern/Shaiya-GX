@@ -42,7 +42,7 @@ func (a *App) updateShop(in *platform.Input, w, h int) bool {
 				}
 				dx, dz := e.X-a.wv.pos[0], e.Z-a.wv.pos[2]
 				d := dx*dx + dz*dz
-				if e.NpcType != 2 && d >= 100 {
+				if d >= 50*50 {
 					continue
 				}
 				if d < best || d == best && (id == 0 || k < id) {
@@ -144,9 +144,11 @@ func (a *App) openNPC(id uint32) {
 	if e == nil || e.Kind != game.KindNpc {
 		return
 	}
-	dx, dz := e.X-a.wv.pos[0], e.Z-a.wv.pos[2]
-	if dx*dx+dz*dz >= 100 {
-		if e.NpcType == 2 && dx*dx+dz*dz < 50*50 {
+	pos := a.visualEntityPosition(e)
+	dx, dz := pos[0]-a.wv.pos[0], pos[2]-a.wv.pos[2]
+	serverX, serverZ := e.X-a.wv.pos[0], e.Z-a.wv.pos[2]
+	if dx*dx+dz*dz > 2*2 || serverX*serverX+serverZ*serverZ >= 9.5*9.5 {
+		if dx*dx+dz*dz < 150*150 {
 			a.wv.autoRun = false
 			a.wv.approachTarget, a.wv.approachNPC, a.wv.approachLoot = id, true, false
 			a.wv.approachSkill = nil
@@ -235,9 +237,7 @@ func (a *App) drawMarket(w, h int, def sdata.NPC) {
 	v := &a.shop
 	x, y := a.marketUI.Origin(w, h)
 	a.clearTooltipUnderPanel(x, y, ui.MarketWidth, ui.MarketHeight)
-	// Native fallback (DAT_00868de0 = 55 at 0x56f35e). NPC-specific
-	// portrait selection is pending; NpcQuest.Model selects the world model.
-	portrait := a.assets.Texture("interface/NpcFace/55.png")
+	portrait := a.npcPortrait(def)
 	a.marketUI.Draw(a.sprites, a.font, w, h, v.page, len(def.Items), v.pending || a.inventory.pending, def.Name, portrait)
 	start := v.page * ui.MarketPageSize
 	for i := start; i < min(start+ui.MarketPageSize, len(def.Items)); i++ {
@@ -247,7 +247,7 @@ func (a *App) drawMarket(w, h int, def sdata.NPC) {
 			a.drawItemIcon(d, x+cx, y+cy, 32, white)
 		}
 	}
-	message := "Click or drag into bags: buy 1"
+	message := ""
 	switch a.state.LastShop.Result {
 	case 1:
 		message = "Not enough gold."

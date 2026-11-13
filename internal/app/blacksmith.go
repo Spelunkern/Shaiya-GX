@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
@@ -212,6 +213,12 @@ func (a *App) updateGemConfirm(in *platform.Input, w, h int) {
 func (a *App) drawBlacksmith(w, h int, name string) {
 	a.blacksmithUI.Draw(a.sprites, a.font, w, h, name, a.shop.pending || a.inventory.pending, a.blacksmithReady(), a.blacksmithExtractReady(), a.blacksmithRepairReady(), a.blacksmithEnchantReady(), a.blacksmithComposeReady())
 	x, y := a.blacksmithUI.Origin(w, h)
+	if e := a.state.Entities[a.shop.npcID]; e != nil {
+		def := a.npcDefs[sdata.NPCKey{Type: e.NpcType, ID: e.TypeID}]
+		if portrait := a.npcPortrait(def); portrait != nil {
+			a.sprites.Draw(portrait, float32(x+7), float32(y+7), 64, 64, 0, 0, 1, 1, white)
+		}
+	}
 	for slot := 0; slot < 4; slot++ {
 		if !a.blacksmith.selected[slot] {
 			continue

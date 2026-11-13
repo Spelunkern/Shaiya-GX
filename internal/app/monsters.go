@@ -114,7 +114,6 @@ func (a *App) drawMonsters() {
 			if cached.actor.Visible(frustum, a.scene3d.ClipPlane) {
 				cached.actor.Draw(a.skinner, a.scene3d)
 			}
-			a.drawActorShadow(cached.actor.Character)
 		}
 	}
 }

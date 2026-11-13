@@ -113,7 +113,10 @@ func (a *App) worldControls(in *platform.Input, w, h int) platform.Input {
 		}
 	}
 	if !captured {
-		captured = a.updateShortcutDrag(in, w, h)
+		captured = a.updateQuickPotionDrop(in, w, h)
+		if !captured {
+			captured = a.updateShortcutDrag(in, w, h)
+		}
 	}
 	if a.state == nil || a.wv == nil {
 		return platform.Input{SuppressAutoRun: true}
@@ -158,7 +161,7 @@ func (a *App) worldControls(in *platform.Input, w, h int) platform.Input {
 		}
 	}
 
-	for index, update := range []func(*platform.Input, int, int) bool{a.updateMall, a.updateGuild, a.updateBarEditing, a.updateSubActions, a.updateSkills, a.updateDuel, a.updateExchange, a.updateQuestLog, a.updateInventory, a.updateShop, a.updateBottom, a.updateHUDPointer, a.updateChatPointer, a.updateStatus, a.updateBuffs, a.updateMinimap, a.updatePartyPointer} {
+	for index, update := range []func(*platform.Input, int, int) bool{a.updateMall, a.updateGuild, a.updateQuickPotions, a.updateBarEditing, a.updateSubActions, a.updateSkills, a.updateDuel, a.updateExchange, a.updateQuestLog, a.updateInventory, a.updateShop, a.updateBottom, a.updateHUDPointer, a.updateChatPointer, a.updateStatus, a.updateBuffs, a.updateMinimap, a.updatePartyPointer} {
 		if captured {
 			break
 		}

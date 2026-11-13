@@ -49,6 +49,7 @@ func uploadVani(a *Assets, file string, parsed *world.VANI) (*vaniAsset, error) 
 }
 
 type vaniAsset struct {
+	visibleWorlds     []render.M4
 	parts             []vaniPart
 	frameMilliseconds int32
 	cascade           bool
@@ -141,4 +142,24 @@ func (v *vaniAsset) frameAt(elapsed float64) int {
 		interval = 33
 	}
 	return int(math.Mod(math.Floor(max(0, elapsed)*1000/float64(interval)), float64(v.count)))
+}
+
+// Eager dungeon placements keep all authored transforms and filter into scratch
+// storage; animation bounds encompass every frame, not just the current pose.
+func (v *vaniAsset) drawCulled(s *render.Scene3D, elapsed float64, f render.Frustum) {
+	if v.cascade || v.radius <= 0 {
+		v.draw(s, elapsed)
+		return
+	}
+	all := v.worlds
+	v.visibleWorlds = v.visibleWorlds[:0]
+	for _, matrix := range all {
+		c, r := transformPoint(v.center, matrix), v.radius*sphereScale(matrix)
+		if f.SphereVisible(c, r) && render.ClipSphereVisible(s.ClipPlane, c, r) && !s.OccludedSphere(c, r) {
+			v.visibleWorlds = append(v.visibleWorlds, matrix)
+		}
+	}
+	v.worlds = v.visibleWorlds
+	v.draw(s, elapsed)
+	v.worlds = all
 }

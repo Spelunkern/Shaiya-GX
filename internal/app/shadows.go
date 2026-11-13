@@ -4,19 +4,21 @@ import (
 	"log"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
-	"github.com/Spelunkern/Shaiya-GX/internal/scene"
 )
 
-func (a *App) drawActorShadow(c *scene.Character) {
+// Only the local character casts a dynamic shadow. NPCs, mobs, remote players
+// and scene objects are outside the current shadow scope.
+func (a *App) drawSelfShadow() {
 	if !a.clientSettings().Shadows {
 		return
 	}
 	v := a.wv
-	if c == nil || v == nil || v.world == nil || !v.world.HasShadowReceivers() {
+	if v == nil || v.self == nil || v.world == nil || !v.world.HasShadowReceivers() {
 		return
 	}
+	c := v.self
 	position := render.V3{c.World[12], c.World[13], c.World[14]}
-	// Bound capture cost to nearby actors; distant actors keep baked world light.
+	// Skip a detached camera beyond the local shadow range.
 	if position.Sub(v.eye).Len() > 50 {
 		return
 	}

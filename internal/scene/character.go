@@ -137,6 +137,7 @@ func (c *Character) SetClip(name string) {
 	}
 	cl, err := c.assets.Clip(fmt.Sprintf("Character/%s/ANI/%s_%s.ANI", c.folder, c.prefix, fileName))
 	if err != nil {
+		c.assets.Missing[err.Error()] = true
 		return
 	}
 	c.clip, c.clipName, c.Time = cl, name, 0
@@ -569,7 +570,11 @@ func (c *Character) Draw(k *render.Skinner, s *render.Scene3D) {
 			return
 		}
 	}
-	k.Begin(s, 0.8) // character ambient (Phoenix account_ep5_render)
+	ambient := float32(.8) // Phoenix account_ep5_render
+	if s.CharacterAmbient > 0 {
+		ambient = s.CharacterAmbient
+	}
+	k.Begin(s, ambient)
 	for _, p := range c.parts {
 		k.SetPose(c.World, p.pose)
 		ref := float32(-1)

@@ -10,7 +10,7 @@ Shaiya GX is a native 64-bit Shaiya EP5.4 client **and its integrated GX Server*
 
 GX aims to build a functional foundation faithful to original Shaiya, rather than personal custom-server variants or unrelated graphical redesigns. Development is primarily on Linux; Go and OpenGL 4.5 remain the project's technical foundation, with Windows supported. Bug reports, refactors, missing original features, parity corrections, reverse engineering, measured optimizations and suggestions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes.
 
-GX reads loose assets from a `data/` folder beside the **Shaiya GX** executable. Interface textures are PNG and sounds are Ogg Vorbis. Download the ready-to-use [portable client for Linux and Windows](https://drive.google.com/file/d/15BFHAGpLi_JJZbZ4fi8jpDsFQLdHmOyq/view?usp=sharing), or [import your existing archives](docs/data-formats.md). Client game data is distributed separately on Drive; it is not included in the source repository or GitHub executable-only packages. The client embeds Liberation Sans, a free Arial-metric-compatible face; UTF-8 text is supported within its glyph coverage. The Drive bundle is an older snapshot: update its executable using the latest GitHub release. The repository **does include server maps/configuration and the requested development database snapshot, including test accounts, characters and inventory**. It is test data, not a fresh production database.
+GX reads loose assets from a `data/` folder beside the **Shaiya GX** executable. Interface textures are PNG and sounds are Ogg Vorbis. Download the ready-to-use [portable client for Linux and Windows](https://drive.google.com/file/d/15BFHAGpLi_JJZbZ4fi8jpDsFQLdHmOyq/view?usp=sharing), or [import your existing archives](docs/data-formats.md). Client game data is distributed separately on Drive; it is not included in the source repository or GitHub client packages. Those packages now include external Wine Tahoma, Noto Unicode and colour-emoji fonts with their licenses in `data/fonts/`; fonts are loaded on demand and are not embedded. The Drive bundle is an older snapshot: update its executable using the latest GitHub release. The repository **does include server maps/configuration and the requested development database snapshot, including test accounts, characters and inventory**. It is test data, not a fresh production database.
 
 **SQLite is used during development because an embedded database makes setup and distribution easy. It is temporary: the database backend will change in the future. The replacement and migration format are not selected yet.**
 
@@ -28,7 +28,7 @@ Snapshot: November 13, 2026. Counts come from the [server parity table](server/d
 
 | Delivered | Current result |
 |---|---|
-| Portable clients | Native Linux and Windows builds; shared adjacent `data/`; embedded fonts |
+| Portable clients | Native Linux and Windows builds; shared adjacent `data/`, including external fonts |
 | Media migration | OGG audio, PNG interface and seven PNG cursors |
 | Integrated server | GX Server GUI/console, login/world and embedded development DB |
 | Functional flows | Account entry, movement/combat, inventory/services and gatekeeper travel; scope and evidence in the progress guide |
@@ -96,4 +96,4 @@ Inventory: left-click uses an item, right-click equips/replaces it, drag moves i
 
 Source is [BSD 3-Clause](LICENSE). The original server copyright and terms are retained in [server/LICENSE](server/LICENSE). Third-party notices are in [NOTICE](NOTICE). Original Shaiya game content and trademarks retain their respective ownership; the source license does not grant rights to game assets.
 
-The complete [portable client for Linux and Windows](https://drive.google.com/file/d/15BFHAGpLi_JJZbZ4fi8jpDsFQLdHmOyq/view?usp=sharing) is hosted on Drive. Updated executable-only client builds are available in [GX releases](https://github.com/Spelunkern/Shaiya-GX/releases/latest); those archives do not include game data. Both executables may share one adjacent `data/` directory; see [portable client instructions](docs/client-portable.md).
+The complete [portable client for Linux and Windows](https://drive.google.com/file/d/15BFHAGpLi_JJZbZ4fi8jpDsFQLdHmOyq/view?usp=sharing) is hosted on Drive. Updated client builds with external fonts are available in [GX releases](https://github.com/Spelunkern/Shaiya-GX/releases/latest); those archives do not include game data. Both executables may share one adjacent `data/` directory; see [portable client instructions](docs/client-portable.md).

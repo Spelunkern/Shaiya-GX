@@ -107,9 +107,28 @@ func (a *App) barCovered(in *platform.Input, w, h int) bool {
 			return true
 		}
 	}
-	if a.shop.npcID != 0 && a.marketUI != nil {
-		x, y := a.marketUI.Origin(w, h)
-		if pointInside(in, x, y, ui.MarketWidth, ui.MarketHeight) {
+	if e := a.state.Entities[a.shop.npcID]; e != nil {
+		x, y, width, height := 0, 0, 0, 0
+		switch {
+		case a.shop.questMode || e.NpcType != 1 && e.NpcType != 2 && e.NpcType != 3 && e.NpcType != 6 && e.NpcType != 11:
+			if a.npcQuestUI != nil {
+				x, y = a.npcQuestUI.Origin(w, h)
+				width, height = ui.NPCQuestWidth, 391
+				if a.npcQuest.selected != 0 {
+					height = 512
+				}
+			}
+		case e.NpcType == 2 && a.gateUI != nil:
+			x, y = a.gateUI.Origin(w, h)
+			width, height = ui.GatekeeperWidth, ui.GatekeeperHeight
+		case e.NpcType == 11 && a.guildDirectoryUI != nil:
+			x, y = a.guildDirectoryUI.Origin(w, h)
+			width, height = ui.GuildDirectoryWidth, ui.GuildDirectoryHeight
+		case e.NpcType == 1 && a.marketUI != nil:
+			x, y = a.marketUI.Origin(w, h)
+			width, height = ui.MarketWidth, ui.MarketHeight
+		}
+		if pointInside(in, x, y, width, height) {
 			return true
 		}
 	}

@@ -2,6 +2,7 @@ package scene
 
 import (
 	"fmt"
+	"math"
 	"path"
 	"strings"
 
@@ -62,8 +63,8 @@ func LoadDungeon(a *Assets, wldFile string) (*World, error) {
 	if !w.Dungeon {
 		return nil, fmt.Errorf("%s is a field", wldFile)
 	}
-	out := &World{WLD: w, FogColor: render.V3{w.FogColor[0] / 255, w.FogColor[1] / 255, w.FogColor[2] / 255},
-		FogStart: w.FogStart, FogEnd: w.FogEnd}
+	// DUN has no world fog, even when its WLD contains white field defaults.
+	out := &World{WLD: w}
 	if err := out.loadDG(a, w.Layout); err != nil {
 		return nil, err
 	}
@@ -71,13 +72,16 @@ func LoadDungeon(a *Assets, wldFile string) (*World, error) {
 	out.addManis(a)
 	out.addVanis(a)
 	out.loadMapEffects(a)
+	out.buildDungeonOccluders()
 	return out, nil
 }
 
 type dgPart struct {
-	mesh     *render.Mesh
-	tex      *render.Texture
-	lightmap *render.Texture
+	minimum, maximum render.V3
+	occluders        [][3]render.V3
+	mesh             *render.Mesh
+	tex              *render.Texture
+	lightmap         *render.Texture
 }
 
 func (w *World) loadDG(a *Assets, layout string) error {
@@ -113,6 +117,18 @@ func (w *World) loadDG(a *Assets, layout string) error {
 		lightmaps[i] = t
 		return t
 	}
+	type key struct {
+		tex, lm *render.Texture
+		x, y, z int
+	}
+	type batch struct {
+		vertices []render.Vertex
+		indices  []uint32
+		tex, lm  *render.Texture
+	}
+	var lastKey key
+	hasKey := false
+	var batches []batch
 	d.Root.Walk(func(n *world.DGNode) {
 		for _, g := range n.Groups {
 			var tex *render.Texture
@@ -135,9 +151,51 @@ func (w *World) loadDG(a *Assets, layout string) error {
 						idx = append(idx, uint32(f[0]), uint32(f[1]), uint32(f[2]))
 					}
 				}
-				w.dg = append(w.dg, dgPart{mesh: render.NewMesh(v, idx), tex: tex, lightmap: lm(m.Lightmap)})
+				if len(idx) == 0 {
+					continue
+				}
+				// Keep small spatial bounds instead of merging an entire dungeon
+				// into one material mesh that cannot be culled behind walls.
+				center := render.V3{}
+				for _, vertex := range v {
+					center = center.Add(vertex.Pos)
+				}
+				center = center.Scale(1 / float32(len(v)))
+				lightmap := lm(m.Lightmap)
+				k := key{tex, lightmap, int(math.Floor(float64(center[0] / 32))), int(math.Floor(float64(center[1] / 32))), int(math.Floor(float64(center[2] / 32)))}
+				bi := len(batches) - 1
+				if !hasKey || k != lastKey {
+					bi = len(batches)
+					batches = append(batches, batch{tex: tex, lm: lightmap})
+					lastKey = k
+					hasKey = true
+				}
+				b := &batches[bi]
+				offset := uint32(len(b.vertices))
+				b.vertices = append(b.vertices, v...)
+				for _, index := range idx {
+					b.indices = append(b.indices, index+offset)
+				}
 			}
 		}
 	})
+	for _, b := range batches {
+		p := dgPart{mesh: render.NewMesh(b.vertices, b.indices), tex: b.tex, lightmap: b.lm, minimum: b.vertices[0].Pos, maximum: b.vertices[0].Pos}
+		for _, v := range b.vertices {
+			for axis := range 3 {
+				p.minimum[axis] = min(p.minimum[axis], v.Pos[axis])
+				p.maximum[axis] = max(p.maximum[axis], v.Pos[axis])
+			}
+		}
+		if b.tex == nil || b.tex.Opaque {
+			for i := 0; i < len(b.indices); i += 3 {
+				tri := [3]render.V3{b.vertices[b.indices[i]].Pos, b.vertices[b.indices[i+1]].Pos, b.vertices[b.indices[i+2]].Pos}
+				if tri[1].Sub(tri[0]).Cross(tri[2].Sub(tri[0])).Len() >= 2 {
+					p.occluders = append(p.occluders, tri)
+				}
+			}
+		}
+		w.dg = append(w.dg, p)
+	}
 	return nil
 }

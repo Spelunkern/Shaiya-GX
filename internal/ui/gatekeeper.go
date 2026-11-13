@@ -32,7 +32,7 @@ func NewGatekeeper(t Textures) (*Gatekeeper, error) {
 	return v, ld.err
 }
 func (v *Gatekeeper) Origin(w, h int) (int, int) {
-	return v.Position.Origin(w, h, GatekeeperWidth, GatekeeperHeight, w/2-253, h/2-182)
+	return v.Position.Origin(w, h, GatekeeperWidth, GatekeeperHeight, min(32, max(0, w-GatekeeperWidth)), min(82, max(0, h-GatekeeperHeight)))
 }
 func (v *Gatekeeper) ResetWelcomeScroll() { v.textOffset = 0 }
 func gatePresent(g sdata.NPCGate) bool    { return g.MapID != 0 || g.X != 0 || g.Z != 0 }

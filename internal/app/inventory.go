@@ -144,7 +144,7 @@ func (a *App) drawInventory(w, h int) {
 		}
 		if it.Count > 1 {
 			text := fmt.Sprint(it.Count)
-			a.font.Draw(a.sprites, text, cx+size-a.font.Width(text), cy+size-14, white, size)
+			a.font.DrawOutlined(a.sprites, text, cx+size-a.font.Width(text), cy+size-14, white)
 		}
 	}
 	if v.dragging && v.selected {

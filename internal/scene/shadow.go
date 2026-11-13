@@ -105,12 +105,10 @@ func (c *Character) DrawShadow(target *render.ShadowMap, k *render.Skinner, s *r
 	if len(indices) != 0 {
 		target.Project(s, projector, vertices, indices, .45)
 	}
-	w.projectObjectShadows(target, s, projector, fit.x0, fit.z0, fit.x1, fit.z1, fit.origin[1])
 	s.Begin()
 }
 
-// Terrain and dungeon receivers are immutable after a world is loaded. Object
-// receivers remain independent because streamed and animated objects change.
+// Only terrain and dungeon floor geometry receive the local character shadow.
 func (c *Character) shadowReceiver(w *World, fit characterShadowFit) ([]render.Vertex, []uint32) {
 	bounds := [5]float32{fit.x0, fit.z0, fit.x1, fit.z1, fit.origin[1]}
 	if w.HasTerrain() {

@@ -97,6 +97,13 @@ func (a *App) updateGameMenu(in *platform.Input, w, h int) {
 	}
 	if a.menuConfirm.Visible {
 		if a.menuConfirm.Update(in, w, h) == ui.MessageOK {
+			if a.screen != screenWorld {
+				if a.menuIntent == ui.MenuExit {
+					a.Quit = true
+				}
+				a.menuOpen = false
+				return
+			}
 			if a.world == nil {
 				return
 			}
@@ -134,6 +141,10 @@ func (a *App) updateGameMenu(in *platform.Input, w, h int) {
 	case ui.MenuClose:
 		a.menuOpen = false
 	case ui.MenuCharacters, ui.MenuExit:
+		if action == ui.MenuCharacters && a.screen != screenWorld {
+			a.menuOpen = false
+			return
+		}
 		a.menuIntent = action
 		text := "Return to the character screen?"
 		if action == ui.MenuExit {
@@ -176,7 +187,7 @@ func (a *App) applyClientSettings() {
 	}
 	if a.sound != nil {
 		s := a.clientSettings()
-		a.sound.SetMix(s.Music, s.Effects)
+		a.sound.SetMix(s.Music, s.Effects, s.Ambient)
 	}
 }
 
@@ -204,6 +215,9 @@ func (a *App) loadClientSettings() {
 	if err != nil {
 		log.Printf("load settings: %v", err)
 		return
+	}
+	if value.ChatChannel == 6 {
+		value.ChatChannel = 0
 	}
 	if !value.Valid() {
 		log.Print("load settings: invalid values")

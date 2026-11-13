@@ -5,7 +5,7 @@ import "math"
 // TerrainOcclusion is a conservative CPU depth mask for the CURRENT camera.
 // A pixel is written only when a complete coarse pixel is covered by an
 // occluder triangle. Depth is the farthest reciprocal W across that pixel.
-// Occluders are placed below real, already resident terrain by the scene.
+// The scene supplies terrain lower envelopes or actual opaque dungeon triangles.
 // There is no previous-frame visibility, GPU readback or query wait.
 type TerrainOcclusion struct {
 	Width, Height        int

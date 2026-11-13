@@ -21,6 +21,7 @@ type remoteActor struct {
 	moveX, moveZ  float32
 	walkUntil     float64
 	dead          bool
+	swimming      bool
 	shape         proto.UserShape
 	character     *scene.Character
 	mount         *scene.Vehicle
@@ -47,15 +48,15 @@ func (r *remoteActor) observeMovement(e *game.Entity, now float64) (walking, mov
 }
 
 func remoteLocomotion(w *scene.World, e *game.Entity) string {
-	if e.Sitting {
-		return "012_sit"
-	}
 	moving := e.Motion&0x3f != 0
 	if w.SwimmingAt(e.X, e.Y, e.Z) {
 		if moving {
 			return "007_swim"
 		}
 		return "006_swnormal"
+	}
+	if e.Sitting {
+		return "012_sit"
 	}
 	if moving {
 		switch e.Motion & 0x3f {
@@ -134,8 +135,13 @@ func (a *App) prepareRemotePlayers() {
 				c.PlayAction(action, false)
 			}
 		}
+		swimming := v.world.SwimmingAt(e.X, e.Y, e.Z)
+		if swimming && !cached.swimming && !e.Dead && !e.Mounted {
+			c.ReleaseAction()
+		}
+		cached.swimming = swimming
 		clip := remoteLocomotion(v.world, e)
-		if walking && !e.Sitting {
+		if walking && (!e.Sitting || swimming) {
 			if v.world.SwimmingAt(e.X, e.Y, e.Z) {
 				clip = "007_swim"
 			} else {
@@ -195,12 +201,10 @@ func (a *App) drawRemotePlayers() {
 			if cached.mount.Visible(frustum, a.scene3d.ClipPlane) {
 				cached.mount.Draw(a.skinner, a.scene3d)
 			}
-			a.drawActorShadow(cached.mount.Character)
 		}
 		if cached.character.Visible(frustum, a.scene3d.ClipPlane) {
 			cached.character.Draw(a.skinner, a.scene3d)
 		}
-		a.drawActorShadow(cached.character)
 	}
 }
 
@@ -342,12 +346,17 @@ func (a *App) drawPlayerNames(w, h int) {
 			}
 		}
 	}
-	label := func(name string, pos render.V3, tint [4]float32, offset int) {
+	label := func(name string, pos render.V3, tint [4]float32, offset int, gm ...bool) {
 		if name == "" || pos.Sub(v.pos).Len() > 50 {
 			return
 		}
 		if x, y, depth, ok := projectLabel(pos, vp, w, h); ok {
 			labelWidth := a.font.Width(name)
+			prefixWidth := 0
+			if len(gm) > 0 && gm[0] {
+				prefixWidth = a.font.Width("(GM) ")
+				labelWidth += prefixWidth
+			}
 			if a.scene3d.OccludedLabel(pos, x-labelWidth/2, y-a.font.Height-offset, labelWidth, a.font.Height, w, h) {
 				return
 			}
@@ -356,12 +365,16 @@ func (a *App) drawPlayerNames(w, h int) {
 				captured = true
 			}
 			a.sprites.NameDepth(depth)
-			a.font.DrawOutlined(a.sprites, name, x-a.font.Width(name)/2, y-a.font.Height-offset, tint)
+			left, top := x-labelWidth/2, y-a.font.Height-offset
+			if prefixWidth > 0 {
+				a.font.DrawName(a.sprites, "(GM)", left, top, ui.RGBColor(0x66CCFF))
+			}
+			a.font.DrawName(a.sprites, name, left+prefixWidth, top, tint)
 		}
 	}
 	if slot, ok := a.selfSlot(); ok && v.self != nil && settings.OwnName {
 		if pos, ok := v.self.NameAnchor(); ok {
-			label(slot.Name, pos, white, 0)
+			label(slot.Name, pos, white, 0, a.state.Self.IsGM)
 			label(guildCaption(a.state, a.state.Guild.ID), pos, [4]float32{.72, .93, .72, 1}, -18)
 		}
 	}
@@ -407,14 +420,14 @@ func (a *App) drawPlayerNames(w, h int) {
 				name = actor.actor.Name
 				pos, valid = actor.actor.NameAnchor()
 			}
-			tint = [4]float32{1, .93, .35, 1}
+			tint = [4]float32{1, .96, .3, 1}
 		}
 		if valid {
 			if kind := npcTypeLabel(e.NpcType); e.Kind == game.KindNpc && kind != "" {
-				label(kind, pos, [4]float32{.55, .85, 1, 1}, 0)
-				label(name, pos, tint, 22)
-			} else {
+				label(kind, pos, [4]float32{.35, .9, 1, 1}, a.font.Height-2)
 				label(name, pos, tint, 0)
+			} else {
+				label(name, pos, tint, 0, e.Kind == game.KindUser && e.IsGM)
 				if e.Kind == game.KindMob && a.state.Target == e.ID && pos.Sub(v.pos).Len() <= 50 {
 					if x, y, depth, ok := projectLabel(pos, vp, w, h); ok {
 						a.sprites.NameDepth(depth)

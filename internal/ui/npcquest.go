@@ -10,6 +10,7 @@ const NPCQuestWidth = 256
 const NPCQuestRows = 6
 
 type NPCQuest struct {
+	Position                    WindowPosition
 	list, take, complete        *render.Texture
 	close, action, finish, back Button
 	serviceQuest, serviceReturn Button
@@ -59,8 +60,12 @@ func (v *NPCQuest) DrawServiceButton(s *render.Sprites, f *Font, x, y int, retur
 func NPCQuestOrigin(w, h int) (int, int) {
 	return min(32, max(0, w-NPCQuestWidth)), min(82, max(0, h-512))
 }
+func (v *NPCQuest) Origin(w, h int) (int, int) {
+	x, y := MarketOrigin(w, h)
+	return v.Position.Origin(w, h, NPCQuestWidth, 512, x, y)
+}
 func (v *NPCQuest) Update(in *platform.Input, w, h, count, offset int, detail, ending bool, choices int) NPCQuestAction {
-	x, y := NPCQuestOrigin(w, h)
+	x, y := v.Origin(w, h)
 	height := 391
 	if detail {
 		height = 512
@@ -134,7 +139,7 @@ func (v *NPCQuest) Update(in *platform.Input, w, h, count, offset int, detail, e
 	return out
 }
 func (v *NPCQuest) Draw(s *render.Sprites, f *Font, w, h int, name, greeting string, portrait *render.Texture, entries []string, offset int, detail, ending bool, title, description string, choices []string) {
-	x, y := NPCQuestOrigin(w, h)
+	x, y := v.Origin(w, h)
 	height := 391
 	frame := v.list
 	if detail {

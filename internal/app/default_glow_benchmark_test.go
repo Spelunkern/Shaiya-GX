@@ -45,7 +45,10 @@ func benchmarkDefaultGlow(b *testing.B, enabled bool) {
 	}
 	a.frameDT = 0
 	a.sceneGlowFailed = !enabled
-	for i := 0; i < 16; i++ {
+	for i := 0; i < 16 || !a.SceneReady(); i++ {
+		if i >= 240 {
+			b.Fatal("world not ready during benchmark warmup")
+		}
 		a.Draw(640, 360)
 	}
 	if enabled && a.sceneGlowFailed {
@@ -62,6 +65,7 @@ func benchmarkDefaultGlow(b *testing.B, enabled bool) {
 		b.Fatal("default glow failed during benchmark")
 	}
 	b.ReportMetric(float64(render.DrawCalls()), "draws/frame")
+	b.ReportMetric(float64(render.GPUBytes()), "gpu-bytes")
 	if code := gl.GetError(); code != gl.NO_ERROR {
 		b.Fatalf("benchmark GL error %#x", code)
 	}

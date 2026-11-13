@@ -11,11 +11,14 @@ const (
 	MotionStandUp    uint8 = 0
 )
 
-// Game.exe 0x560e30 swaps each adjacent pair of social motion IDs before
-// selecting its ALT action. Posture uses native wire IDs 1/0.
+// The first four social pairs swap ALT slots; Provoke/Insult use their
+// authored emoti009/010 order. Posture uses native wire IDs 1/0.
 func GestureAction(motion uint8) (int, bool) {
 	if motion < 116 || motion > 125 {
 		return 0, false
+	}
+	if motion >= 124 {
+		return int(motion), true
 	}
 	return int(motion ^ 1), true
 }

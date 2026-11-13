@@ -23,6 +23,8 @@ type Mesh struct {
 	bytes            uint64
 	vao, vbo, ebo    uint32
 	Count            int32
+	indexType        uint32
+	indexBytes       uintptr
 	vertexCapacity   int
 }
 
@@ -35,9 +37,9 @@ func NewMesh(v []Vertex, idx []uint32) *Mesh {
 	gl.CreateBuffers(1, &m.vbo)
 	gl.NamedBufferStorage(m.vbo, len(v)*vertexSize, unsafe.Pointer(&v[0]), 0)
 	gl.CreateBuffers(1, &m.ebo)
-	gl.NamedBufferStorage(m.ebo, len(idx)*4, unsafe.Pointer(&idx[0]), 0)
+	m.indexType, m.indexBytes = uploadMeshIndices(m.ebo, idx)
 	m.bindLayout()
-	m.bytes = uint64(len(v)*vertexSize + len(idx)*4)
+	m.bytes = uint64(len(v)*vertexSize + len(idx)*int(m.indexBytes))
 	addGPUBytes(m.bytes)
 	return m
 }
@@ -53,9 +55,9 @@ func NewAnimatedMesh(vertices int, idx []uint32) *Mesh {
 	gl.CreateBuffers(1, &m.vbo)
 	gl.NamedBufferStorage(m.vbo, vertices*vertexSize, nil, gl.DYNAMIC_STORAGE_BIT)
 	gl.CreateBuffers(1, &m.ebo)
-	gl.NamedBufferStorage(m.ebo, len(idx)*4, unsafe.Pointer(&idx[0]), 0)
+	m.indexType, m.indexBytes = uploadMeshIndices(m.ebo, idx)
 	m.bindLayout()
-	m.bytes = uint64(vertices*vertexSize + len(idx)*4)
+	m.bytes = uint64(vertices*vertexSize + len(idx)*int(m.indexBytes))
 	addGPUBytes(m.bytes)
 	return m
 }
@@ -95,6 +97,7 @@ func NewStreamMesh() *Mesh {
 
 // Stream replaces the buffers of a mesh created by NewStreamMesh.
 func (m *Mesh) Stream(v []Vertex, idx []uint32) {
+	m.indexType, m.indexBytes = gl.UNSIGNED_INT, 4
 	m.updateBounds(v)
 	m.Count = int32(len(idx))
 	if len(v) == 0 || len(idx) == 0 {
@@ -113,7 +116,7 @@ func (m *Mesh) Draw() {
 		return
 	}
 	gl.BindVertexArray(m.vao)
-	gl.DrawElements(gl.TRIANGLES, m.Count, gl.UNSIGNED_INT, nil)
+	gl.DrawElements(gl.TRIANGLES, m.Count, m.indexType, nil)
 	drawCalls++
 }
 
@@ -147,4 +150,34 @@ func (m *Mesh) updateBounds(v []Vertex) {
 		}
 	}
 	m.minimum, m.maximum, m.boundsValid = lo, hi, true
+}
+
+// Preserve exact topology while halving index storage/bandwidth when its range
+// fits uint16. Large meshes retain uint32; streamed buffers remain unchanged.
+func uploadMeshIndices(buffer uint32, idx []uint32) (uint32, uintptr) {
+	narrow := true
+	for _, i := range idx {
+		if i > 65535 {
+			narrow = false
+			break
+		}
+	}
+	if narrow {
+		indices := make([]uint16, len(idx))
+		for i, v := range idx {
+			indices[i] = uint16(v)
+		}
+		gl.NamedBufferStorage(buffer, len(indices)*2, unsafe.Pointer(&indices[0]), 0)
+		return gl.UNSIGNED_SHORT, 2
+	}
+	gl.NamedBufferStorage(buffer, len(idx)*4, unsafe.Pointer(&idx[0]), 0)
+	return gl.UNSIGNED_INT, 4
+}
+
+// Bounds is conservative and includes unused vertices, matching the uploaded mesh.
+func (m *Mesh) Bounds() (V3, V3, bool) {
+	if m == nil {
+		return V3{}, V3{}, false
+	}
+	return m.minimum, m.maximum, m.boundsValid
 }

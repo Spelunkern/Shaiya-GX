@@ -128,11 +128,6 @@ func (m *ShadowMap) ProjectMasked(s *Scene3D, projector M4, v []Vertex, idx []ui
 	m.projectMasked(s, projector, v, idx, opacity, material, .5)
 }
 
-// World receivers use the same authored alpha test as their visible surface.
-func (m *ShadowMap) ProjectWorldMasked(s *Scene3D, projector M4, v []Vertex, idx []uint32, opacity float32, material *Texture, mani bool) {
-	m.projectMasked(s, projector, v, idx, opacity, material, NativeWorldAlphaRef(mani))
-}
-
 func (m *ShadowMap) projectMasked(s *Scene3D, projector M4, v []Vertex, idx []uint32, opacity float32, material *Texture, cutoff float32) {
 	m.receiver.Stream(v, idx)
 	gl.UseProgram(m.prog)

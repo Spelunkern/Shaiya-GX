@@ -116,3 +116,83 @@ and [AMD](https://gpuopen.com/learn/amdpowerxpressrequesthighperformance/).
 System/user graphics preferences still take precedence. This local patch has
 Linux policy tests and a native single-GPU smoke test; physical hybrid hardware
 and the Windows exports have not been validated at runtime.
+
+
+## Compact geometry indices
+
+Immutable static, animated-topology and skinned meshes use unsigned 16-bit GPU
+indices when every referenced vertex fits. Larger index ranges keep 32 bits;
+dynamic triangle streams keep their existing format. Direct, instanced, terrain
+indirect and offset draws use the stored element type and byte width. Topology,
+vertex data, UVs, textures, collisions and draw order are unchanged.
+
+On the checked 640x360 map 1 scene, resident GPU storage dropped from 138,869,468
+to 133,606,844 bytes (5,262,624 bytes saved), with identical rendered pixels. The
+full-frame benchmark kept 159 draws and measured 0.566 versus 0.522 ms in this
+run; this is local evidence, not a promised FPS gain. Benchmark warmup now waits
+for initial residency to finish. Index buffers shrink by 50% where eligible,
+not total VRAM by 50%. The real-asset audit found no exact duplicated SMOD
+vertices to remove, so it does not justify lossy model or texture changes.
+
+
+## Map 1 populated-scene bottleneck
+
+A desktop-resolution reproduction at `(996.458, 12.76, 787.152)`, using a private
+disposable database replica, the equipped character and nearby server entities,
+measured 47–49 ms per frame across four headings. The CPU profile attributed
+about 79% to projecting character/NPC shadows onto nearby scene objects: each
+shadow repeatedly transformed and tested entire building meshes. A scenery-only
+fixture with frozen/empty actor state did not expose this cost.
+
+The requested scope is now the local character shadow only, on terrain/dungeon
+floor geometry. Object receiver projection and all other actor shadow captures
+were removed. The same populated-scene probe measured 4.25–5.64 ms per frame.
+This is the result of removing that feature's work, not an appearance-identical
+benchmark of the previous all-actor shadow system. Desktop/GPU contention and
+actual camera/input can affect user FPS. GPU timestamp intervals can include
+periods waiting for CPU submissions; a large interval alone does not establish
+that shaders or asset geometry are the bottleneck.
+
+
+## Dungeon visibility and fog
+
+DUN worlds disable world fog. Their WLD distance is retained for the projection
+far plane, so disabling fog does not silently shorten the previous draw distance.
+Field and underwater rendering retain their existing settings.
+
+The old eager dungeon path submitted every DG fragment and every MAni/SMOD/VAni
+placement. It now rejects off-camera bounds and uses a conservative CPU depth
+mask from actual opaque DG/static-model triangles. Alpha coverage must be complete
+at every authored mip, including DXT alpha modes; doors, grates and unknown alpha
+remain openings. Collision hulls and room-sized solid boxes are not occluders.
+Moving rotors and vertex animations do not contribute occluders.
+
+The mask is 160×90, uses spatial bins and at most 512 nearby triangles per camera
+update, and is reused only for an identical view/projection. It has no GPU readback,
+blocking occlusion query or previous-frame visibility. Clipped reflection and
+shadow passes do not reuse the main-view mask. Bounds cover full animated frames.
+Consecutive single-material model instances share draws without changing native
+material order. DG merges are likewise limited to consecutive matching spatial
+materials; multipart object order is preserved. Dungeon GPU meshes are released
+when their world closes.
+
+A real-assets GL comparison covers seven dungeons, 176 camera views, animation,
+three aspect ratios and a map-3 arrival position. The optimized and complete
+reference traversals produced byte-identical pixels in those views. These are
+world-geometry draw calls, excluding UI/entities/effects outside that traversal;
+they are not whole-frame FPS claims.
+
+| Dungeon map | Previous draws | Mean optimized draws | Mean reduction |
+|---|---:|---:|---:|
+| 3 | 2332 | 308.9 | 86.8% |
+| 4 | 450 | 70.8 | 84.3% |
+| 5 | 1236 | 153.6 | 87.6% |
+| 6 | 545 | 83.2 | 84.7% |
+| 7 | 1541 | 158.3 | 89.7% |
+| 8 | 545 | 83.2 | 84.7% |
+| 9 | 1891 | 218.9 | 88.4% |
+
+Regression checks also cover the ordinary field batching/terrain mask, the login
+MAni backdrop, the character's dungeon shadow, alpha mip handling, an open doorway
+and camera changes. Evidence is kept locally under `work/dungeon-render/` and
+`work/dungeon-*-gl.log`; these resources and captures are not distribution assets.

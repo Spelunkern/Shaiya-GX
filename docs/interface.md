@@ -11,9 +11,9 @@ The interface is being reconstructed incrementally from original EP5 artwork and
 | Weapon enchantments | Original Weapon.Seff, ninety recipes across fifteen weapon families, equipped and remote levels, both dual bindings | Full visual comparison across animations; see [weapon enchantments](weapon-enchantments.md) |
 | Cloaks | Original PC/CTL/3DC loading, equipment slot 7, all body families, native spring modes and animated attachment pins | Body/ground contact adapter, map wind and guild emblem overlay; full physical parity is not yet claimed |
 | Status | Allocation, EXP and current/max HP/MP/SP bars | Native graph and full attribute help |
-| Chat | Phoenix geometry, embedded Liberation Sans, channel colours, persistent grey histories, single input row, seven-channel picker and original SysMsg messages | Speech bubbles, remaining special notices and complete state comparison |
+| Chat | Phoenix geometry, external Tahoma with Unicode fallbacks, channel colours, persistent grey histories, single input row, six-channel picker and original SysMsg messages | Remaining special notices and complete state comparison |
 | Effects | Independently draggable positive/negative strips; 32px icons, 6px gaps, native yellow duration bars and the original white debuff pulse | Full effect categories and all special states |
-| Maps | Native map art, ring buttons, expanded-map name and compact clock, draggable minimap/full map, pan and zoom | Remaining map services and indicator variants |
+| Maps | Native World Map with region previews, ring buttons, expanded-map name, original clock frame with date/seconds and native zone/hover labels, draggable minimap/full map, pan and zoom | Remaining map services and indicator variants |
 | Options | Menu and six subpages; classic glow/brightness/detail/distance sliders, cloak/helmet visibility, audio, mouse, chat and monitor resolution selection | Other service controls and shortcut editing |
 | Party/raid | Member frames, invitations, leader and selection flows | Complete badges, buffs and visual variants |
 | Player context | Original classic TipBox frame, SysMsg rows, hover, character/target/party picking, whisper focus and supported party/trade/duel/guild actions | Inspect, follow, personal shops and remaining social windows/services |
@@ -38,9 +38,9 @@ The interface is being reconstructed incrementally from original EP5 artwork and
 - Bottom bar: atlas slot 5 opens Quest (U); slot 6 opens Guild (G). Both reflect their window's open state. Mouse and keyboard share the same toggle path.
 - Guild: `0x4f2960` selects `guild.tga`, not a cropped `guild_master.tga` directory. Column origins are 36/62/184/247/276, with 25/121/61/27/37px hit widths. `0x4ef9d0` draws rows from Y=112 in 23px steps; management controls are at Y=466. The notice uses `guild_message_input.tga` and its original 256×156 visible area.
 - Quest journal: `0x4fedc0` and `0x4ff2c0`; seven rows at a 31px pitch, alarm icons `(26,63)`, names `(46,65)`, and original separators. Abandon is at `(402,453)`, drawn 128×32 with an 80×26 hit area. Native scrollbars cover the list `(227,52,13,237)`, objective `(227,320,13,130)` and description `(488,52,13,397)`.
-- Portals: `0x494730`/`0x494490`; 512×366 artwork with the native centred origin, three destination rows and original Move buttons at `(434,80 + 101*i)`. Welcome text is at `(26,92)` with a 193px width, ten visible lines and its own scrollbar. Portraits use the NPC definition's Model, matching the native portrait setter, instead of the previous fixed face 55.
+- Portals: `0x494730`/`0x494490`; 512×366 artwork, default merchant anchor, three destination rows and original Move buttons at `(434,80 + 101*i)`. Welcome text is at `(26,92)` with a 193px width, ten visible lines and its own scrollbar. Portraits use the NPC definition's Model, matching the native portrait setter, instead of the previous fixed face 55.
 
-Click a portal NPC within 50 units to approach and open its conversation. `N` also chooses a nearby NPC; portals can be acquired at that distance while other NPC services retain their existing interaction range. Movement cancels the approach normally. Choose a populated destination, press Move and confirm. The client sends the NPC ID and destination index; GX Server validates availability, faction, distance and money, then supplies the balance and teleport position. Empty destinations remain inactive, including correct support for valid map-zero destinations with nonzero coordinates. Paid cross-map tests also verify scene replacement and persistence after reconnecting.
+Click an NPC to approach its displayed position and talk within two units. `N` chooses a nearby NPC within 50 units. Manual movement cancels the approach; moving NPCs also retain the server interaction-range check. Choose a populated destination, press Move and confirm. The client sends the NPC ID and destination index; GX Server validates availability, faction, distance and money, then supplies the balance and teleport position. Empty destinations remain inactive, including correct support for valid map-zero destinations with nonzero coordinates. Paid cross-map tests also verify scene replacement and persistence after reconnecting.
 
 Options remains nonmodal: opening it preserves keyboard movement and automatic travel. Pointer gestures belong to the window where they started. Logout confirmations remain modal and await the server response.
 
@@ -172,7 +172,7 @@ three seconds; membership changes follow ACKs.
 
 Skill requests check the known MP/SP budget before sending or starting predicted animation. Failures use SysMsg 214 with the original MP/SP labels. Queued approach skills recheck on arrival; the server remains authoritative. The original cost value 1 retains its consume-current-pool meaning.
 
-F2 or a left click on the local portrait selects the player as a normal friendly target; the target frame displays their name and current HP. Dropped items have no floating text. Click their models or use H to approach and pick up, stopping within the server's accepted ten-unit range with a safety margin. Pickup and removal still require server confirmation.
+F2 or a left click on the local portrait selects the player as a normal friendly target; the target frame displays their name and current HP. Dropped items have no floating text. Click their models or use H to approach and pick up, stopping beside the item within 1.5 units. Pickup and removal still require server confirmation.
 
 Friendly skill results are sent after the recipient applies the heal. Green numbers show effective HP gained rather than the requested amount; zero gain displays no number. Apply the updated GX Server build as well as the client to use the corrected healing announcements.
 
@@ -199,3 +199,118 @@ previous colour-write mask is restored afterward. Shadow silhouette targets
 still write their own alpha coverage and restore the enclosing scene mask.
 Regression checks exercise the real Dispel EFT, translucent layering, nested
 shadow captures and the water option in a rendered map.
+
+
+## Local presentation adjustments after gx-v0.1.4
+
+The blue cast column grows from its bottom edge. NPC service captions sit above
+names with a compact line gap; nameplates use a subtle half-pixel stroke and black
+outline. Inventory and action-slot item counts share white text and a black
+outline, with counts remaining readable above cooldown shading. Skill levels keep
+their existing colour. The inventory actor has frontal light and full ambient
+fill; this affects only its preview, preserving the world and portrait lighting.
+
+Swimming and floating use the original 007_swim and 006_swnormal clips, including
+race/sex filename aliases. Entering swimming releases a previous locked pose;
+water locomotion takes precedence over sitting in presentation. Surface contact
+leaves the extracted Cwater.EFT rings in place, using Phoenix's contact spacing
+and a ring on entering flotation. Deep divers, mounted/dead actors and dry ground
+do not create new surface marks. Existing particles expire normally. Contact
+scheduling is adapted from Phoenix, not a claim of exact native emission cadence.
+
+
+Sound options include the original third Environment Sound slider at y=206,
+with its own persisted Ambient value. Music, effects and ambience apply
+independently to active playback; Cancel, Reset and older settings retain their
+expected behaviour. Older settings default the newly added channel to full volume.
+
+
+## Loading and character-screen options
+
+The character selection Option button opens the same menu used in the world;
+O and Escape also open it. Its graphics, sound, persistence and display controls
+share the existing settings. Closing or interacting with options consumes the
+input before character selection. Returning to Characters while already there
+closes the menu; Exit uses confirmation without sending an in-world logout.
+
+Character scenery, first map entry and map transfers show Phoenix-style loading
+art before synchronous scene setup. The overlay remains during initial cell and
+resource preparation, blocks gameplay input, and reports monotonic progress from
+the actual initial residency plan. Subsequent background streaming does not
+reopen it. Network processing continues and protocol framing/ACKs are preserved.
+The loading BGM starts after the first overlay frame has been presented. Missing
+optional loading artwork falls back to a plain progress bar. The local data uses
+Phoenix's existing random_loading01/loadbar_bg/loadbar/loadbar_light PNG assets.
+
+
+## Current shadow scope
+
+Only the local character casts a dynamic shadow, onto terrain or dungeon floor
+geometry. NPCs, monsters, remote players and mounts no longer schedule shadow
+captures. Projecting character shadows onto SMOD/MAni/VANI scene objects has been
+removed, including its triangle copies and receiver traversal. The existing
+Shadow Effect setting controls the local character's remaining shadow.
+
+
+## NPC, potion and map presentation
+
+NPC service windows share the merchant's default screen anchor and retain
+independent draggable positions with Remember Layout. Quest conversations now
+participate in the same layout persistence and pointer ownership. Portraits use
+`NpcFace/<Model>.png`, with the original face 55 as a missing-resource fallback.
+The merchant's purchase/drag hint is removed; transaction errors remain visible.
+Player portrait clicks still select self, while a drag moves its frame. The whole
+target frame and minimap surface/information plate can be dragged; minimap buttons
+and wheel zoom retain their functions. The original clock plate is preserved unchanged; only its text displays
+`dd/mm/yyyy hh:mm:ss`, fitted to its existing interior.
+
+The movable 94×54 potion bar uses original `QuickPotion.png`, 32px slots at
+`(11 + 40*i,13)`, left Z and right X, outlined stack counts, shared confirmed
+cooldowns and depleted-icon dimming. Drag a consumable from inventory to bind it,
+right click to clear, or drag between the two slots to swap. Bindings are local
+per server/character and follow the item type when its bag position changes.
+X now activates the potion slot. Native server item-use requests and responses
+remain responsible for consuming items and starting reuse timers.
+
+NPC patrol smoothing uses `MoveDistance / MoveSpeed` (milliseconds per step)
+rather than the player packet interpolation interval, and display Y follows terrain only during an active patrol segment. Stationary
+NPCs retain the server-supplied position, including elevated/floating placements. Group/area spells, including Prayer, use the existing native
+cast/release cues with a short per-caster deduplication window. The final social
+buttons map to `emoti009` (Provoke) and `emoti010` (Insult); Defeat uses `emoti007`.
+
+WLD mode-zero areas ray-test their authored boxes (Phoenix picking margin), using
+the original WLD record index as the sparse ID in UTF-16 `world/<map>.txt`.
+Bitmap and other records do not renumber those IDs. Mode-two regions show the
+original `interface/worldname/*.png` artwork on entry, with Phoenix fade timing.
+Missing text/art is omitted. The checked map-one assets contain 48 localized
+hover areas and 13 bitmap regions. These are presentation features; no server
+map, patrol or interaction rules are changed.
+
+
+## Native chat and World Map revision
+
+Chat palette bytes now follow `Game.exe` 0x41cfe0, rather than Phoenix colour
+approximations: Normal `D5D4D3`, Party `A8F3A0`, Whisper `F3A0A0`, Guild `EEA4ED`,
+Trade `F3DEA0`, Area `FF3000`. SysMsg colours retain their corresponding original
+style rows. Raid is removed from this chat selector and no longer overrides Party
+colour. Saved Raid selection migrates to Normal without resetting other settings.
+The histories use the native `9A1D1F24` background, eight-pixel separation and
+`rows+2`/`rows+4` visual-line capacities on the 16px grid. Footer button labels and
+custom hover boxes are removed.
+
+Only confirmed ordinary-chat echoes create a speech bubble. New text replaces
+that actor's bubble and resets its five-second lifetime. The native single-line
+grey `80484848` rectangle has measured text width plus 20px and 30px height;
+text stays white, with coloured emoji preserved. Projection follows the actor,
+hides off camera/beyond 50 units and keeps the frame above the posed crown/name
+in GX's rig coordinate system. No client-side chat echo or server rule is added.
+
+Open the expanded minimap, then W for the native World Map. Its 19 regions come
+from `WorldMap.cfg`; hover draws authored `wm_e` overlays and `wm_f` title art
+under the original `wm_letter` labels. The current map has its marker. Clicking a
+friendly/neutral region previews its minimap image; clicking the current region
+returns to the live local map. Opposing-faction previews show the native warning.
+W returns from a preview to the overview; M returns from the overview to the local
+map. Right click follows the same back navigation. This never teleports or sends
+a map-change request. It shares the existing draggable full-map frame. Native
+translucency/help controls are not implemented by this revision.

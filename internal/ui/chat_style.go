@@ -1,7 +1,6 @@
 package ui
 
-// Channel colours follow Phoenix chat_hud.gd. SysMsg notices retain their
-// original palette and message IDs.
+// Exact byte palette in Game.exe 0x41cfe0 (RGB at message offsets 0x108..0x10a).
 func ChatRGB(style uint8) uint32 {
 	switch style {
 	case 0:
@@ -19,17 +18,17 @@ func ChatRGB(style uint8) uint32 {
 	case 7:
 		return 0xccff33
 	case 9:
-		return 0xffffff
+		return 0xd5d4d3
 	case 10:
-		return 0xa5f078
+		return 0xa8f3a0
 	case 11:
-		return 0xd65b75
+		return 0xf3a0a0
 	case 12:
-		return 0xefa4d5
+		return 0xeea4ed
 	case 13:
-		return 0xd7b48d
+		return 0xf3dea0
 	case 14:
-		return 0x70b9f5
+		return 0xff3000
 	case 15, 33:
 		return 0xffff00
 	case 17:

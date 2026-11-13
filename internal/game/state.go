@@ -34,6 +34,7 @@ const (
 
 // Entity is anything placed in view.
 type Entity struct {
+	IsGM                         bool
 	MobSpeedKnown                bool
 	MobAttackSpeed, MobMoveSpeed uint8
 	Sitting                      bool
@@ -80,6 +81,7 @@ type Event struct {
 }
 
 type State struct {
+	GMTurbo              bool
 	Social               SocialState
 	LastDetectInfo       proto.DetectInfo
 	LastPeriodicEffect   proto.PeriodicEffect
@@ -943,6 +945,17 @@ func (s *State) Apply(p []byte) (Event, error) {
 			s.MapID, s.Self.X, s.Self.Y, s.Self.Z = m.MapID, m.X, m.Y, m.Z
 		}
 		ev.Text = fmt.Sprintf("map %d pos=(%.1f,%.1f,%.1f)", m.MapID, m.X, m.Y, m.Z)
+	case proto.GXGMState:
+		g, err := proto.DecodeGMState(p)
+		if err != nil {
+			return fail(err)
+		}
+		if g.ID == s.SelfID {
+			s.Self.IsGM, s.GMTurbo = g.GM, g.GM && g.Turbo
+			if g.Message != "" {
+				s.addChat(ChatLine{Op: proto.ChatError, Text: g.Message, Style: 1})
+			}
+		}
 	case proto.CharacterEnteredMap:
 		u, err := proto.DecodeUserEnter(p)
 		if err != nil {
@@ -950,6 +963,10 @@ func (s *State) Apply(p []byte) (Event, error) {
 		}
 		if u.ID == s.SelfID {
 			s.Self.X, s.Self.Y, s.Self.Z = u.X, u.Y, u.Z
+			s.Self.IsGM = u.Marker == 2
+			if !s.Self.IsGM {
+				s.GMTurbo = false
+			}
 			s.Guild.ID = u.GuildID
 			if info, ok := s.Guild.Directory[u.GuildID]; ok {
 				s.Guild.Remark, s.Guild.RemarkKnown = info.Remark, true
@@ -962,6 +979,7 @@ func (s *State) Apply(p []byte) (Event, error) {
 				s.Entities[u.ID] = e
 			}
 			e.X, e.Y, e.Z, e.GuildID = u.X, u.Y, u.Z, u.GuildID
+			e.IsGM = u.Marker == 2
 			e.PositionResetSerial++
 		}
 		ev.Text = fmt.Sprintf("user %d enters", u.ID)

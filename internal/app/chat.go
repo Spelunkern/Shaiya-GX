@@ -3,9 +3,9 @@ package app
 import (
 	"fmt"
 	"github.com/Spelunkern/Shaiya-GX/internal/data/text"
+	"github.com/Spelunkern/Shaiya-GX/internal/gm"
 	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
@@ -56,6 +56,13 @@ func (a *App) updateChat(in *platform.Input) bool {
 				a.chatHistory = a.chatHistory[len(a.chatHistory)-32:]
 			}
 		}
+		if _, _, known := gm.Parse(text); known {
+			if err := a.world.Send(proto.ChatPacket(proto.ChannelNormal, false, text)); err != nil {
+				a.backToLogin("Unable to send GM command.")
+			}
+			a.chatOpen = false
+			return true
+		}
 		selectedChannel, channelText, channelCommand := phoenixChannelCommand(text)
 		if channelCommand {
 			text = channelText
@@ -100,9 +107,7 @@ func (a *App) updateChat(in *platform.Input) bool {
 					return true
 				}
 				wireChannel := channel
-				if channel == 6 {
-					wireChannel = proto.ChannelParty
-				}
+
 				packet := proto.ChatPacket(wireChannel, false, text)
 				if channel == 5 {
 					recipient := strings.TrimSpace(a.chatUI.Recipient)
@@ -142,9 +147,7 @@ func (a *App) drawChat(w, h int) {
 	f := a.chatFont()
 	for i, id := range [...]int{5086, 5089, 5088, 5087, 5388, 5377} {
 		if label := a.msg.Get(id); label != "" {
-			runes := []rune(label)
-			runes[0] = unicode.ToUpper(runes[0])
-			a.chatUI.ChannelNames[i] = string(runes)
+			a.chatUI.ChannelNames[i] = label
 		}
 	}
 	a.chatUI.SetEntries(f, a.formattedChat())
@@ -205,9 +208,7 @@ func chatEntry(messages text.SysMsg, c game.ChatLine) ui.ChatEntry {
 		}
 	}
 	rgb := ui.ChatRGB(style)
-	if c.Raid {
-		rgb = 0xff7f00
-	}
+
 	return ui.ChatEntry{Text: body, System: game.ChatSystemPane(style), Color: ui.RGBColor(rgb), Style: style, Markup: c.Op == 0}
 }
 
@@ -238,7 +239,7 @@ func (a *App) chatFont() *ui.Font {
 // Phoenix aliases take precedence over delivery-only diagnostic commands.
 func phoenixChannelCommand(value string) (uint8, string, bool) {
 	command, body, _ := strings.Cut(value, " ")
-	channels := map[string]uint8{"/s": 0, "/say": 0, "/p": 3, "/party": 3, "/g": 2, "/guild": 2, "/ra": 6, "/raid": 6, "/1": 4, "/area": 4, "/shout": 4, "/2": 1, "/trade": 1}
+	channels := map[string]uint8{"/s": 0, "/say": 0, "/p": 3, "/party": 3, "/g": 2, "/guild": 2, "/1": 4, "/area": 4, "/shout": 4, "/2": 1, "/trade": 1}
 	channel, ok := channels[strings.ToLower(command)]
 	return channel, strings.TrimSpace(body), ok
 }

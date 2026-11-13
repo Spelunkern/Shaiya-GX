@@ -216,7 +216,7 @@ func (a *App) drawWarehouse(w, h int, def sdata.NPC) {
 	v := &a.bank
 	x, y := a.bankUI.Origin(w, h)
 	a.clearTooltipUnderPanel(x, y, ui.WarehouseWidth, ui.WarehouseHeight)
-	a.bankUI.Draw(a.sprites, a.font, w, h, v.page, def.Name, def.Welcome, a.assets.Texture("interface/NpcFace/55.png"))
+	a.bankUI.Draw(a.sprites, a.font, w, h, v.page, def.Name, def.Welcome, a.npcPortrait(def))
 	a.bankUI.DrawGuildSwitch(a.sprites, a.font, w, h, a.state.Guild.ID != 0, v.guild)
 	if v.guild {
 		a.font.Draw(a.sprites, "Guild Bank", x+90, y+84, white, 135)

@@ -33,8 +33,14 @@ type MusicZone struct {
 	Asset, Unk int32
 }
 
-// NPCPlacement is the original WLD placement, which may differ from the
-// server's live NPCs. Patrol contains the additional route points.
+// SoundInstance is a point emitter with an authored radius and sound asset index.
+type SoundInstance struct {
+	Asset  int32
+	Center Vec3
+	Radius float32
+}
+
+// NPCPlacement retains original WLD positions and additional patrol points.
 type NPCPlacement struct {
 	Type, TypeID int32
 	Position     Vec3
@@ -42,7 +48,20 @@ type NPCPlacement struct {
 	Patrol       []Vec3
 }
 
+type NamedArea struct {
+	// TextID is the original WLD record index, including bitmap/other modes.
+	// IDs in world/<map>.txt are sparse and must not be compacted.
+	TextID        int
+	Box           Box
+	Radius        float32
+	Text, Comment string
+	Mode, Unknown int32
+}
+
 type WLD struct {
+	NamedAreas   []NamedArea
+	SoundAssets  []string
+	Sounds       []SoundInstance
 	MusicAssets  []string
 	MusicZones   []MusicZone
 	NPCs         []NPCPlacement
@@ -142,18 +161,23 @@ func ParseWLD(b []byte) (*WLD, error) {
 	for i, n := 0, r.count(36); i < n; i++ {
 		w.MusicZones = append(w.MusicZones, MusicZone{r.box(), r.f32(), r.i32(), r.i32()})
 	}
-	r.names()         // sound assets
+	w.SoundAssets = r.names()
 	nz := r.count(28) // zones
 	for i := 0; i < nz && r.err == nil; i++ {
 		r.box()
 		r.take(4 * r.count(4))
 	}
-	r.skipList(4 + 12 + 4)                    // sound instances
+	for i, n := 0, r.count(20); i < n; i++ {
+		w.Sounds = append(w.Sounds, SoundInstance{Asset: r.i32(), Center: r.vec3(), Radius: r.f32()})
+	}
 	r.skipList(24 + 4)                        // monster-restricted zones
 	r.skipList(24 + 4 + 512 + 1 + 2 + 1 + 12) // portals
 	r.skipList(4 + 24 + 4 + 4 + 4)            // spawns
-	r.skipList(24 + 4 + 512 + 4 + 4)          // named areas
-	npcs := r.i32()                           // NPCs + patrol points
+	for i, n := 0, r.count(24+4+512+4+4); i < n; i++ {
+		area := NamedArea{Box: r.box(), Radius: r.f32(), Text: r.fixed(256), Comment: r.fixed(256), Mode: r.i32(), Unknown: r.i32(), TextID: i}
+		w.NamedAreas = append(w.NamedAreas, area)
+	}
+	npcs := r.i32() // NPCs + patrol points
 	if npcs < 0 {
 		return nil, fmt.Errorf("world: negative NPC count %d", npcs)
 	}

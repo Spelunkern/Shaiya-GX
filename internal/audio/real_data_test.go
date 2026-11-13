@@ -115,6 +115,30 @@ func TestAudioDevice(t *testing.T) {
 	if music.IsPlaying() {
 		t.Fatal("old music kept playing after switching tracks")
 	}
+	// Map loops reuse voices, honor both mixers, fade out, and stop on close.
+	e.SetVolume(1)
+	e.SetMix(0, 0, 0) // Keep the physical device silent.
+	e.cache["ambient"] = entry{pcm: make([]byte, 4096)}
+	e.cache["map-music"] = entry{pcm: make([]byte, 4096)}
+	e.effectsMix, e.musicMix, e.ambientMix = 1, 1, 1
+	targets := []LoopTarget{{File: "ambient", Gain: .5}, {File: "map-music", Gain: .72, Music: true}}
+	if err := e.Ambience(targets, .1); err != nil {
+		t.Fatal(err)
+	}
+	e.SetVolume(0)
+	ambient := e.loops["ambient"].player
+	if err := e.Ambience(targets, .1); err != nil || e.loops["ambient"].player != ambient {
+		t.Fatal("unchanged map loop restarted", err)
+	}
+	e.SetMix(.3, .6, .8)
+	for range 100 {
+		if err := e.Ambience(nil, .1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(e.loops) != 0 || ambient.IsPlaying() {
+		t.Fatal("departed map loops did not stop")
+	}
 	effect := e.context.NewPlayer(&loopReader{pcm: make([]byte, 1024)})
 	effect.SetVolume(0)
 	effect.Play()
@@ -124,5 +148,51 @@ func TestAudioDevice(t *testing.T) {
 	}
 	if effect.IsPlaying() {
 		t.Fatal("effect kept playing after engine shutdown")
+	}
+}
+
+func TestRealMapLoopPlayback(t *testing.T) {
+	if os.Getenv("SHAIYA_AUDIO_TEST") != "1" {
+		t.Skip("requires device")
+	}
+	arc, err := archive.Open(os.Getenv("SHAIYA_DATA"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer arc.Close()
+	e, err := New(arc.ReadFile, 1e-9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer e.Close()
+	targets := []LoopTarget{{File: "Sound/Music/bgm_town01.ogg", Gain: .72, Music: true}, {File: "Sound/back/bg_stream02.ogg", Gain: .5}}
+	deadline := time.Now().Add(5 * time.Second)
+	for len(e.loops) < 2 {
+		if err := e.Ambience(targets, .016); err != nil {
+			t.Fatal(err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("real tracks never started: loops%d pending%d", len(e.loops), len(e.pending))
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	for range 10 {
+		if err := e.Ambience(targets, .016); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for file, v := range e.loops {
+		if !v.player.IsPlaying() || v.player.Volume() <= 0 || v.player.Err() != nil {
+			t.Fatalf("%s not playing: gain%v error%v", file, v.player.Volume(), v.player.Err())
+		}
+		t.Logf("%s playing, gain%v", file, v.gain)
+	}
+	e.SetMix(1, 1, 0)
+	if e.loops[targets[1].File].player.Volume() != 0 || e.loops[targets[0].File].player.Volume() == 0 {
+		t.Fatal("ambient channel did not isolate its volume")
+	}
+	e.SetMix(0, 1, 1)
+	if e.loops[targets[0].File].player.Volume() != 0 || e.loops[targets[1].File].player.Volume() == 0 {
+		t.Fatal("music channel did not isolate its volume")
 	}
 }

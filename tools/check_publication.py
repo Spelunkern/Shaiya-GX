@@ -5,6 +5,8 @@ Checks the staged source tree, and optionally every reachable history blob.
 Only reports paths, never the contents of a potential credential.
 """
 import argparse
+import hashlib
+import json
 from pathlib import PurePosixPath
 import re
 import subprocess
@@ -50,6 +52,14 @@ def main():
     args = parser.parse_args()
     blobs = {}
     errors = []
+    font_files = {}
+    try:
+        font_manifest = json.loads(git('show', ':resources/fonts/pack.json'))
+        font_files = {'resources/fonts/' + name: value for name, value in font_manifest['files'].items()}
+    except subprocess.CalledProcessError:
+        pass
+    staged_fonts = {}
+
     for record in git('ls-files', '--stage', '-z').split(b'\0'):
         if not record:
             continue
@@ -60,6 +70,10 @@ def main():
             errors.append(f'unmerged path: {path}')
         if forbidden(path):
             errors.append(f'forbidden staged path: {path}')
+        if path.startswith('resources/fonts/') and path != 'resources/fonts/pack.json':
+            if path not in font_files:
+                errors.append(f'unlisted font resource: {path}')
+            staged_fonts[oid.decode()] = path
         if mode == b'100644' or mode == b'100755':
             blobs[oid.decode()] = path
     if args.history:
@@ -87,7 +101,11 @@ def main():
             if header[1] != b'blob':
                 continue
             checked += 1
-            if size > (67_108_864 if path.startswith('server/data/') else 8_388_608 if path in GALLERY_IMAGES else 1_048_576):
+            if oid in staged_fonts:
+                expected = font_files.get(staged_fonts[oid], {})
+                if size != expected.get('bytes') or hashlib.sha256(content).hexdigest() != expected.get('sha256'):
+                    errors.append(f'font resource checksum mismatch: {path}')
+            if size > (33_554_432 if path.startswith('resources/fonts/') and PurePosixPath(path).suffix.lower() in {'.ttf', '.otf'} else 67_108_864 if path.startswith('server/data/') else 8_388_608 if path in GALLERY_IMAGES else 1_048_576):
                 errors.append(f'oversized source blob: {path}')
             if any(pattern.search(content) for pattern in SECRETS):
                 errors.append(f'potential secret: {path}')

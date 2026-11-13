@@ -1,0 +1,1 @@
+External UI font and Unicode fallbacks. ui.ttf is unmodified Wine Tahoma; licenses are adjacent. fonts.json indexes font coverage and load order. Fallbacks are loaded on demand, not embedded. Noto licenses remain under unicode/.

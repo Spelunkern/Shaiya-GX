@@ -31,7 +31,7 @@ func TestOriginalChatModeButtonSelectsChannel(t *testing.T) {
 	if !c.ModeOpen {
 		t.Fatal("mode button did not open channels")
 	}
-	click(20, y-154+1*22+8)
+	click(20, y-132+1*22+8)
 	if c.Channel != 3 || c.ModeOpen {
 		t.Fatal("party selection failed", c.Channel, c.ModeOpen)
 	}
@@ -80,7 +80,7 @@ func TestChatPanesScrollIndependentlyAndKeepNewMessages(t *testing.T) {
 	in.Wheel, in.Pressed, in.MouseDown = 0, true, true
 	in.MouseX, in.MouseY = 8, 734-228+20
 	c.Update(&in, 734)
-	if c.panes[1].offset != 13 {
+	if c.panes[1].offset != 12 {
 		t.Fatal("scroll track did not reach oldest messages", c.panes[1].offset)
 	}
 	in.MouseY += 96
@@ -114,14 +114,14 @@ func TestPhoenixChatRetainsSystemMarkupAndLiteralPlayerText(t *testing.T) {
 
 func TestPhoenixChatGeometryAndZeroRows(t *testing.T) {
 	c := &ChatPanel{Rows: [2]int{5, 5}}
-	for i, want := range [][3]int{{424, 112, 6}, {540, 144, 8}} {
+	for i, want := range [][3]int{{420, 112, 7}, {540, 144, 9}} {
 		y, height, capacity := c.paneGeometry(768, i)
 		if [3]int{y, height, capacity} != want {
 			t.Fatal(i, y, height, capacity)
 		}
 	}
 	c.Rows = [2]int{0, 0}
-	for i, want := range [][3]int{{584, 32, 1}, {620, 64, 3}} {
+	for i, want := range [][3]int{{580, 32, 2}, {620, 64, 4}} {
 		y, height, capacity := c.paneGeometry(768, i)
 		if [3]int{y, height, capacity} != want {
 			t.Fatal("collapsed history", i, y, height, capacity)

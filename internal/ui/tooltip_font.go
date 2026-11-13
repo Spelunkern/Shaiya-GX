@@ -1,4 +1,4 @@
 package ui
 
-// Tooltips share the same embedded Arial as world labels and chat.
+// Tooltips share the external UI face and Unicode fallback resources.
 func LoadTooltipFont() (*Font, error) { return LoadFont(13) }

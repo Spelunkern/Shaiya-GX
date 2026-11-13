@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Package an already built GX client with notices, without game data."""
+"""Package an already built GX client with notices, with external fonts, without game artwork."""
 import argparse
 from pathlib import Path
 import shutil
 import tarfile
 import zipfile
+from font_pack import FONT_PACK, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--platform', choices=['linux-amd64', 'windows-amd64'], required=True)
 p.add_argument('--output', type=Path, default=ROOT/'out/client')
 a = p.parse_args()
+validate()
 output = a.output.resolve()
 name = 'gx-client-'+a.platform
 stage = output/name
@@ -18,6 +20,7 @@ if stage.exists(): shutil.rmtree(stage)
 stage.mkdir(parents=True)
 exe = 'Shaiya GX.exe' if a.platform.startswith('windows') else 'Shaiya GX'
 shutil.copy2(ROOT/'build'/exe, stage/exe)
+shutil.copytree(FONT_PACK, stage/'data/fonts')
 for file in ['LICENSE', 'NOTICE']:
     shutil.copy2(ROOT/file, stage/file)
 licenses = stage/'licenses'

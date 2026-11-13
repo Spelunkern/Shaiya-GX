@@ -16,3 +16,5 @@ On Windows use `server/tools/build.ps1`. Portable Linux/Windows archives, includ
 **SQLite is embedded for ease of development and distribution. It is temporary and will be replaced by a different database backend in the future.** The distributed seed retains the author's current test accounts, characters, items and definitions. First startup copies it into an independent mutable runtime; updates preserve existing runtime state.
 
 Read [first run](../docs/quickstart.md), [build instructions](../docs/building.md), [operations](../docs/server.md), [storage](docs/sqlite.md), [distribution](docs/distribution.md) and [parity notes](docs/original-parity.md). Keep existing `RAPTURE_*` environment variables and `rapture.sqlite` filenames for compatibility. Source copyright/license is preserved in [LICENSE](LICENSE).
+
+GM role and the six server-authorized commands are documented in [GM controls](../docs/gm.md).

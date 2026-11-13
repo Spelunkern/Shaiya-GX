@@ -20,7 +20,7 @@ type subActionDrag struct {
 	source, x, y, mouseX, mouseY int
 }
 
-var subActionNames = [15]string{"Sit / Stand", "Walk / Run", "Auto Run", "Pick Up", "Attack", "Victory", "Beg", "Love", "Laugh", "Clap", "Greet", "Start", "Forgive", "Provoke", "Insult"}
+var subActionNames = [15]string{"Sit / Stand", "Walk / Run", "Auto Run", "Pick Up", "Attack", "Victory", "Beg", "Love", "Laugh", "Clap", "Greet", "Start", "Defeat", "Provoke", "Insult"}
 
 type localActionStore map[string][ui.TotalActionSlots]uint8
 

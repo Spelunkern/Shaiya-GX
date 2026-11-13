@@ -62,7 +62,7 @@ The publication check inspects staged source and, with `--history`, reachable hi
 
 ## Local assets and graphics checks
 
-Place the converted loose `data/` directory beside the Shaiya GX executable, or set `SHAIYA_DATA` / `-data` to that directory. The game no longer reads SAH/SAF. See [data formats and conversion](data-formats.md). The client embeds Liberation Sans; no external font, OS font lookup or `SHAIYA_FONT` variable is required. Their notices and licenses are retained in `internal/ui/fonts/`.
+Place the converted loose `data/` directory beside the Shaiya GX executable, or set `SHAIYA_DATA` / `-data` to that directory. The game no longer reads SAH/SAF. See [data formats and conversion](data-formats.md). The client loads external fonts from `data/fonts/`. Release packaging installs the versioned `resources/fonts/` pack, including its coverage manifest and licenses; no OS font installation is used.
 
 ```sh
 SHAIYA_TEST_RENDER=1 SHAIYA_DATA=/path/to/ShaiyaGX/data \
@@ -85,17 +85,18 @@ Rebuilding does not take a new snapshot from a personal runtime. Refresh deliber
 
 ## Prepare a private client folder (Linux)
 
-`python3 tools/package.py --source /path/to/converted/data --output /path/to/play-folder` writes only `Shaiya GX` and its adjacent `data/` directory. It does not install fonts, launchers, documentation or development tools. `--update` replaces the Linux executable atomically and preserves the installed data directory. Start GX Server separately, then run the client directly. Windows uses the same converted data directory and its own `Shaiya GX.exe`; the Linux binary does not run on Windows. Keep source documentation/licenses in the repository and game archives out of Git.
+`python3 tools/package.py --source /path/to/converted/data --output /path/to/play-folder` writes only `Shaiya GX` and its adjacent `data/` directory. It installs the versioned external fonts into `data/fonts/`; no launcher or development tools are needed. `--update` replaces the Linux executable atomically and preserves the installed game data and refreshes the external font resources. Start GX Server separately, then run the client directly. Windows uses the same converted data directory and its own `Shaiya GX.exe`; the Linux binary does not run on Windows. Keep source documentation/licenses in the repository and game archives out of Git.
 
-## Embedded typography and UTF-8
+## External typography and UTF-8
 
-The build embeds only Liberation Sans Regular 2.1.5, with Arial-compatible
-metrics. The unmodified font and its SIL OFL license are included in source;
-clean CI and contributor checkouts need no private font, download or OS lookup.
-See `internal/ui/fonts/LiberationSans-README.md`. The large Noto/emoji pack is
-not included. UTF-8 encoding, shaping and grapheme-safe editing remain.
-Latin, Greek, Cyrillic and Hebrew text are covered; Arabic, CJK and emoji lack
-full glyph coverage and can appear as missing-glyph boxes.
+The game loads unmodified Wine Tahoma from `data/fonts/ui.ttf`, with 217 lazy
+Noto Unicode/colour-emoji fallback faces indexed by `fonts.json`. The complete
+redistributable pack is versioned under `resources/fonts/` and included in both
+native client release archives. Preserve its LGPL/OFL license notices and per-font
+copyrights. No game fonts are embedded and no OS font installation is required.
+`SHAIYA_FONT` optionally overrides the primary face. `python3 tools/font_pack.py`
+verifies the pack inventory and hashes; `tools/prepare_fonts.py` is an optional
+maintainer import step requiring fontTools, not a runtime/build dependency.
 
 The gx-v0.1.4 client/server changes use UTF-8, retaining legacy ANSI decoding
 for older resources. Update both GX endpoints together. Original packet sizes

@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"sort"
 	"strings"
 
@@ -126,6 +127,15 @@ func (a *App) drawGuildDirectory(w, h int) {
 	_, exists := a.state.Guild.Directory[a.guild.directorySelected]
 	available := !a.guild.lifecyclePending && !a.guild.voting
 	a.guildDirectoryUI.Draw(a.sprites, a.font, a.white, w, h, a.guild.directory, a.guild.directoryOffset, a.guild.directorySelected, exists && a.state.Guild.ID == 0 && a.state.Guild.DirectoryReady, a.state.Guild.ID == 0 && !a.guild.createPending && !a.guild.voting, a.state.Guild.ID != 0 && a.state.Guild.Rank > 1 && available, a.state.Guild.ID != 0 && a.state.Guild.Rank == 1 && available)
+	if e := a.state.Entities[a.shop.npcID]; e != nil {
+		def := a.npcDefs[sdata.NPCKey{Type: e.NpcType, ID: e.TypeID}]
+		x, y := a.guildDirectoryUI.Origin(w, h)
+		if portrait := a.npcPortrait(def); portrait != nil {
+			a.sprites.Draw(portrait, float32(x+7), float32(y+7), 64, 64, 0, 0, 1, 1, white)
+		}
+		a.font.Draw(a.sprites, def.Name, x+77, y+22, white, 160)
+	}
+
 }
 
 func (a *App) updateGuildCreate(in *platform.Input, w, h int) bool {

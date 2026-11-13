@@ -60,7 +60,7 @@ func (a *App) updateActionApproach(in *platform.Input) bool {
 		v.approachTarget = 0
 		return true
 	}
-	if a.state.Self.Dead || in.Held('W') || in.Held('S') || in.Held('A') || in.Held('D') || in.Held('Q') || in.Held('E') || in.Space || in.HasKey(platform.KeyNumLock) || hasChar(in, 'x') {
+	if a.state.Self.Dead || in.Held('W') || in.Held('S') || in.Held('A') || in.Held('D') || in.Held('Q') || in.Held('E') || in.Space || in.HasKey(platform.KeyNumLock) {
 		v.approachTarget, v.travel = 0, false
 		return true
 	}
@@ -68,12 +68,12 @@ func (a *App) updateActionApproach(in *platform.Input) bool {
 	reach := float32(1.5)
 	if v.approachNPC {
 		e := a.state.Entities[v.approachTarget]
-		if e == nil || e.Kind != game.KindNpc || e.NpcType != 2 {
+		if e == nil || e.Kind != game.KindNpc {
 			v.approachTarget, v.travel = 0, false
 			return true
 		}
-		goal = render.V3{e.X, e.Y, e.Z}
-		reach = 7
+		goal = a.visualEntityPosition(e)
+		reach = 2
 	} else if v.approachLoot {
 		item, ok := a.state.GroundItems[v.approachTarget]
 		if !ok {
@@ -81,7 +81,7 @@ func (a *App) updateActionApproach(in *platform.Input) bool {
 			return true
 		}
 		goal = render.V3{item.X, item.Y, item.Z}
-		reach = 9.5 // Server accepts pickup within 10 units.
+		reach = 1.5
 	} else {
 		e := a.state.Entities[v.approachTarget]
 		if e == nil || e.Dead && (len(v.approachSkill) == 0 || e.Kind == game.KindMob) || a.state.Target != v.approachTarget {
@@ -105,6 +105,15 @@ func (a *App) updateActionApproach(in *platform.Input) bool {
 		v.travel = true
 		v.destination = goal.Sub(delta.Norm().Scale(reach * .9))
 		return true
+	}
+
+	if v.approachNPC {
+		e := a.state.Entities[v.approachTarget]
+		dx, dz := e.X-v.pos[0], e.Z-v.pos[2]
+		if dx*dx+dz*dz >= 9.5*9.5 {
+			v.travel = false
+			return true
+		}
 	}
 	id, loot := v.approachTarget, v.approachLoot
 	v.approachTarget, v.travel = 0, false

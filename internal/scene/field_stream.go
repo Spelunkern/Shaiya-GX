@@ -242,6 +242,21 @@ func (w *World) UpdateVisible(eye render.V3, radius float32) {
 		delete(s.assets.Missing, file)
 	}
 }
+
+// LoadProgress reports completed cells in the initial visible residency plan.
+func (w *World) LoadProgress() float32 {
+	if w == nil {
+		return 0
+	}
+	s := w.stream
+	if s == nil {
+		return 1
+	}
+	if !s.planned || len(s.order) == 0 {
+		return 0
+	}
+	return float32(len(s.order)-len(s.pending)) / float32(len(s.order))
+}
 func (w *World) Ready() bool {
 	return w == nil || w.stream == nil || w.stream.planned && len(w.stream.pending) == 0
 }

@@ -24,8 +24,20 @@ func (a *App) updateCharacters(in *platform.Input, w, h int, dt float64) {
 	if a.updateAccountMessage(in, w, h) {
 		return
 	}
+	if a.state.Phase == game.PhaseCharSelect && !a.creating {
+		if a.menuOpen {
+			a.updateGameMenu(in, w, h)
+			return
+		}
+		if hasChar(in, 'o') || in.HasKey(platform.KeyEscape) {
+			a.openGameMenu()
+			return
+		}
+	}
 	if a.world == nil && !a.creating { // offscreen preview
-		a.chars.Update(in, w, h, dt)
+		if a.chars.Update(in, w, h, dt) == ui.CharOptions {
+			a.openGameMenu()
+		}
 		return
 	}
 	switch a.state.Phase {
@@ -59,6 +71,8 @@ func (a *App) updateCharacters(in *platform.Input, w, h int, dt float64) {
 			a.playUI()
 		}
 		switch action {
+		case ui.CharOptions:
+			a.openGameMenu()
 		case ui.CharStart:
 			if ch := a.chars.Chars[a.chars.Selected]; ch != nil {
 				a.sendAccountAction(proto.SelectCharacter, ch.ID)
@@ -273,11 +287,14 @@ func (a *App) drawCharacters(w, h int) {
 		a.tooltip = nil
 		a.drawPlayerNames(w, h)
 		a.drawCombat(w, h)
+		a.drawChatBubbles(w, h)
+		a.drawMapLabels(w, h)
 		a.drawMinimap(w, h, false)
 		a.drawBuffs(w, h)
 		a.drawBuffTooltip(w, h)
 		a.drawParty(w, h)
 		a.drawChat(w, h)
+		a.drawQuickPotions(w, h)
 		a.drawShop(w, h)
 		a.drawExchange(w, h)
 		a.drawDuel(w, h)
@@ -333,12 +350,13 @@ func (a *App) drawCharacters(w, h int) {
 		a.drawSharedTooltip(w, h)
 		a.drawShortcutDrag()
 		a.drawLocalActionDrag()
-		if a.menuOpen && a.gameMenu != nil {
-			a.gameMenu.Draw(a.sprites, a.font, w, h, a.white)
-			a.menuConfirm.Draw(a.sprites, a.font, w, h)
-		}
 		if a.state.Self.Dead {
 			a.drawDeath(w, h)
 		}
 	}
+	if a.menuOpen && a.gameMenu != nil {
+		a.gameMenu.Draw(a.sprites, a.font, w, h, a.white)
+		a.menuConfirm.Draw(a.sprites, a.font, w, h)
+	}
+
 }

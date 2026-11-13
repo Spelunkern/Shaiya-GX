@@ -23,11 +23,12 @@ type unicodeLayout struct {
 	width int
 }
 type unicodeTexture struct {
-	mono               *render.Texture
+	mono, colored      *render.Texture
 	pad, width, height int
 	bytes              int
 }
 type unicodeFont struct {
+	source         *FontSource
 	primary        *textFont.Face
 	size           float32
 	height, ascent int
@@ -39,15 +40,13 @@ type unicodeFont struct {
 	textureOrder   []string
 	bytes          int
 }
-type oneFace struct{ face *textFont.Face }
 
-func (o oneFace) ResolveFace(r rune) *textFont.Face { return o.face }
 func newUnicodeFont(data []byte, size float32, height, ascent int) (*unicodeFont, error) {
 	face, err := textFont.ParseTTF(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("unicode font: %w", err)
 	}
-	return &unicodeFont{primary: face, size: size, height: height, ascent: ascent, layouts: map[string]*unicodeLayout{}, textures: map[string]*unicodeTexture{}}, nil
+	return &unicodeFont{primary: face, source: &FontSource{primary: face, resolved: map[rune]*textFont.Face{}, color: map[*textFont.Face]bool{}}, size: size, height: height, ascent: ascent, layouts: map[string]*unicodeLayout{}, textures: map[string]*unicodeTexture{}}, nil
 }
 func needsUnicode(s string) bool {
 	for _, r := range s {
@@ -66,12 +65,12 @@ func (u *unicodeFont) layout(s string) *unicodeLayout {
 	if len(rs) == 0 {
 		return l
 	}
-	// Shape all scripts with the sole embedded Arial face. Missing glyphs stay
-	// missing; UTF-8 transport and grapheme-safe editing are independent.
 	input := shaping.Input{Text: rs, RunEnd: len(rs), Face: u.primary, Size: fixed.Int26_6(u.size * 64)}
-	for _, run := range u.segmenter.Split(input, oneFace{u.primary}) {
+	inputs := u.segmenter.Split(input, u.source)
+	for _, run := range u.emojiInputs(inputs, rs) {
 		l.runs = append(l.runs, u.shaper.Shape(run))
 	}
+
 	if len(l.runs) > 0 {
 		direction := l.runs[0].Direction
 		var wrapper shaping.LineWrapper
@@ -117,15 +116,27 @@ func (u *unicodeFont) rasterize(s string) *unicodeTexture {
 	pad := int(math.Ceil(float64(u.size*2))) + 2
 	width, height := max(1, l.width+pad*2), max(1, u.height+pad*2)
 	mono := image.NewNRGBA(image.Rect(0, 0, width, height))
+	var colored *image.NRGBA
 	x := fixed.I(pad)
 	renderer := textRender.Renderer{FontSize: u.size, Color: color.White}
 	for _, run := range l.runs {
-		renderer.DrawShapedRunAt(run, mono, x.Round(), pad+u.ascent)
+		target := mono
+		if u.source.color[run.Face] {
+			if colored == nil {
+				colored = image.NewNRGBA(mono.Bounds())
+			}
+			target = colored
+		}
+		renderer.DrawShapedRunAt(run, target, x.Round(), pad+u.ascent)
 		x += run.Advance
 	}
 	t := &unicodeTexture{pad: pad, width: width, height: height}
 	t.mono = render.Upload(img.Texture{RGBA: &img.RGBA{W: width, H: height, Pix: mono.Pix}})
 	t.bytes = width * height * 4
+	if colored != nil {
+		t.colored = render.Upload(img.Texture{RGBA: &img.RGBA{W: width, H: height, Pix: colored.Pix}})
+		t.bytes *= 2
+	}
 	return t
 }
 func (u *unicodeFont) draw(s *render.Sprites, text string, x, y, scale float32, tint [4]float32, maxW int) {
@@ -144,6 +155,9 @@ func (u *unicodeFont) draw(s *render.Sprites, text string, x, y, scale float32, 
 			u.textureOrder = u.textureOrder[1:]
 			v := u.textures[old]
 			v.mono.Delete()
+			if v.colored != nil {
+				v.colored.Delete()
+			}
 			u.bytes -= v.bytes
 			delete(u.textures, old)
 		}
@@ -156,12 +170,93 @@ func (u *unicodeFont) draw(s *render.Sprites, text string, x, y, scale float32, 
 		s.Draw(tex, x-float32(t.pad)*scale, y-float32(t.pad)*scale, float32(t.width)*scale, float32(t.height)*scale, 0, 0, 1, 1, c)
 	}
 	draw(t.mono, tint)
+	if t.colored != nil {
+		colorTint := [4]float32{1, 1, 1, tint[3]}
+		if tint[0] == 0 && tint[1] == 0 && tint[2] == 0 {
+			colorTint = tint
+		}
+		draw(t.colored, colorTint)
+	}
 }
 func (u *unicodeFont) delete() {
 	for _, t := range u.textures {
 		t.mono.Delete()
+		if t.colored != nil {
+			t.colored.Delete()
+		}
 	}
 	clear(u.textures)
 	u.textureOrder = nil
 	u.bytes = 0
+}
+
+// Preserve emoji presentation and whole ZWJ/keycap clusters across script/font
+// segmentation. Ordinary text keeps its native face, direction and shaping.
+func (u *unicodeFont) emojiInputs(inputs []shaping.Input, rs []rune) []shaping.Input {
+	var spans [][2]int
+	var seg segmenter.Segmenter
+	seg.Init(rs)
+	it := seg.GraphemeIterator()
+	for it.Next() {
+		g := it.Grapheme()
+		requested := false
+		for _, r := range g.Text {
+			if r == 0xfe0f || r == 0x20e3 || r >= 0x1f000 {
+				requested = true
+			}
+		}
+		if !requested {
+			continue
+		}
+		emoji := u.source.emojiFace()
+		if emoji == nil {
+			continue
+		}
+		supported := true
+		for _, r := range g.Text {
+			if r == 0x200d || r == 0xfe0f || r >= 0xe0020 && r <= 0xe007f {
+				continue
+			}
+			if _, ok := emoji.NominalGlyph(r); !ok {
+				supported = false
+				break
+			}
+		}
+		if supported {
+			spans = append(spans, [2]int{g.Offset, g.Offset + len(g.Text)})
+		}
+	}
+	if len(spans) == 0 {
+		return inputs
+	}
+	var out []shaping.Input
+	for _, in := range inputs {
+		cuts := []int{in.RunStart, in.RunEnd}
+		for _, span := range spans {
+			for _, cut := range span {
+				if cut > in.RunStart && cut < in.RunEnd {
+					cuts = append(cuts, cut)
+				}
+			}
+		}
+		sort.Ints(cuts)
+		for i := 1; i < len(cuts); i++ {
+			if cuts[i] == cuts[i-1] {
+				continue
+			}
+			part := in
+			part.RunStart, part.RunEnd = cuts[i-1], cuts[i]
+			for _, span := range spans {
+				if part.RunStart >= span[0] && part.RunEnd <= span[1] {
+					part.Face = u.source.emoji
+				}
+			}
+			if len(out) > 0 && part.Face == u.source.emoji && out[len(out)-1].Face == part.Face && out[len(out)-1].RunEnd == part.RunStart && out[len(out)-1].Direction == part.Direction {
+				out[len(out)-1].RunEnd = part.RunEnd
+			} else {
+				out = append(out, part)
+			}
+		}
+	}
+	return out
 }

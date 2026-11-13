@@ -9,7 +9,7 @@ import (
 
 var gestures = map[string]uint8{
 	"/victory": 116, "/beg": 117, "/love": 118, "/laugh": 119, "/clap": 120,
-	"/greet": 121, "/start": 122, "/forgive": 123, "/provoke": 124, "/insult": 125,
+	"/greet": 121, "/start": 122, "/forgive": 123, "/defeat": 123, "/provoke": 124, "/insult": 125,
 }
 
 func cancelGesture(actor *scene.Character) {

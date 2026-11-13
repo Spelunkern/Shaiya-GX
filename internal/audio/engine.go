@@ -20,18 +20,20 @@ type voice struct {
 	gain   float64
 }
 type Engine struct {
-	context              *oto.Context
-	ready                <-chan struct{}
-	read                 func(string) ([]byte, error)
-	cache                map[string]entry
-	failed               map[string]error
-	cacheBytes           int
-	clock                uint64
-	voices               []voice
-	music                *oto.Player
-	musicName            string
-	volume               float64
-	musicMix, effectsMix float64
+	context                          *oto.Context
+	ready                            <-chan struct{}
+	read                             func(string) ([]byte, error)
+	cache                            map[string]entry
+	failed                           map[string]error
+	cacheBytes                       int
+	clock                            uint64
+	voices                           []voice
+	loops                            map[string]*ambientVoice
+	pending                          map[string]chan decodedAudio
+	music                            *oto.Player
+	musicName                        string
+	volume                           float64
+	musicMix, effectsMix, ambientMix float64
 }
 
 // New creates the process's single audio context. Asset loading stays lazy.
@@ -40,7 +42,7 @@ func New(read func(string) ([]byte, error), volume float64) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &Engine{context: c, ready: ready, read: read, cache: map[string]entry{}, failed: map[string]error{}, musicMix: 1, effectsMix: 1}
+	e := &Engine{context: c, ready: ready, read: read, cache: map[string]entry{}, failed: map[string]error{}, musicMix: 1, effectsMix: 1, ambientMix: 1}
 	e.SetVolume(volume)
 	return e, nil
 }
@@ -55,17 +57,25 @@ func (e *Engine) SetVolume(volume float64) {
 	for _, v := range e.voices {
 		v.player.SetVolume(e.volume * e.effectsMix * v.gain)
 	}
+	for _, v := range e.loops {
+		mix := e.ambientMix
+		if v.music {
+			mix = e.musicMix
+		}
+		v.player.SetVolume(e.volume * mix * v.gain)
+	}
 	if e.music != nil {
 		e.music.SetVolume(e.volume * e.musicMix * 0.4)
 	}
 }
 
 // SetMix changes the native music/effect channels, including active voices.
-func (e *Engine) SetMix(music, effects float64) {
-	if math.IsNaN(music) || math.IsNaN(effects) {
+func (e *Engine) SetMix(music, effects, ambient float64) {
+	if math.IsNaN(music) || math.IsNaN(effects) || math.IsNaN(ambient) {
 		return
 	}
 	e.musicMix, e.effectsMix = math.Max(0, math.Min(1, music)), math.Max(0, math.Min(1, effects))
+	e.ambientMix = math.Max(0, math.Min(1, ambient))
 	e.SetVolume(e.volume)
 }
 func (e *Engine) readyNow() bool {
@@ -98,9 +108,18 @@ func (e *Engine) pcm(file string) ([]byte, error) {
 		e.failed[key] = err
 		return nil, err
 	}
+	e.rememberPCM(key, pcm)
+	return pcm, nil
+}
+
+func (e *Engine) rememberPCM(key string, pcm []byte) {
 	const limit = 32 << 20
+	if old, ok := e.cache[key]; ok {
+		e.cacheBytes -= len(old.pcm)
+		delete(e.cache, key)
+	}
 	if len(pcm) > limit {
-		return pcm, nil
+		return
 	}
 	for e.cacheBytes+len(pcm) > limit {
 		oldest := ""
@@ -113,9 +132,9 @@ func (e *Engine) pcm(file string) ([]byte, error) {
 		e.cacheBytes -= len(e.cache[oldest].pcm)
 		delete(e.cache, oldest)
 	}
+	e.clock++
 	e.cache[key] = entry{pcm: pcm, used: e.clock}
 	e.cacheBytes += len(pcm)
-	return pcm, nil
 }
 func (e *Engine) Play(file string, gain float64) error {
 	if !e.readyNow() || e.volume == 0 || e.effectsMix == 0 {
@@ -190,6 +209,17 @@ func (e *Engine) Update() error {
 }
 func (e *Engine) Close() error {
 	var first error
+	for _, ch := range e.pending {
+		<-ch
+	}
+	e.pending = nil
+	for _, v := range e.loops {
+		v.player.PauseAndStopReading()
+		if err := v.player.Err(); err != nil && first == nil {
+			first = err
+		}
+	}
+	e.loops = nil
 	for _, v := range e.voices {
 		v.player.PauseAndStopReading()
 		if err := v.player.Err(); err != nil && first == nil {

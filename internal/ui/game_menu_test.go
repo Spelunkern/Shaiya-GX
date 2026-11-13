@@ -91,3 +91,31 @@ func TestGraphicsSlidersAndCancel(t *testing.T) {
 		t.Fatal("graphics cancel lost saved values")
 	}
 }
+
+func TestAmbientSliderPreviewCancelAndSave(t *testing.T) {
+	m, err := NewGameMenu(marketTextures{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Open(MenuSound)
+	x, y := m.Origin(1024, 768)
+	m.Update(&platform.Input{MouseX: x + 35, MouseY: y + 206, Pressed: true, MouseDown: true}, 1024, 768)
+	m.Update(&platform.Input{MouseX: x + 35, MouseY: y + 206, Clicked: true}, 1024, 768)
+	if m.Settings.Ambient != 0 || m.Settings.Music != 1 || m.Settings.Effects != 1 {
+		t.Fatal("ambient thumb changed another channel", m.Settings)
+	}
+	m.DiscardPage()
+	if m.Settings.Ambient != 1 {
+		t.Fatal("cancel did not restore ambient")
+	}
+	m.Open(MenuSound)
+	m.Update(&platform.Input{MouseX: x + 127, MouseY: y + 206, Pressed: true, MouseDown: true}, 1024, 768)
+	m.Update(&platform.Input{MouseX: x + 127, MouseY: y + 206, Clicked: true}, 1024, 768)
+	if m.Settings.Ambient != .5 {
+		t.Fatal("third slider is not interactive", m.Settings.Ambient)
+	}
+	m.Update(&platform.Input{MouseX: x + 120, MouseY: y + 374, Pressed: true, MouseDown: true}, 1024, 768)
+	if action := m.Update(&platform.Input{MouseX: x + 120, MouseY: y + 374, Clicked: true}, 1024, 768); action != MenuSave || m.SavedSettings().Ambient != .5 {
+		t.Fatal("ambient save failed", action)
+	}
+}

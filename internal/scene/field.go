@@ -18,33 +18,33 @@ type Instance struct {
 
 // World is a drawable map.
 type World struct {
-	occlusion            *render.TerrainOcclusion
-	occlusionRevision    uint64
-	occlusionEye         render.V3
-	water                *waterSurface
-	elapsed              float64
-	stream               *fieldStream
-	WLD                  *world.WLD
-	Sections             []Section
-	Objects              []Instance
-	rotors               []maniRotor
-	vanis                []*vaniAsset
-	mapFX                *mapEffects
-	frameDT              float32
-	Sky                  *Sky
-	dg                   []dgPart
-	dgShadow             *dungeonShadowIndex
-	dgColliders          []world.CollisionMesh
-	cameraSeen           map[int]bool
-	objectShadowVertices []render.Vertex
-	objectShadowIndices  []uint32
-	objectShadowSeen     map[int]bool
-	FogColor             render.V3
-	FogStart             float32
-	FogEnd               float32
-	heights              []float32
-	side                 int
-	step                 float32
+	dungeonInstances  []render.M4
+	occlusion         *render.TerrainOcclusion
+	occlusionRevision uint64
+	occlusionEye      render.V3
+	water             *waterSurface
+	elapsed           float64
+	stream            *fieldStream
+	WLD               *world.WLD
+	Sections          []Section
+	Objects           []Instance
+	rotors            []maniRotor
+	vanis             []*vaniAsset
+	mapFX             *mapEffects
+	frameDT           float32
+	Sky               *Sky
+	dg                []dgPart
+	dgOrder           []int
+	dungeonOccluders  []dungeonOccluder
+	dgShadow          *dungeonShadowIndex
+	dgColliders       []world.CollisionMesh
+	cameraSeen        map[int]bool
+	FogColor          render.V3
+	FogStart          float32
+	FogEnd            float32
+	heights           []float32
+	side              int
+	step              float32
 }
 
 type TerrainLayer struct {
@@ -210,7 +210,11 @@ func (w *World) Draw(s *render.Scene3D) {
 	for _, sec := range w.Sections {
 		drawSection(s, sec)
 	}
+	frustum := render.ViewFrustum(s.View, s.Proj)
 	for _, p := range w.dg {
+		if !frustum.BoxVisible(p.minimum, p.maximum) || !render.ClipBoxVisible(s.ClipPlane, p.minimum, p.maximum) || s.OccludedBox(p.minimum, p.maximum) {
+			continue
+		}
 		if p.lightmap != nil {
 			s.DrawLightmapped(p.mesh, p.tex, p.lightmap)
 		} else {
@@ -220,24 +224,22 @@ func (w *World) Draw(s *render.Scene3D) {
 	}
 	for _, rotor := range w.rotors {
 		transform := rotor.transform(w.elapsed)
+		if !dungeonModelVisible(s, frustum, rotor.model, transform) {
+			continue
+		}
 		for _, p := range rotor.model.Parts {
+			if !dungeonMeshVisible(s, frustum, p.Mesh, transform) {
+				continue
+			}
 			s.DrawModel(p.Mesh, p.Tex, transform, render.NativeWorldAlphaRef(true), false)
 		}
 	}
-	// 0x447ef0 draws MAni before the normal SMOD pass.
-	for _, mani := range []bool{true, false} {
-		for _, o := range w.Objects {
-			if o.Mani != mani {
-				continue
-			}
-			for _, p := range o.Model.Parts {
-				s.DrawModel(p.Mesh, p.Tex, o.World, render.NativeWorldAlphaRef(mani), false)
-			}
-		}
-	}
+	// Retain native MAni/SMOD order; consecutive single-material placements
+	// can share a draw without reordering overlapping material parts.
+	w.drawDungeonObjects(s, frustum)
 
 	for _, vani := range w.vanis {
-		vani.draw(s, w.elapsed)
+		vani.drawCulled(s, w.elapsed, frustum)
 	}
 }
 

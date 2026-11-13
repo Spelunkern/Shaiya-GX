@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"math"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
@@ -48,6 +49,34 @@ func (r *remotePosition) update(e *game.Entity, now float64) render.V3 {
 		}
 		r.moveSerial = e.MoveSerial
 		r.lastArrival = now
+	}
+	return r.pos
+}
+
+// Patrol packets are sparse steps, not player position samples. MoveSpeed is
+// milliseconds per MoveDistance in NpcQuest, matching the server patrol clock.
+func (r *remotePosition) updateNPC(e *game.Entity, now float64, def sdata.NPC) render.V3 {
+	if !r.initialized || e.PositionResetSerial != r.resetSerial {
+		return r.update(e, now)
+	}
+	if r.duration > 0 {
+		t := float32(min(max((now-r.start)/r.duration, 0), 1))
+		r.pos = r.from.Add(r.to.Sub(r.from).Scale(t))
+	}
+	if e.MoveSerial != r.moveSerial {
+		target := render.V3{e.X, e.Y, e.Z}
+		delta := target.Sub(r.pos)
+		delta[1] = 0
+		speed := float32(2)
+		if def.MoveDistance > 0 && def.MoveSpeed > 0 {
+			speed = float32(def.MoveDistance) * 1000 / float32(def.MoveSpeed)
+		}
+		r.from, r.to, r.start = r.pos, target, now
+		r.duration = float64(delta.Len() / max(speed, .1))
+		if r.duration == 0 {
+			r.pos, r.from = target, target
+		}
+		r.moveSerial, r.lastArrival = e.MoveSerial, now
 	}
 	return r.pos
 }

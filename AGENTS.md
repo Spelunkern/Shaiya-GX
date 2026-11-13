@@ -14,9 +14,9 @@ Keep Go and the current OpenGL 4.5 graphics API. Linux is the primary developmen
 
 ## Boundaries
 
-Keep game rules and persistence authoritative on the server. Preserve protocol framing, opcodes and binary model/world layouts. Client owns presentation and movement prediction. Repository integration and rebranding do not authorize unrelated rule/schema changes.
+Keep game rules and persistence authoritative on the server. Preserve protocol framing, opcodes and binary model/world layouts. Client owns presentation and movement prediction. The intentional GX GM extension and account role are documented in `docs/gm.md`. Repository integration and rebranding do not authorize unrelated rule/schema changes.
 
-The playable client is `Shaiya GX` (`Shaiya GX.exe` on Windows), with loose `data/` beside it. Runtime uses the directory loader, Ogg Vorbis sounds and PNG interface images; SAH/SAF and WAV remain import tools only. Preserve `_dds.png` atlas distinctions, authored PNG mipmaps and legacy filename aliases; see `docs/data-formats.md`. Do not restore old archive packaging or external font requirements. The sole embedded face is the unmodified, redistributable Liberation Sans in `internal/ui/fonts/`; preserve its OFL license and do not add private font dependencies.
+The playable client is `Shaiya GX` (`Shaiya GX.exe` on Windows), with loose `data/` beside it. Runtime uses the directory loader, Ogg Vorbis sounds and PNG interface images; SAH/SAF and WAV remain import tools only. Preserve `_dds.png` atlas distinctions, authored PNG mipmaps and legacy filename aliases; see `docs/data-formats.md`. Do not restore old archive packaging. By explicit user request, fonts are external resources under `data/fonts/`, with a coverage manifest and lazy Unicode/colour-emoji fallbacks. Do not embed game fonts or depend on OS font installations. Preserve the licenses and unmodified font metadata in the external resource pack; retain the source font license notices.
 
 The micro app is **GX Server**, command `server/cmd/gx_server`; headless commands are `gx_login`, `gx_world`, `gx_console`. Keep `RAPTURE_*` environment keys, `rapture.sqlite` and `Rapture_LoginLog` compatible unless explicitly migrating them with tests and documentation.
 
@@ -27,6 +27,8 @@ SQLite is embedded for development simplicity only. It will be replaced by anoth
 Check running clients/services before modifying an installation or moving its mutable database. Do not interrupt active personal sessions. Use disposable DB copies, isolated ports and only processes started by your tests. An existing runtime must never be overwritten by packaging or startup. Windows process control must match executable paths, not stop every process with the same filename.
 
 `server/data/` is explicitly distributed: its test DB intentionally includes the author's current accounts, characters and inventory. Refresh only when requested, using SQLite backup and manifest validation. Never snapshot a different personal DB automatically. Keep mutable runtime, `.local`, logs, packet dumps, private backups and credentials out of Git.
+
+The redistributable external font pack is versioned in `resources/fonts/`, with pinned hashes, LGPL/OFL notices and per-font copyrights. Native client packages include it under `data/fonts/`.
 
 Client game archives/assets and original executables are not distributable source. Do not add them or downloaded assets to the repo. Retain source copyrights and licenses, including server/LICENSE. Other local projects are reference-only unless the user authorizes changes.
 

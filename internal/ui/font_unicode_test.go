@@ -1,12 +1,13 @@
 package ui
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
 
 func TestLiberationSansUnicodeShaping(t *testing.T) {
-	u, err := newUnicodeFont(defaultFontData, 13, 16, 12)
+	u, err := testUnicodeFace(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +27,7 @@ func TestLiberationSansUnicodeShaping(t *testing.T) {
 }
 
 func TestUnicodeWrappingPreservesGraphemes(t *testing.T) {
-	u, err := newUnicodeFont(defaultFontData, 13, 16, 12)
+	u, err := testUnicodeFace(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,4 +52,13 @@ func TestUnicodeWrappingPreservesGraphemes(t *testing.T) {
 			t.Fatal("tooltip split emoji", line)
 		}
 	}
+}
+
+func testUnicodeFace(t *testing.T) (*unicodeFont, error) {
+	t.Helper()
+	data, err := os.ReadFile("fonts/LiberationSans-Regular.ttf")
+	if err != nil {
+		return nil, err
+	}
+	return newUnicodeFont(data, 13, 16, 12)
 }

@@ -21,7 +21,7 @@ type dungeonShadowIndex struct {
 }
 
 func (w *World) HasShadowReceivers() bool {
-	return w != nil && (w.HasTerrain() || w.dgShadow != nil && len(w.dgShadow.triangles) != 0 || len(w.Objects) != 0 || len(w.rotors) != 0 || len(w.vanis) != 0)
+	return w != nil && (w.HasTerrain() || w.dgShadow != nil && len(w.dgShadow.triangles) != 0)
 }
 
 func buildDungeonShadowIndex(root *world.DGNode) *dungeonShadowIndex {

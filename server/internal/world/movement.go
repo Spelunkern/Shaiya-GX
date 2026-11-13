@@ -59,11 +59,13 @@ func (s *Session) syncPlayer() {
 // applyTeleport is the single path for every teleport (portals, town,
 // resurrection): moves the character, persists it, acks the client,
 // introduces it to viewers at the destination and refreshes visibility.
-func (s *Session) applyTeleport(mapID uint16, x, y, z float32, label string) {
+func (s *Session) applyTeleport(mapID uint16, x, y, z float32, label string, gmDirect ...bool) {
+	// /cmove may inspect the base map without joining a party/guild instance.
+	direct := s.isAdmin && len(gmDirect) > 0 && gmDirect[0]
 	ch := s.char
 	// CWorld::GetZoneByMapID: a guild ranking map resolves to the guild's
 	// instance while the battle is open; without one the move fails.
-	if !isInstanceZone(mapID) && mapCreateType(mapID) == grbCreateType {
+	if !direct && !isInstanceZone(mapID) && mapCreateType(mapID) == grbCreateType {
 		zone, ok := s.enterGuildRanking(mapID)
 		if !ok {
 			s.log.Printf("GX Server World guild ranking map %d refused (closed or no guild)", mapID)
@@ -72,7 +74,7 @@ func (s *Session) applyTeleport(mapID uint16, x, y, z float32, label string) {
 		mapID = zone
 	}
 	// GetZoneByMapID's party case: the party's own instance.
-	if !isInstanceZone(mapID) && mapCreateType(mapID) == partyCreateType {
+	if !direct && !isInstanceZone(mapID) && mapCreateType(mapID) == partyCreateType {
 		zone, ok := s.enterPartyInstance(mapID)
 		if !ok {
 			s.log.Printf("GX Server World party map %d refused (no party)", mapID)

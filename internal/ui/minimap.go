@@ -8,6 +8,8 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
+const MinimapWidth, MinimapHeight = 196, 197
+
 // Projection follows Phoenix tools/minimap_data.py: raw X grows right, raw
 // Z grows north (up). Image and map sizes supply their actual calibration.
 func MapPosition(x, z, mapSize float32) (u, v float32, ok bool) {
@@ -44,11 +46,13 @@ func FullMapRect(w, h int) (x, y int, scale float32) {
 }
 
 type MapAction struct {
-	Toggle, Close bool
-	Zoom          int
+	Toggle, Close, World bool
+	Zoom                 int
 }
 
 type Minimap struct {
+	WorldAvailable, WorldReturn                                         bool
+	worldButton, mapButton                                              Button
 	Position, FullPosition                                              WindowPosition
 	Caption, MapName                                                    string
 	plate                                                               *render.Texture
@@ -74,6 +78,15 @@ func NewMinimap(t Textures) (*Minimap, error) {
 		}
 	}
 	m.close = nativeClose(ld.get("talk1_close_button.png"), 0, 0)
+	m.worldButton = nativeClose(ld.get("wm_button_w.png"), 0, 0)
+	m.mapButton = nativeClose(ld.get("wm_button_m.png"), 0, 0)
+	// 0x4c3990: 32px artwork cells with independent 22px hit boxes.
+	for _, b := range []*Button{&m.worldButton, &m.mapButton} {
+		b.DrawW, b.DrawH = 32, 32
+		for i, state := range []int{0, 1, 2, 2, 0} {
+			b.UV[i] = UV{float32(state) / 4, 0, float32(state+1) / 4, 1}
+		}
+	}
 	return m, ld.err
 }
 
@@ -85,6 +98,15 @@ func (m *Minimap) Update(in *platform.Input, w, h int, full bool) MapAction {
 		m.close.DrawW, m.close.DrawH = int(22*scale), int(22*scale)
 		m.close.HitW, m.close.HitH = int(22*scale), int(22*scale)
 		action.Close = m.close.Update(in)
+		if m.WorldAvailable {
+			b := &m.worldButton
+			if m.WorldReturn {
+				b = &m.mapButton
+			}
+			b.OriginX, b.OriginY = x+int(490*scale), y+int(scale)
+			b.DrawW, b.DrawH, b.HitW, b.HitH = int(32*scale), int(32*scale), int(22*scale), int(22*scale)
+			action.World = b.Update(in)
+		}
 		return action
 	}
 	x, y := m.Origin(w, h)
@@ -163,7 +185,11 @@ func (m *Minimap) Draw(s *render.Sprites, f *Font, image, solid *render.Texture,
 	if label == "" {
 		label = "--:--"
 	}
-	f.Draw(s, label, x+17+max(0, (134-f.Width(label))/2), y+168, [4]float32{.95, .87, .66, 1}, 134)
+	scale := float32(1)
+	if width := f.Width(label); width > 134 {
+		scale = 134 / float32(width)
+	}
+	f.DrawScaled(s, label, float32(x+84)-float32(f.Width(label))*scale/2, float32(y+168), scale, [4]float32{.95, .87, .66, 1}, 0)
 }
 
 func (m *Minimap) DrawFull(s *render.Sprites, f *Font, image, solid *render.Texture, w, h int, view UV, u, v, heading float32, mapID uint16, markers []MapMarker) {
@@ -185,7 +211,17 @@ func (m *Minimap) DrawFull(s *render.Sprites, f *Font, image, solid *render.Text
 	s.Draw(m.right, mapX+side, mapY, 16*scale, side, 0, 0, 1, 1, white)
 	m.close.OriginX, m.close.OriginY = x+int(515*scale), y+int(scale)
 	m.close.DrawW, m.close.DrawH = int(22*scale), int(22*scale)
+
 	m.close.Draw(s)
+	if m.WorldAvailable {
+		b := &m.worldButton
+		if m.WorldReturn {
+			b = &m.mapButton
+		}
+		b.OriginX, b.OriginY = x+int(490*scale), y+int(scale)
+		b.DrawW, b.DrawH = int(32*scale), int(32*scale)
+		b.Draw(s)
+	}
 	label := m.MapName
 	if label == "" {
 		label = fmt.Sprintf("Map %d", mapID)
@@ -195,10 +231,25 @@ func (m *Minimap) DrawFull(s *render.Sprites, f *Font, image, solid *render.Text
 
 func (m *Minimap) Origin(w, h int) (int, int) {
 	x, y := MinimapOrigin(w)
-	return m.Position.Origin(w, h, 196, 197, x, y)
+	return m.Position.Origin(w, h, MinimapWidth, MinimapHeight, x, y)
 }
 func (m *Minimap) FullRect(w, h int) (int, int, float32) {
 	x, y, scale := FullMapRect(w, h)
 	x, y = m.FullPosition.Origin(w, h, int(544*scale), int(579*scale), x, y)
 	return x, y, scale
+}
+
+func (m *Minimap) DragHandleAt(mx, my, w, h int) bool {
+	x, y := m.Origin(w, h)
+	for _, b := range m.buttons {
+		if mx >= x+b.OffX && mx < x+b.OffX+b.HitW && my >= y+b.OffY && my < y+b.OffY+b.HitH {
+			return false
+		}
+	}
+	dx, dy := mx-x-84, my-y-84
+	return dx*dx+dy*dy <= 76*76 || mx >= x+9 && mx < x+159 && my >= y+157 && my < y+197 || mx >= x+35 && mx < x+110 && my >= y && my < y+20
+}
+
+func (m *Minimap) DrawWorldMarker(s *render.Sprites, x, y, scale, alpha float32) {
+	s.Draw(m.party, x-8*scale, y-8*scale, 16*scale, 16*scale, 0, 0, 1, 1, [4]float32{1, 1, 1, alpha})
 }

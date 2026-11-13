@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"log"
 	"math"
 
@@ -16,6 +17,14 @@ type npcActor struct {
 	entity   *game.Entity
 	position remotePosition
 	facing   render.V3
+}
+
+func (a *App) npcPortrait(def sdata.NPC) *render.Texture {
+	portrait := a.assets.Texture(fmt.Sprintf("interface/NpcFace/%d.png", def.Model))
+	if portrait == nil {
+		portrait = a.assets.Texture("interface/NpcFace/55.png")
+	}
+	return portrait
 }
 
 func (a *App) loadNPCs() {
@@ -70,7 +79,12 @@ func (a *App) prepareNPCs() {
 		}
 		before := cached.position.pos
 		initialized := cached.position.initialized
-		pos := cached.position.update(e, a.clock)
+		pos := cached.position.updateNPC(e, a.clock, a.npcDefs[key])
+		patrolling := initialized && cached.position.duration > 0 && a.clock < cached.position.start+cached.position.duration
+		if patrolling && v.world.HasTerrain() {
+			pos[1] = v.world.Height(pos[0], pos[2])
+			cached.position.pos = pos
+		}
 		delta := pos.Sub(before)
 		delta[1] = 0
 		if initialized && delta.Len() > .001 {
@@ -78,8 +92,8 @@ func (a *App) prepareNPCs() {
 		}
 		cached.actor.World = render.Basis(pos, cached.facing.Scale(-1), render.V3{0, 1, 0})
 		action := 6
-		if e.Motion != 0 || cached.position.pos != cached.position.to {
-			action = 1
+		if initialized && delta.Len() > .001 {
+			action = 0
 		}
 		if err := cached.actor.SetAction(action); err != nil {
 			a.assets.Missing[err.Error()] = true
@@ -98,7 +112,6 @@ func (a *App) drawNPCs() {
 			if cached.actor.Visible(frustum, a.scene3d.ClipPlane) {
 				cached.actor.Draw(a.skinner, a.scene3d)
 			}
-			a.drawActorShadow(cached.actor.Character)
 		}
 	}
 }

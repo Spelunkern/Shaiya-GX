@@ -177,6 +177,7 @@ type Scene3D struct {
 	View, Proj, SkyProj                                       M4
 	LightDir                                                  V3
 	Ambient                                                   float32
+ CharacterAmbient float32 // optional UI preview fill; zero keeps native character lighting
 	FogColor                                                  V3
 	FogStart, FogEnd                                          float32
 	ClipPlane                                                 [4]float32 // world-space half-plane; zero disables clipping

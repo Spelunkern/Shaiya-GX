@@ -3,7 +3,6 @@ package app
 import (
 	"log"
 	"math"
-	"path"
 	"strings"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
@@ -30,7 +29,7 @@ func (a *App) playSound(name string, x, z float32) {
 	if gain == 0 {
 		return
 	}
-	file := "Sound/" + path.Base(strings.ReplaceAll(name, `\`, "/"))
+	file := a.audioPath(name, false)
 	a.audioError(file, a.sound.Play(file, gain))
 }
 func mapMusic(w *world.WLD, x, z float32) string {
@@ -58,9 +57,7 @@ func (a *App) updateAudio() {
 	case screenLogin, screenServers:
 		music = "bgm_title.ogg"
 	case screenWorld:
-		if a.wv != nil && a.wv.world != nil {
-			music = mapMusic(a.wv.world.WLD, a.wv.pos[0], a.wv.pos[2])
-		}
+		// World music and emitters share the fading map mix.
 	case screenCharacters:
 		key := "select_a"
 		if a.state != nil && a.state.Faction.Faction == 1 {
@@ -77,10 +74,17 @@ func (a *App) updateAudio() {
 			music = mapMusic(w.WLD, x, z)
 		}
 	}
+	if a.loading.active {
+		music = ""
+		if a.loading.presented {
+			music = "bgm_load0001.ogg"
+		}
+	}
 	if music != "" {
-		music = "Sound/Music/" + path.Base(strings.ReplaceAll(music, `\`, "/"))
+		music = a.audioPath(music, true)
 	}
 	a.audioError(music, a.sound.Music(music))
+	a.updateMapAudio()
 }
 func (a *App) confirmedSound(p []byte) {
 	if a.sound == nil || a.wv == nil {
@@ -90,9 +94,9 @@ func (a *App) confirmedSound(p []byte) {
 	case proto.SkillCastStarted:
 		r := a.state.LastCast
 		a.playSkillSound(r.Source, r.ID, r.Level, true)
-	case proto.SkillUse, proto.SkillUseNoTarget, proto.SkillUserDrain, proto.SkillMobDrain:
+	case proto.SkillUse, proto.SkillUseNoTarget, proto.SkillUserDrain, proto.SkillMobDrain, proto.SkillPartyMember, proto.SkillMobOther:
 		r := a.state.LastSkill
-		if r.Result <= 3 && !(r.Result == 3 && r.Target == 0) {
+		if r.Result <= 4 && !(r.Result == 3 && r.Target == 0) {
 			a.playSkillSound(r.Source, r.ID, r.Level, false)
 		}
 	case proto.MobSkillUse, proto.MobSkillDrain, proto.MobSkillOther:
@@ -126,12 +130,22 @@ func (a *App) playSkillSound(source uint32, id uint16, level uint8, preparing bo
 	}
 	action := scene.SkillCastAction(d.Animation, d.Effect)
 	if !preparing {
-		// Area announcements/results need their own deduplication and dispatch.
-		if d.Target < 1 || d.Target > 3 {
-			return
-		}
 		action = scene.SkillAction(d.Animation, d.Attack, d.Effect, 0, 0)
 	}
+	key := skillSoundKey{source, id, level, preparing}
+	if at, ok := a.skillSoundEvents[key]; ok && a.clock-at < .15 {
+		return
+	}
+	if a.skillSoundEvents == nil {
+		a.skillSoundEvents = map[skillSoundKey]float64{}
+	}
+	// Bound the cache by retaining only the recent burst window.
+	for k, at := range a.skillSoundEvents {
+		if a.clock-at >= .15 {
+			delete(a.skillSoundEvents, k)
+		}
+	}
+	a.skillSoundEvents[key] = a.clock
 	a.playSound(scene.SkillActionSound(action), pos[0], pos[2])
 }
 
@@ -139,4 +153,11 @@ func (a *App) playUI() {
 	if a.sound != nil {
 		a.audioError("Sound/ui_button001.ogg", a.sound.Play("Sound/ui_button001.ogg", 0.4))
 	}
+}
+
+type skillSoundKey struct {
+	source    uint32
+	id        uint16
+	level     uint8
+	preparing bool
 }

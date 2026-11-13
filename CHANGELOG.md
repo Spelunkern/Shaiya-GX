@@ -2,6 +2,17 @@
 
 This log records delivered changes and data-package updates. Client data is hosted separately on Drive; changing it does not automatically produce a new executable release.
 
+## gx-v0.1.5 — November 13, 2026
+
+[Full patch notes](docs/releases/gx-v0.1.5.md).
+
+- Publish native client/server builds with external Wine Tahoma and lazy Noto Unicode/colour-emoji fonts and licenses.
+- Restore environmental/map audio and its volume slider, water animations/effects and terrain footsteps.
+- Correct casting, nameplates, item counts, inventory lighting, chat colours/bubbles, NPC patrols and skill/subaction audio/animation paths.
+- Add approach-to-pickup/interact, movable native NPC/portrait/target/minimap/potion controls, loading artwork and World Map labels/previews.
+- Retain only the local character shadow, reduce index storage and remove dungeon fog; conservative dungeon visibility/instancing reduces measured world draws by 84–90% across tested views.
+- Add authoritative Admin 0/1 GM roles, the light-blue tag and six commands, including `/nmake type id`. Include complete GM documentation and GM test-account fixtures.
+
 ## gx-v0.1.4 — November 13, 2026
 
 [Full accumulated patch notes](docs/releases/gx-v0.1.4.md).

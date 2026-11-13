@@ -46,6 +46,12 @@ const (
 )
 
 type App struct {
+	chatBubbles                         []chatBubble
+	quickPotions                        quickPotionView
+	mapLabels                           mapLabelView
+	skillSoundEvents                    map[skillSoundKey]float64
+	loading                             mapLoading
+	loadingScreen                       *ui.LoadingScreen
 	appliedDisplay                      platform.DisplayMode
 	displayConfigured                   bool
 	social                              socialView
@@ -88,6 +94,7 @@ type App struct {
 	windowDrag                          windowDrag
 	sound                               *audio.Engine
 	soundErrors                         map[string]bool
+	mapAudio                            mapAudioState
 	cfg                                 Config
 	arc                                 *archive.Archive
 	sprites                             *render.Sprites
@@ -216,12 +223,17 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	if a.sprites, err = render.NewSprites(8192); err != nil {
 		return nil, err
 	}
-	if a.font, err = ui.LoadFont(13); err != nil {
+	fonts, err := ui.LoadFontSource(arc.ReadFile)
+	if err != nil {
 		return nil, err
 	}
-	if a.tooltipFont, err = ui.LoadTooltipFont(); err != nil {
+	if a.font, err = fonts.Load(13); err != nil {
 		return nil, err
 	}
+	if a.tooltipFont, err = fonts.Load(13); err != nil {
+		return nil, err
+	}
+
 	if b, err := arc.ReadFile("sysmsg-uni.txt"); err == nil {
 		a.msg = text.ParseSysMsg(b)
 	} else {
@@ -383,6 +395,7 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 		}
 		a.soundErrors = map[string]bool{}
 	}
+	a.loadingScreen = ui.NewLoadingScreen(a)
 	a.loadSavedID()
 	a.loadUILayout()
 	a.loadClientSettings()
@@ -426,7 +439,12 @@ func (a *App) Update(in *platform.Input, w, h int, dt float64) {
 		break
 	}
 	a.pumpWorld()
+	loading := a.updateMapLoading()
 	a.updateAudio()
+	if loading {
+		a.clock += dt
+		return
+	}
 	switch a.screen {
 	case screenLogin:
 		switch a.login.Update(in, w, h, dt) {
@@ -486,6 +504,10 @@ func (a *App) drawFrame(w, h int) {
 	render.ResetDrawCalls()
 	started := time.Now()
 	defer func() { a.performance.meter.End(); a.performance.drawCPU = time.Since(started) }()
+	if a.loading.active && !a.loading.started {
+		a.drawMapLoading(w, h)
+		return
+	}
 	if a.screen == screenLogin || a.screen == screenServers {
 		if ls := a.loginBackdrop(); ls != nil {
 			ls.Update(a.frameDT)
@@ -495,13 +517,17 @@ func (a *App) drawFrame(w, h int) {
 	if a.screen == screenWorld {
 		a.drawWorldView(w, h)
 	}
-	if a.screen == screenCharacters && a.state != nil && a.state.Phase != game.PhaseFaction {
+	if a.screen == screenCharacters && a.state != nil && (a.state.Phase == game.PhaseCharSelect || a.state.Phase == game.PhaseLoading) {
 		fury := a.state.Faction.Faction == 1
 		if a.creating {
 			a.drawCreation(w, h)
 		} else {
 			a.drawWorld(a.selectWorld(fury), selectEye, selectTarget, w, h)
 		}
+	}
+	if a.loading.active {
+		a.drawMapLoading(w, h)
+		return
 	}
 	if a.scene3d.ReverseDepth && !a.sceneGlowFailed {
 		if a.sceneGlow == nil {
@@ -602,6 +628,7 @@ func loginMessage(err error) string {
 }
 
 func (a *App) backToLogin(msg string) {
+	a.loading = mapLoading{}
 	a.menuOpen, a.menuPending = false, false
 	a.buffs = buffsView{}
 	a.party = partyView{}
@@ -824,6 +851,7 @@ func (a *App) pumpWorld() {
 			a.confirmedSocial(ev.Op)
 			a.confirmedEffects(p)
 			a.confirmedSound(p)
+			a.confirmedChatBubble(ev.Op)
 			if ev.Op == proto.SetStatPoint || ev.Op == proto.StatsReset {
 				a.status.pending = false
 				if a.statusUI != nil {

@@ -9,9 +9,10 @@ import (
 )
 
 type Texture struct {
-	bytes uint64
-	ID    uint32
-	W, H  int
+	Opaque bool // proven full alpha coverage at every authored mip
+	bytes  uint64
+	ID     uint32
+	W, H   int
 }
 
 var fallbackDiffuse *Texture
@@ -48,6 +49,9 @@ func uploadTexture(t img.Texture, world bool) *Texture {
 	var id uint32
 	gl.CreateTextures(gl.TEXTURE_2D, 1, &id)
 	tex := &Texture{ID: id}
+	if world {
+		tex.Opaque = img.Opaque(t)
+	}
 	if t.DDS != nil {
 		d := t.DDS
 		tex.W, tex.H = d.W, d.H

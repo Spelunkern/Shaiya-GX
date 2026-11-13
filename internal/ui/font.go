@@ -4,7 +4,6 @@
 package ui
 
 import (
-	_ "embed"
 	"fmt"
 	"image"
 	"image/draw"
@@ -35,15 +34,13 @@ type glyph struct {
 	adv        int
 }
 
-// Liberation Sans is the sole embedded face, with Arial-compatible metrics.
-// Its unmodified font and SIL OFL license are distributed with the source.
-//
-//go:embed fonts/LiberationSans-Regular.ttf
-var defaultFontData []byte
-
-// LoadFont rasterizes the face so that its cell is cellHeight pixels.
+// LoadFont loads data/fonts resources beside the game (or SHAIYA_DATA for fixtures).
 func LoadFont(cellHeight int) (*Font, error) {
-	return loadFontData(defaultFontData, cellHeight, false)
+	source, err := externalFontSource()
+	if err != nil {
+		return nil, err
+	}
+	return source.Load(cellHeight)
 }
 
 func loadFontData(data []byte, cellHeight int, pixelSize bool) (*Font, error) {
@@ -129,6 +126,15 @@ func (f *Font) DrawOutlined(s *render.Sprites, text string, x, y int, tint [4]fl
 	for _, offset := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
 		f.Draw(s, text, x+offset[0], y+offset[1], [4]float32{0, 0, 0, tint[3]}, 0)
 	}
+	f.Draw(s, text, x, y, tint, 0)
+}
+
+// DrawName adds a half-pixel stroke to the outlined name without changing metrics.
+func (f *Font) DrawName(s *render.Sprites, text string, x, y int, tint [4]float32) {
+	for _, offset := range [][2]float32{{-1, 0}, {1.5, 0}, {0, -1}, {0, 1}} {
+		f.DrawScaled(s, text, float32(x)+offset[0], float32(y)+offset[1], 1, [4]float32{0, 0, 0, tint[3]}, 0)
+	}
+	f.DrawScaled(s, text, float32(x)+.5, float32(y), 1, tint, 0)
 	f.Draw(s, text, x, y, tint, 0)
 }
 

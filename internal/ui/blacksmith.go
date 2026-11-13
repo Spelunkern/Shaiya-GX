@@ -74,7 +74,7 @@ func (v *Blacksmith) Update(in *platform.Input, w, h int, busy, ready, extractRe
 func (v *Blacksmith) Draw(s *render.Sprites, f *Font, w, h int, name string, busy, ready, extractReady, repairReady, enchantReady, composeReady bool) {
 	x, y := v.Origin(w, h)
 	s.DrawImage(v.frame, float32(x), float32(y))
-	f.Draw(s, name, x+65, y+20, white, 165)
+	f.Draw(s, name, x+77, y+20, white, 165)
 	f.Draw(s, "Blacksmith", x+329, y+15, white, 160)
 	f.Draw(s, "Drag items from your inventory", x+25, y+100, white, 210)
 	f.Draw(s, "to the appropriate slots.", x+25, y+116, white, 210)

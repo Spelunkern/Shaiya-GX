@@ -87,6 +87,7 @@ const (
 	CharCreate
 	CharDelete
 	CharExit
+	CharOptions
 )
 
 // SetChars fills the slots from the 0x0101 list.
@@ -124,7 +125,7 @@ func (c *CharSelect) controls(w, h int) {
 	}
 	c.Start.Disabled = c.Busy || c.Selected < 0 || c.Chars[c.Selected].PendingDelete
 	c.Delete.Disabled = c.Busy || c.Selected < 0
-	c.Option.Disabled = true // NO VERIFICADO: options window not ported
+	c.Option.Disabled = c.Busy
 	for i, b := range c.Slots {
 		b.OriginX, b.OriginY, b.Disabled = px, py, c.Busy || c.Chars[i] == nil
 		b.Checked = i == c.Selected
@@ -158,7 +159,9 @@ func (c *CharSelect) Update(in *platform.Input, w, h int, dt float64) CharAction
 	if c.Delete.Update(in) {
 		act = CharDelete
 	}
-	c.Option.Update(in)
+	if c.Option.Update(in) {
+		act = CharOptions
+	}
 	if c.Exit.Update(in) {
 		act = CharExit
 	}

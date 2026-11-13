@@ -196,7 +196,7 @@ func (a *App) updateNPCQuest(in *platform.Input, w, h int, e *game.Entity) bool 
 	}
 	entries := a.npcQuestEntries(e)
 	if a.shop.questMode && v.selected == 0 {
-		x, y := ui.NPCQuestOrigin(w, h)
+		x, y := a.npcQuestUI.Origin(w, h)
 		if a.npcQuestUI.ServiceButton(in, x+145, y+336, true) {
 			a.shop.questMode = false
 			return true
@@ -259,7 +259,7 @@ func (a *App) updateNPCQuest(in *platform.Input, w, h int, e *game.Entity) bool 
 		}
 		return true
 	}
-	x, y := ui.NPCQuestOrigin(w, h)
+	x, y := a.npcQuestUI.Origin(w, h)
 	height := 391
 	if v.selected != 0 {
 		height = 512
@@ -309,9 +309,9 @@ func (a *App) drawNPCQuest(w, h int, e *game.Entity) {
 			}
 		}
 	}
-	a.npcQuestUI.Draw(a.sprites, a.font, w, h, def.Name, questText(def.Welcome), a.assets.Texture("interface/NpcFace/55.png"), names, v.offset, v.selected != 0, v.ending, title, description, choices)
+	a.npcQuestUI.Draw(a.sprites, a.font, w, h, def.Name, questText(def.Welcome), a.npcPortrait(def), names, v.offset, v.selected != 0, v.ending, title, description, choices)
 	if a.shop.questMode && v.selected == 0 {
-		x, y := ui.NPCQuestOrigin(w, h)
+		x, y := a.npcQuestUI.Origin(w, h)
 		label := "Shop"
 		if e.NpcType == 6 {
 			label = "Bank"

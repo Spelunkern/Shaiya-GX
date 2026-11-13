@@ -41,7 +41,9 @@ func (a *App) drawInventoryPreview(w, h int) {
 		s.SetCameraView(render.V3{0, centerY, distance}, render.V3{0, centerY, 0}, render.V3{0, 1, 0})
 		s.Proj = render.PerspectiveFovLH(34*math.Pi/180, 136.0/217, .1, 100)
 		s.FogStart, s.FogEnd = 10000, 20000
-		s.LightDir = render.V3{-.513, -1, .858}
+		// Match the world character's frontal fill instead of lighting its back.
+		s.LightDir = render.V3{-1, -1, -1}
+		s.CharacterAmbient = 1
 		s.Begin()
 		scale := render.Identity()
 		scale[5] = ap.HeightScale()
@@ -58,6 +60,8 @@ func (a *App) drawInventoryPreview(w, h int) {
 func (a *App) actorPreviewScene() render.Scene3D {
 	s := *a.scene3d
 	s.Shadow = false
+	s.Occlusion = nil
+	s.DetailBias = 0
 	s.ClipPlane = [4]float32{}
 	s.ReverseDepth = false
 	s.WaterReflection = nil

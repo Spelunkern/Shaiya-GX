@@ -67,11 +67,13 @@ func (a *App) updateCombat(in *platform.Input, w, h int) {
 	if id != 0 {
 		a.wv.mobClick = mobClick{}
 		a.approachLoot(id)
+		in.Clicked = false // This click issued the approach; do not cancel it in movement.
 		return
 	}
 	if id := a.pickNPC(in, w, h); id != 0 {
 		a.wv.mobClick = mobClick{}
 		a.openNPC(id)
+		in.Clicked = false
 		return
 	}
 	if in.Clicked || in.HasKey(platform.KeyTarget) || in.HasKey(platform.KeyPreviousTarget) {
@@ -115,15 +117,7 @@ func (a *App) updateCombat(in *platform.Input, w, h int) {
 		}
 	}
 	for _, r := range in.Chars {
-		if r == 'x' || r == 'X' {
-			if err := a.world.Send(proto.StopAttackPacket()); err != nil {
-				a.backToLogin("Unable to stop attack.")
-				return
-			}
-			a.state.Target = 0
-			a.wv.mobClick = mobClick{}
-			continue
-		}
+
 		if r == 'h' || r == 'H' {
 			if !a.pickupNearest() {
 				return

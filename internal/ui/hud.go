@@ -130,14 +130,15 @@ func (h *HUD) TargetOrigin(w, height int) (int, int) {
 }
 
 // DrawCast follows Game.exe 0x004a3020: a 5x64 black rectangle and a
-// 3x62 blue elapsed-progress column. No texture, spell name or timer text.
+// 3x62 blue elapsed-progress column, filling upwards per the requested UI.
+// No texture, spell name or timer text.
 func (h *HUD) DrawCast(s *render.Sprites, solid *render.Texture, x, y int, left, total float32) {
 	fill, ok := castFillHeight(left, total)
 	if !ok {
 		return
 	}
 	s.Draw(solid, float32(x), float32(y), 5, 64, 0, 0, 1, 1, [4]float32{0, 0, 0, 1})
-	s.Draw(solid, float32(x+1), float32(y+1), 3, float32(fill), 0, 0, 1, 1, [4]float32{0, 0, 1, 1})
+	s.Draw(solid, float32(x+1), float32(y+63-fill), 3, float32(fill), 0, 0, 1, 1, [4]float32{0, 0, 1, 1})
 }
 
 func castFillHeight(left, total float32) (int, bool) {
