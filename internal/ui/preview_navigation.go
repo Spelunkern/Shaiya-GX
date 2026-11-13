@@ -19,8 +19,8 @@ type PreviewNavigation struct {
 }
 
 func newPreviewNavigation(ld *loader) PreviewNavigation {
-	n := PreviewNavigation{bg: ld.get("character_navi_bg.tga")}
-	tex := ld.get("character_navi.tga")
+	n := PreviewNavigation{bg: ld.get("character_navi_bg.png")}
+	tex := ld.get("character_navi.png")
 	positions := [6][2]int{{8, 38}, {99, 38}, {41, 39}, {69, 39}, {53, 7}, {53, 76}}
 	for i, p := range positions {
 		b := &n.buttons[i]

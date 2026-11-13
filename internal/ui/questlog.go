@@ -26,13 +26,13 @@ func (q *QuestLog) ResetDescriptionScroll() { q.textOffset, q.objectiveOffset = 
 
 func NewQuestLog(t Textures) (*QuestLog, error) {
 	ld := &loader{t: t}
-	q := &QuestLog{frame: ld.get("quest.tga"), alarm: ld.get("quest_alarm.tga"), line: ld.get("quest_line.tga"), held: -1, hoverRow: -1}
-	scroll := ld.get("scrollbar.tga")
+	q := &QuestLog{frame: ld.get("quest.png"), alarm: ld.get("quest_alarm.png"), line: ld.get("quest_line.png"), held: -1, hoverRow: -1}
+	scroll := ld.get("scrollbar.png")
 	q.listScroll = newPanelScroll(scroll, 227, 52, 237)
 	q.objectiveScroll = newPanelScroll(scroll, 227, 320, 130)
 	q.descriptionScroll = newPanelScroll(scroll, 488, 52, 397)
-	q.close = nativeClose(ld.get("talk1_close_button.tga"), 480, 7)
-	q.quit = Button{Tex: ld.get("quest_button.tga"), OffX: 402, OffY: 453, DrawW: 128, DrawH: 32, HitW: 80, HitH: 26, UV: FourRowUV}
+	q.close = nativeClose(ld.get("talk1_close_button.png"), 480, 7)
+	q.quit = Button{Tex: ld.get("quest_button.png"), OffX: 402, OffY: 453, DrawW: 128, DrawH: 32, HitW: 80, HitH: 26, UV: FourRowUV}
 	return q, ld.err
 }
 func (q *QuestLog) Origin(w, h int) (int, int) {

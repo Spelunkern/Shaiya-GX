@@ -56,7 +56,7 @@ func (a *App) updateAudio() {
 	music := ""
 	switch a.screen {
 	case screenLogin, screenServers:
-		music = "bgm_title.wav"
+		music = "bgm_title.ogg"
 	case screenWorld:
 		if a.wv != nil && a.wv.world != nil {
 			music = mapMusic(a.wv.world.WLD, a.wv.pos[0], a.wv.pos[2])
@@ -137,6 +137,6 @@ func (a *App) playSkillSound(source uint32, id uint16, level uint8, preparing bo
 
 func (a *App) playUI() {
 	if a.sound != nil {
-		a.audioError("Sound/ui_button001.wav", a.sound.Play("Sound/ui_button001.wav", 0.4))
+		a.audioError("Sound/ui_button001.ogg", a.sound.Play("Sound/ui_button001.ogg", 0.4))
 	}
 }

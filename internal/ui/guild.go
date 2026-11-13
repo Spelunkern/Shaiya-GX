@@ -35,21 +35,21 @@ type GuildPanel struct {
 
 func NewGuildPanel(t Textures) (*GuildPanel, error) {
 	ld := &loader{t: t}
-	p := &GuildPanel{frame: ld.get("guild.tga"), held: -1, navHeld: -1, hoverRow: -1, SortColumn: 3}
-	p.waitFrame = ld.get("guild_wait.tga")
-	p.nav = ld.get("friend_left_nav.tga")
-	p.scroll = newPanelScroll(ld.get("scrollbar.tga"), 303, 99, 356)
-	for i, name := range []string{"guild_sort_lv.tga", "guild_sort_name.tga", "guild_sort_job.tga", "guild_sort_grade.tga", "guild_sort_on.tga"} {
+	p := &GuildPanel{frame: ld.get("guild.png"), held: -1, navHeld: -1, hoverRow: -1, SortColumn: 3}
+	p.waitFrame = ld.get("guild_wait.png")
+	p.nav = ld.get("friend_left_nav.png")
+	p.scroll = newPanelScroll(ld.get("scrollbar.png"), 303, 99, 356)
+	for i, name := range []string{"guild_sort_lv.png", "guild_sort_name.png", "guild_sort_job.png", "guild_sort_grade.png", "guild_sort_on.png"} {
 		p.headers[i] = ld.get(name)
 		left := [5]int{36, 62, 184, 247, 276}[i]
 		width := [5]int{25, 121, 61, 27, 37}[i]
 		p.headerButtons[i] = Button{Tex: p.headers[i], OffX: left, OffY: 70, DrawW: []int{32, 128, 64, 32, 64}[i], DrawH: 32, HitW: width, HitH: 29, UV: FourRowUV}
 	}
-	for i, name := range []string{"guild_wait_lv.tga", "guild_wait_name.tga", "guild_wait_job.tga"} {
+	for i, name := range []string{"guild_wait_lv.png", "guild_wait_name.png", "guild_wait_job.png"} {
 		p.waitHeaders[i] = ld.get(name)
 	}
-	p.close = nativeClose(ld.get("talk1_close_button.tga"), 307, 8)
-	buttons := ld.get("guild_button1.tga")
+	p.close = nativeClose(ld.get("talk1_close_button.png"), 307, 8)
+	buttons := ld.get("guild_button1.png")
 	for i := range p.actions {
 		b := &p.actions[i]
 		*b = Button{Tex: buttons, OffX: 37 + 69*i, OffY: 466, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25}
@@ -57,7 +57,7 @@ func NewGuildPanel(t Textures) (*GuildPanel, error) {
 			b.UV[state] = UV{float32(col) / 4, float32(i) / 4, float32(col+1) / 4, float32(i+1) / 4}
 		}
 	}
-	waitButtons := ld.get("guild_wait_button.tga")
+	waitButtons := ld.get("guild_wait_button.png")
 	for i := range p.waitActions {
 		b := &p.waitActions[i]
 		*b = Button{Tex: waitButtons, OffX: 41 + 72*i, OffY: 466, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25}
@@ -65,8 +65,8 @@ func NewGuildPanel(t Textures) (*GuildPanel, error) {
 			b.UV[state] = UV{float32(col) / 4, float32(i) / 2, float32(col+1) / 4, float32(i+1) / 2}
 		}
 	}
-	p.toggle = Button{Tex: ld.get("guild_button2.tga"), OffX: 237, OffY: 47, DrawW: 128, DrawH: 32, HitW: 75, HitH: 21, UV: FourRowUV}
-	p.back = Button{Tex: ld.get("guild_wait_button2.tga"), OffX: 237, OffY: 47, DrawW: 128, DrawH: 32, HitW: 75, HitH: 21, UV: FourRowUV}
+	p.toggle = Button{Tex: ld.get("guild_button2.png"), OffX: 237, OffY: 47, DrawW: 128, DrawH: 32, HitW: 75, HitH: 21, UV: FourRowUV}
+	p.back = Button{Tex: ld.get("guild_wait_button2.png"), OffX: 237, OffY: 47, DrawW: 128, DrawH: 32, HitW: 75, HitH: 21, UV: FourRowUV}
 	p.notice = Button{Tex: buttons, OffX: 249, OffY: 466, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25}
 	for state, col := range []int{0, 1, 2, 2, 3} {
 		p.notice.UV[state] = UV{float32(col) / 4, .75, float32(col+1) / 4, 1}

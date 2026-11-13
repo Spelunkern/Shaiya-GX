@@ -49,9 +49,9 @@ type SkillBook struct {
 
 func NewSkillBook(t Textures) (*SkillBook, error) {
 	ld := &loader{t: t}
-	b := &SkillBook{frame: ld.get("skill.tga"), tabHeld: -1, tabHover: -1, rowHeld: -1}
-	b.tabs = [2]*render.Texture{ld.get("skill_select_button1.tga"), ld.get("skill_select_button2.tga")}
-	tex := ld.get("skill_button.tga")
+	b := &SkillBook{frame: ld.get("skill.png"), tabHeld: -1, tabHover: -1, rowHeld: -1}
+	b.tabs = [2]*render.Texture{ld.get("skill_select_button1.png"), ld.get("skill_select_button2.png")}
+	tex := ld.get("skill_button.png")
 	for i := range b.learn {
 		button := &b.learn[i]
 		*button = Button{Tex: tex, OffX: 278, OffY: 84 + 43*i, DrawW: 32, DrawH: 32, HitW: 22, HitH: 22}
@@ -59,7 +59,7 @@ func NewSkillBook(t Textures) (*SkillBook, error) {
 			button.UV[state] = UV{float32(col) / 4, 0, float32(col+1) / 4, 1}
 		}
 	}
-	b.scroll = ld.get("scrollbar.tga")
+	b.scroll = ld.get("scrollbar.png")
 	for i := range b.arrows {
 		button := &b.arrows[i]
 		*button = Button{Tex: b.scroll, OffX: 302, OffY: 68 + i*379, DrawW: 16, DrawH: 32, HitW: 13, HitH: 19}
@@ -67,7 +67,7 @@ func NewSkillBook(t Textures) (*SkillBook, error) {
 			button.UV[state] = UV{float32(col) / 8, float32(i) / 2, float32(col+1) / 8, float32(i+1) / 2}
 		}
 	}
-	b.close = nativeClose(ld.get("talk1_close_button.tga"), 303, 8)
+	b.close = nativeClose(ld.get("talk1_close_button.png"), 303, 8)
 	return b, ld.err
 }
 func (b *SkillBook) Update(in *platform.Input, w, h, category, offset, count int, enabled [SkillBookRows]bool) SkillBookAction {

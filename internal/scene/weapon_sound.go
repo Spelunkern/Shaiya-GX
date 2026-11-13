@@ -26,9 +26,9 @@ func WeaponSounds(weapon uint8, critical bool, variant uint8) (swing, hit string
 	if critical {
 		n = 3
 	}
-	swing = fmt.Sprintf("ch_att_%s%03d.wav", stem, n)
+	swing = fmt.Sprintf("ch_att_%s%03d.ogg", stem, n)
 	if kind != 14 {
-		hit = fmt.Sprintf("ch_hit_%s%03d.wav", stem, n)
+		hit = fmt.Sprintf("ch_hit_%s%03d.ogg", stem, n)
 	}
 	return
 }

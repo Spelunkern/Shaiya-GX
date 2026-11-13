@@ -16,16 +16,16 @@ type ExchangePanel struct {
 }
 
 func NewExchangePanel(t Textures) (*ExchangePanel, error) {
-	return newExchangePanel(t, "change.tga")
+	return newExchangePanel(t, "change.png")
 }
 func NewDuelPanel(t Textures) (*ExchangePanel, error) {
-	return newExchangePanel(t, "1on1_battle.tga")
+	return newExchangePanel(t, "1on1_battle.png")
 }
 func newExchangePanel(t Textures, frame string) (*ExchangePanel, error) {
 	ld := &loader{t: t}
-	p := &ExchangePanel{frame: ld.get(frame), duel: frame == "1on1_battle.tga"}
-	p.confirm = Button{Tex: ld.get("change_decision_button.tga"), OffX: 67, OffY: 210, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: [5]UV{{0, 0, .25, 1}, {.25, 0, .5, 1}, {.5, 0, .75, 1}, {.5, 0, .75, 1}, {.75, 0, 1, 1}}}
-	p.close = nativeClose(ld.get("talk1_close_button.tga"), 174, 5)
+	p := &ExchangePanel{frame: ld.get(frame), duel: frame == "1on1_battle.png"}
+	p.confirm = Button{Tex: ld.get("change_decision_button.png"), OffX: 67, OffY: 210, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: [5]UV{{0, 0, .25, 1}, {.25, 0, .5, 1}, {.5, 0, .75, 1}, {.5, 0, .75, 1}, {.75, 0, 1, 1}}}
+	p.close = nativeClose(ld.get("talk1_close_button.png"), 174, 5)
 	return p, ld.err
 }
 func (p *ExchangePanel) Origin(w, h int) (int, int) {

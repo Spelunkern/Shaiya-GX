@@ -10,7 +10,7 @@ import re
 import subprocess
 
 GAME_SUFFIXES = {'.sah', '.saf', '.sdata', '.exe', '.dll', '.dds', '.tga', '.bmp',
-                 '.3dc', '.3do', '.smod', '.ani', '.wld', '.svmap', '.wav', '.mp3',
+                 '.3dc', '.3do', '.smod', '.ani', '.wld', '.svmap', '.wav', '.mp3', '.ogg',
                  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.eft', '.3de', '.mlt',
                  '.sqlite', '.db', '.pem', '.key', '.pcap', '.packetlog', '.zip', '.7z'}
 LOCAL_DIRS = {'work', 'build', 'logs', 'runtime', 'data'}
@@ -28,7 +28,7 @@ def forbidden(path):
     p = PurePosixPath(path)
     # Explicitly distributed server fixtures and authored app icon. This does
     # not permit personal runtime copies, client archives or build artifacts.
-    if path == 'server/cmd/gx_server/icon.png':
+    if path in {'server/cmd/gx_server/icon.png', 'internal/audio/testdata/tone.ogg'}:
         return False
     if p.parts[:2] == ('server', 'data'):
         return (p.suffix.lower() in {'.sah', '.saf', '.exe', '.dll', '.pem', '.key', '.env'}

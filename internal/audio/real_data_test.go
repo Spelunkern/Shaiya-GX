@@ -10,7 +10,7 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/data/effect"
 )
 
-func TestRealSkillImpactWAV(t *testing.T) {
+func TestRealSkillImpactOGG(t *testing.T) {
 	dir := os.Getenv("SHAIYA_DATA")
 	if dir == "" {
 		t.Skip("SHAIYA_DATA not set")
@@ -39,7 +39,7 @@ func TestRealSkillImpactWAV(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		pcm, err := DecodeWAV(raw)
+		pcm, err := DecodeOGG(raw)
 		if err != nil || len(pcm) == 0 || len(pcm) > 4<<20 {
 			t.Fatalf("%s: invalid effect PCM (%d bytes): %v", name, len(pcm), err)
 		}
@@ -50,7 +50,7 @@ func TestRealSkillImpactWAV(t *testing.T) {
 	}
 }
 
-func TestRealWAV(t *testing.T) {
+func TestRealOGG(t *testing.T) {
 	dir := os.Getenv("SHAIYA_DATA")
 	if dir == "" {
 		t.Skip("SHAIYA_DATA not set")
@@ -60,12 +60,12 @@ func TestRealWAV(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer a.Close()
-	for _, file := range []string{"Sound/ui_button001.wav", "Sound/mob_ape_att01.wav", "Sound/Music/bgm_title.wav"} {
+	for _, file := range []string{"Sound/ui_button001.ogg", "Sound/mob_ape_att01.ogg", "Sound/Music/bgm_title.ogg"} {
 		raw, err := a.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
 		}
-		pcm, err := DecodeWAV(raw)
+		pcm, err := DecodeOGG(raw)
 		if err != nil {
 			t.Fatalf("%s: %v", file, err)
 		}

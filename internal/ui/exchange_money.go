@@ -16,9 +16,9 @@ type ExchangeMoney struct {
 
 func NewExchangeMoney(t Textures) (*ExchangeMoney, error) {
 	ld := &loader{t: t}
-	m := &ExchangeMoney{frame: ld.get("change_money.tga")}
-	m.ok = Button{Tex: ld.get("change_submit_button.tga"), OffX: 125, OffY: 65, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: [5]UV{{0, 0, .25, 1}, {.25, 0, .5, 1}, {.5, 0, .75, 1}, {.5, 0, .75, 1}, {.75, 0, 1, 1}}}
-	m.close = nativeClose(ld.get("talk1_close_button.tga"), 174, 4)
+	m := &ExchangeMoney{frame: ld.get("change_money.png")}
+	m.ok = Button{Tex: ld.get("change_submit_button.png"), OffX: 125, OffY: 65, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: [5]UV{{0, 0, .25, 1}, {.25, 0, .5, 1}, {.5, 0, .75, 1}, {.5, 0, .75, 1}, {.75, 0, 1, 1}}}
+	m.close = nativeClose(ld.get("talk1_close_button.png"), 174, 4)
 	return m, ld.err
 }
 func (m *ExchangeMoney) Open(w, h int, current uint32) {

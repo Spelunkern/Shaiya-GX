@@ -23,7 +23,7 @@ import (
 func init() { platform.LockMainThread() }
 
 func main() {
-	dataDir := flag.String("data", os.Getenv("SHAIYA_DATA"), "directory with data.sah and data.saf")
+	dataDir := flag.String("data", os.Getenv("SHAIYA_DATA"), "loose data directory (defaults to data beside the executable)")
 	login := flag.String("login", "127.0.0.1:30800", "login server address")
 	worldPort := flag.Int("world-port", 30810, "world server port")
 	width := flag.Int("w", 1024, "window width")
@@ -39,8 +39,8 @@ func main() {
 	if *dataDir == "" {
 		if exe, err := os.Executable(); err == nil {
 			dir := filepath.Dir(exe)
-			if _, err := os.Stat(filepath.Join(dir, "data.sah")); err == nil {
-				*dataDir = dir
+			if info, err := os.Stat(filepath.Join(dir, "data")); err == nil && info.IsDir() {
+				*dataDir = filepath.Join(dir, "data")
 			}
 		}
 	}
@@ -48,7 +48,7 @@ func main() {
 		log.Fatal("-autoplay-cast-slot must be 0..10")
 	}
 	if *dataDir == "" {
-		log.Fatal("set -data or SHAIYA_DATA to the folder with data.sah/data.saf")
+		log.Fatal("place the data folder beside Shaiya GX, or set -data / SHAIYA_DATA")
 	}
 	if err := run(*dataDir, app.Config{LoginAddr: *login, WorldPort: *worldPort, Version: proto.ClientVersion, Volume: *volume}, *width, *height, *debug, *shot, *shotScreen, *autoplay, *autoSelect, *autoCast); err != nil {
 		log.Fatal(err)
@@ -58,7 +58,7 @@ func main() {
 func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen, autoUser string, autoSelect, autoCast int) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	arc, err := archive.Open(dataDir)
+	arc, err := archive.OpenDirectory(dataDir)
 	if err != nil {
 		return err
 	}

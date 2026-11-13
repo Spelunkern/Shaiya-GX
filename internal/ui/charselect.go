@@ -27,7 +27,7 @@ type CharSelect struct {
 	clock                        float64
 }
 
-// Column UVs of character_select_button.tga (512x256, 4 rows of 64).
+// Column UVs of character_select_button.png (512x256, 4 rows of 64).
 func columnUV(c int) [5]UV {
 	u0, u1 := float32(c)*.25, float32(c+1)*.25
 	return [5]UV{{u0, 0, u1, .25}, {u0, .25, u1, .5}, {u0, .5, u1, .75}, {u0, .5, u1, .75}, {u0, .75, u1, 1}}
@@ -37,13 +37,13 @@ func NewCharSelect(t Textures, msg text.SysMsg) (*CharSelect, error) {
 	c := &CharSelect{msg: msg, Selected: -1}
 	ld := &loader{t: t}
 	load := ld.get
-	c.panel = load("character_select.tga")
+	c.panel = load("character_select.png")
 	c.Navigation = newPreviewNavigation(ld)
-	c.chain = load("character_chain.tga")
+	c.chain = load("character_chain.png")
 	{
-		slot := load("character_select_button2.tga")
-		btn := load("character_select_button.tga")
-		start := load("character_select_start.tga")
+		slot := load("character_select_button2.png")
+		btn := load("character_select_button.png")
+		start := load("character_select_start.png")
 		// Slots: (43, 244 + 36*i), drawn 256x32, clickable 162x25.
 		slotUV := [5]UV{{0, 0, 1, .25}, {0, .25, 1, .5}, {0, .5, 1, .75}, {0, .25, 1, .5}, {0, .75, 1, 1}}
 		for i := range c.Slots {

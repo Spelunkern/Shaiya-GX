@@ -9,18 +9,18 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
 )
 
-// LoadCursors keeps the original CUR artwork, dimensions, alpha/AND mask and
-// hotspot. No converted game assets are stored in the repository or package.
+// LoadCursors reads lossless PNG artwork. All seven supplied cursors use
+// the top-left pixel as their click hotspot, as in the original CUR files.
 func (a *App) LoadCursors(window *platform.Window) *platform.Cursors {
 	c := platform.NewCursors(window)
 	for i := 0; i < 7; i++ {
-		path := fmt.Sprintf("Cursor/%02d.cur", i+1)
+		path := fmt.Sprintf("Cursor/%02d.png", i+1)
 		b, err := a.arc.ReadFile(path)
 		if err == nil {
-			var cursor *img.Cursor
-			cursor, err = img.DecodeCUR(b)
+			var cursor img.Texture
+			cursor, err = img.DecodePNG(b)
 			if err == nil {
-				c.Load(i, cursor.Image.Pix, cursor.Image.W, cursor.Image.H, cursor.HotX, cursor.HotY)
+				c.Load(i, cursor.RGBA.Pix, cursor.RGBA.W, cursor.RGBA.H, 0, 0)
 			}
 		}
 		if err != nil {

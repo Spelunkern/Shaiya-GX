@@ -25,7 +25,7 @@ func TestRealArchiveTextures(t *testing.T) {
 		lp := strings.ToLower(p)
 		isTGA, isDDS := strings.HasSuffix(lp, ".tga"), strings.HasSuffix(lp, ".dds")
 		isJPEG := strings.HasSuffix(lp, ".jpg") || strings.HasSuffix(lp, ".jpeg")
-		if !isTGA && !isDDS && !isJPEG {
+		if !isTGA && !isDDS && !isJPEG && !strings.HasSuffix(lp, ".png") {
 			return
 		}
 		b, err := a.Read(f)

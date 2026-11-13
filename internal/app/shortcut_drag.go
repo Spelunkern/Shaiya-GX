@@ -205,7 +205,7 @@ func (a *App) drawShortcutDrag() {
 		return
 	}
 	if d.local > 0 {
-		if tex := a.assets.Texture("interface/icon/icon_sub.tga"); tex != nil {
+		if tex := a.assets.Texture("interface/icon/icon_sub.png"); tex != nil {
 			u, v := float32((d.local-1)%4)/4, float32((d.local-1)/4)/4
 			a.sprites.Draw(tex, float32(a.lastMouseX-16), float32(a.lastMouseY-16), 32, 32, u, v, u+.25, v+.25, white)
 		}

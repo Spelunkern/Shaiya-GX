@@ -20,7 +20,12 @@ func (s *Assets) FindTexture(name string) *render.Texture {
 			l := strings.ToLower(p)
 			if strings.HasSuffix(l, ".dds") {
 				stem := strings.TrimSuffix(path.Base(l), ".dds")
-				if _, dup := s.byStem[stem]; !dup || strings.HasPrefix(l, "entity/texture/") {
+				old, dup := s.byStem[stem]
+				// Loose directories have a different traversal order than SAH.
+				// Preserve the original canonical dungeon lightmaps over copies
+				// nested below world/<map>/dungeon, and keep entity priority.
+				if !dup || strings.HasPrefix(l, "entity/texture/") ||
+					strings.HasPrefix(l, "world/dungeon/") && !strings.HasPrefix(strings.ToLower(old), "entity/texture/") {
 					s.byStem[stem] = p
 				}
 			}

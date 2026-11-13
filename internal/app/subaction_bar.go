@@ -195,7 +195,7 @@ func (a *App) drawLocalActionDrag() {
 		return
 	}
 	d := a.wv.localActionDrag
-	if tex := a.assets.Texture("interface/icon/icon_sub.tga"); tex != nil {
+	if tex := a.assets.Texture("interface/icon/icon_sub.png"); tex != nil {
 		u, v := float32(d.source%4)/4, float32(d.source/4)/4
 		a.sprites.Draw(tex, float32(d.mouseX-16), float32(d.mouseY-16), 32, 32, u, v, u+.25, v+.25, white)
 	}

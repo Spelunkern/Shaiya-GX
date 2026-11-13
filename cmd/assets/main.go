@@ -1,8 +1,8 @@
-// Command assets inspects the original data.sah/data.saf.
+// Command assets inspects loose GX data or imports legacy data.sah/data.saf.
 //
 //	assets -data "$SHAIYA_DATA" stats
 //	assets -data "$SHAIYA_DATA" ls interface
-//	assets -data "$SHAIYA_DATA" cat interface/login.tga > login.tga
+//	assets -data "$SHAIYA_DATA" cat interface/login.png > login.png
 package main
 
 import (
@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	dataDir := flag.String("data", os.Getenv("SHAIYA_DATA"), "directory with data.sah and data.saf")
+	dataDir := flag.String("data", os.Getenv("SHAIYA_DATA"), "loose data directory or legacy archive directory")
 	flag.Parse()
 	if *dataDir == "" || flag.NArg() == 0 {
 		log.Fatal("usage: assets -data DIR stats | ls [DIR] | cat FILE | png FILE OUT.png | find SUBSTR | eft FILE | 3de FILE")
@@ -73,6 +73,12 @@ func main() {
 		b, err := a.ReadFile(flag.Arg(1))
 		if err != nil {
 			log.Fatal(err)
+		}
+		if strings.HasPrefix(string(b), "\x89PNG\r\n\x1a\n") {
+			if err := os.WriteFile(flag.Arg(2), b, 0644); err != nil {
+				log.Fatal(err)
+			}
+			break
 		}
 		t, err := img.Decode(b)
 		if err != nil {

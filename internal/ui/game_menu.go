@@ -70,9 +70,9 @@ func NewGameMenu(t Textures) (*GameMenu, error) {
 	ld := &loader{t: t}
 	m := &GameMenu{Settings: DefaultClientSettings(), dragSlider: -1}
 	for i, name := range []string{"option_main", "option_graphic", "option_sound", "option_user", "option_plus_key", "option_key", "option_help"} {
-		m.frames[i] = ld.get(name + ".tga")
+		m.frames[i] = ld.get(name + ".png")
 	}
-	tex := ld.get("option_main_button.tga")
+	tex := ld.get("option_main_button.png")
 	for i := range m.buttons {
 		b := &m.buttons[i]
 		*b = Button{Tex: tex, OffX: 64, OffY: 77 + 32*i, DrawW: 128, DrawH: 32, HitW: 128, HitH: 22}
@@ -81,12 +81,12 @@ func NewGameMenu(t Textures) (*GameMenu, error) {
 			b.UV[state] = UV{float32(x) / 512, float32(y) / 256, float32(x+128) / 512, float32(y+32) / 256}
 		}
 	}
-	m.close = nativeClose(ld.get("talk1_close_button.tga"), 228, 5)
-	m.back = Button{Tex: ld.get("option_main_button2.tga"), DrawW: 128, DrawH: 32, HitW: 128, HitH: 22, UV: FourRowUV}
-	m.ok = Button{Tex: ld.get("ok_button.tga"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
-	m.cancel = Button{Tex: ld.get("cancel_button.tga"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
-	m.reset = Button{Tex: ld.get("option_reset_button.tga"), DrawW: 128, DrawH: 32, HitW: 81, HitH: 25, UV: FourRowUV}
-	m.slider, m.check = ld.get("option_graphic_slider.tga"), ld.get("chat_check.tga")
+	m.close = nativeClose(ld.get("talk1_close_button.png"), 228, 5)
+	m.back = Button{Tex: ld.get("option_main_button2.png"), DrawW: 128, DrawH: 32, HitW: 128, HitH: 22, UV: FourRowUV}
+	m.ok = Button{Tex: ld.get("ok_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	m.cancel = Button{Tex: ld.get("cancel_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	m.reset = Button{Tex: ld.get("option_reset_button.png"), DrawW: 128, DrawH: 32, HitW: 81, HitH: 25, UV: FourRowUV}
+	m.slider, m.check = ld.get("option_graphic_slider.png"), ld.get("chat_check.png")
 	return m, ld.err
 }
 

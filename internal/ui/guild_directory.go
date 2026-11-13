@@ -19,9 +19,9 @@ type GuildDirectory struct {
 
 func NewGuildDirectory(t Textures) (*GuildDirectory, error) {
 	ld := &loader{t: t}
-	p := &GuildDirectory{frame: ld.get("guild_manager_list.tga"), held: -1}
-	p.close = nativeClose(ld.get("talk1_close_button.tga"), 557, 7)
-	p.join = Button{Tex: ld.get("guild_master_button.tga"), OffX: 128, OffY: 285, DrawW: 128, DrawH: 32, HitW: 90, HitH: 25}
+	p := &GuildDirectory{frame: ld.get("guild_manager_list.png"), held: -1}
+	p.close = nativeClose(ld.get("talk1_close_button.png"), 557, 7)
+	p.join = Button{Tex: ld.get("guild_master_button.png"), OffX: 128, OffY: 285, DrawW: 128, DrawH: 32, HitW: 90, HitH: 25}
 	for state, col := range []int{0, 1, 2, 2, 3} {
 		p.join.UV[state] = UV{float32(col) / 4, .25, float32(col+1) / 4, .5}
 	}

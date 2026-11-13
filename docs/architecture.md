@@ -1,6 +1,6 @@
 # Architecture
 
-Shaiya GX contains the Go client and its integrated GX Server (formerly Rapture), speaking the EP5.4 wire protocol. The implementation is independent; original assets are read from user-supplied archives at runtime.
+Shaiya GX contains the Go client and its integrated GX Server (formerly Rapture), speaking the EP5.4 wire protocol. The implementation is independent; assets are read from the adjacent loose data directory at runtime.
 
 ## Modules
 
@@ -24,7 +24,7 @@ One thread owns application state and OpenGL. Network goroutines deliver decoded
 
 World rendering uses reverse depth. Character previews use conventional depth and restore the surrounding render state. UI capture, portrait composition, world effects and map overlays have separate rendering responsibilities.
 
-Assets load from the configured local archives and are cached. Terrain and repeated objects are batched and culled. UI layout persists normalized window centers while preserving native artwork dimensions.
+Assets load from the configured local data directory and are cached. `internal/data/archive` retains its legacy name and SAH/SAF reader for import tooling, while game startup explicitly uses its loose-directory reader. Lookup remains case-insensitive on both Linux and Windows. Interface resources are lossless PNG; Vorbis is decoded in Go to the audio mixer format. Terrain and repeated objects are batched and culled. UI layout persists normalized window centers while preserving native artwork dimensions.
 
 ## Reference policy
 

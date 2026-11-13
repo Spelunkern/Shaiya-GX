@@ -21,10 +21,10 @@ type Gatekeeper struct {
 
 func NewGatekeeper(t Textures) (*Gatekeeper, error) {
 	ld := &loader{t: t}
-	v := &Gatekeeper{frame: ld.get("gatekeeper.tga")}
-	v.welcomeScroll = newPanelScroll(ld.get("scrollbar.tga"), 228, 82, 167)
-	v.close = nativeClose(ld.get("talk1_close_button.tga"), 483, 3)
-	tex := ld.get("gatekeeper_button.tga")
+	v := &Gatekeeper{frame: ld.get("gatekeeper.png")}
+	v.welcomeScroll = newPanelScroll(ld.get("scrollbar.png"), 228, 82, 167)
+	v.close = nativeClose(ld.get("talk1_close_button.png"), 483, 3)
+	tex := ld.get("gatekeeper_button.png")
 	for i := range v.moves {
 		v.moves[i] = Button{Tex: tex, OffX: 434, OffY: 80 + i*101, DrawW: 64, DrawH: 64, HitW: 58, HitH: 40,
 			UV: [5]UV{{0, 0, .25, 1}, {.25, 0, .5, 1}, {.5, 0, .75, 1}, {.5, 0, .75, 1}, {.75, 0, 1, 1}}}

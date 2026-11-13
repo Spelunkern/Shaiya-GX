@@ -36,21 +36,21 @@ const (
 func NewLogin(t Textures) (*Login, error) {
 	l := &Login{ID: TextField{Max: 18}, Password: TextField{Max: 16, Masked: true}}
 	var err error
-	if l.panel, err = t.Interface("login.tga"); err != nil {
+	if l.panel, err = t.Interface("login.png"); err != nil {
 		return nil, err
 	}
-	if l.logo, err = t.Interface("shaiyalogo01_new.TGA"); err != nil { // feature 15 (login3) is on for this client
+	if l.logo, err = t.Interface("shaiyalogo01_new.png"); err != nil { // feature 15 (login3) is on for this client
 		return nil, err
 	}
-	ok, err := t.Interface("ok_button.tga")
+	ok, err := t.Interface("ok_button.png")
 	if err != nil {
 		return nil, err
 	}
-	cancel, err := t.Interface("cancel_button.tga")
+	cancel, err := t.Interface("cancel_button.png")
 	if err != nil {
 		return nil, err
 	}
-	check, err := t.Interface("chat_check.tga")
+	check, err := t.Interface("chat_check.png")
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (l *Login) Update(in *platform.Input, w, h int, dt float64) LoginAction {
 		return act
 	}
 	if in.Pressed {
-		// Clicking a field moves the focus (field boxes of login.tga).
+		// Clicking a field moves the focus (field boxes of login.png).
 		if in.MouseX >= ox+80 && in.MouseX < ox+206 {
 			switch {
 			case in.MouseY >= oy+52 && in.MouseY < oy+70:

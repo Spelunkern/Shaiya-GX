@@ -59,12 +59,12 @@ type Minimap struct {
 
 func NewMinimap(t Textures) (*Minimap, error) {
 	ld := &loader{t: t}
-	m := &Minimap{frame: ld.get("main_map.tga"), arrow: ld.get("arrow.tga"), party: ld.get("radar_party.tga"),
-		questStart: ld.get("radar_queststart.tga"), questEnd: ld.get("radar_questend.tga"),
-		top: ld.get("map_up.tga"), bottom: ld.get("map_bottom.tga"),
-		left: ld.get("map_left.tga"), right: ld.get("map_right.tga")}
-	m.plate = ld.get("main_servertime.tga")
-	tex := ld.get("main_map_button.tga")
+	m := &Minimap{frame: ld.get("main_map.png"), arrow: ld.get("arrow.png"), party: ld.get("radar_party.png"),
+		questStart: ld.get("radar_queststart.png"), questEnd: ld.get("radar_questend.png"),
+		top: ld.get("map_up.png"), bottom: ld.get("map_bottom.png"),
+		left: ld.get("map_left.png"), right: ld.get("map_right.png")}
+	m.plate = ld.get("main_servertime.png")
+	tex := ld.get("main_map_button.png")
 	for i, angle := range []float64{-45, -27, 40} {
 		pos := [2]int{int(math.Round(68 + 84*math.Cos(angle*math.Pi/180))), int(math.Round(68 + 84*math.Sin(angle*math.Pi/180)))}
 		b := &m.buttons[i]
@@ -73,7 +73,7 @@ func NewMinimap(t Textures) (*Minimap, error) {
 			b.UV[state] = UV{float32(col) / 4, float32(i) / 4, float32(col+1) / 4, float32(i+1) / 4}
 		}
 	}
-	m.close = nativeClose(ld.get("talk1_close_button.tga"), 0, 0)
+	m.close = nativeClose(ld.get("talk1_close_button.png"), 0, 0)
 	return m, ld.err
 }
 

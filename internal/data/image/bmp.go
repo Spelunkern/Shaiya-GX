@@ -1,9 +1,11 @@
 package image
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // DecodeBMP handles BI_RGB 8 (palette), 24 and 32-bit images.
@@ -68,6 +70,8 @@ type Texture struct {
 // has BMP and TGA data under .dds names.
 func Decode(b []byte) (Texture, error) {
 	switch {
+	case len(b) >= 8 && bytes.Equal(b[:8], pngSignature):
+		return DecodePNG(b)
 	case len(b) >= 4 && string(b[:4]) == "DDS ":
 		d, err := DecodeDDS(b)
 		return Texture{DDS: d}, err
@@ -81,4 +85,13 @@ func Decode(b []byte) (Texture, error) {
 		i, err := DecodeTGA(b)
 		return Texture{RGBA: i}, err
 	}
+}
+
+// DecodeResource enforces GX's PNG interface contract while retaining the
+// original GPU texture formats for world, model and effect resources.
+func DecodeResource(file string, b []byte) (Texture, error) {
+	if strings.HasPrefix(strings.ToLower(strings.ReplaceAll(file, `\`, "/")), "interface/") {
+		return DecodePNG(b)
+	}
+	return Decode(b)
 }

@@ -309,7 +309,7 @@ func (a *App) drawNPCQuest(w, h int, e *game.Entity) {
 			}
 		}
 	}
-	a.npcQuestUI.Draw(a.sprites, a.font, w, h, def.Name, questText(def.Welcome), a.assets.Texture("interface/NpcFace/55.tga"), names, v.offset, v.selected != 0, v.ending, title, description, choices)
+	a.npcQuestUI.Draw(a.sprites, a.font, w, h, def.Name, questText(def.Welcome), a.assets.Texture("interface/NpcFace/55.png"), names, v.offset, v.selected != 0, v.ending, title, description, choices)
 	if a.shop.questMode && v.selected == 0 {
 		x, y := ui.NPCQuestOrigin(w, h)
 		label := "Shop"

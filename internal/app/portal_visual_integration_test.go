@@ -51,7 +51,7 @@ func TestOriginalPortalWindowsGL(t *testing.T) {
 		name string
 	}{{32, "portal-free"}, {2, "portal-paid"}, {3, "portal-three-destinations"}} {
 		def := a.npcDefs[sdata.NPCKey{Type: 2, ID: test.id}]
-		if a.assets.Texture(fmt.Sprintf("interface/NpcFace/%d.tga", def.Model)) == nil {
+		if a.assets.Texture(fmt.Sprintf("interface/NpcFace/%d.png", def.Model)) == nil {
 			t.Fatal("missing original portal portrait", def.Model)
 		}
 		gl.Viewport(0, 0, 1024, 734)

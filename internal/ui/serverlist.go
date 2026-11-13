@@ -38,14 +38,14 @@ const (
 func NewServerList(t Textures, msg text.SysMsg, white *render.Texture) (*ServerList, error) {
 	s := &ServerList{msg: msg, white: white, Selected: -1}
 	var err error
-	if s.panel, err = t.Interface("login_server.tga"); err != nil {
+	if s.panel, err = t.Interface("login_server.png"); err != nil {
 		return nil, err
 	}
-	ok, err := t.Interface("ok_button.tga")
+	ok, err := t.Interface("ok_button.png")
 	if err != nil {
 		return nil, err
 	}
-	cancel, err := t.Interface("cancel_button.tga")
+	cancel, err := t.Interface("cancel_button.png")
 	if err != nil {
 		return nil, err
 	}

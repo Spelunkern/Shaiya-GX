@@ -35,11 +35,11 @@ func TestRealSkillActionSounds(t *testing.T) {
 		id             uint16
 		ready, release string
 	}{
-		{30, "ch_buready01.wav", "ch_buattack01.wav"},
-		{35, "ch_buready01.wav", "ef_in_firing01.wav"},
-		{36, "ch_maready01.wav", "ef_in_firing01.wav"},
-		{37, "ch_buready01.wav", "ef_in_firing01.wav"},
-		{57, "ch_maready01.wav", ""},
+		{30, "ch_buready01.ogg", "ch_buattack01.ogg"},
+		{35, "ch_buready01.ogg", "ef_in_firing01.ogg"},
+		{36, "ch_maready01.ogg", "ef_in_firing01.ogg"},
+		{37, "ch_buready01.ogg", "ef_in_firing01.ogg"},
+		{57, "ch_maready01.ogg", ""},
 	} {
 		d, ok := defs[sdata.SkillKey{ID: tc.id, Level: 1}]
 		if !ok || scene.SkillActionSound(scene.SkillCastAction(d.Animation, d.Effect)) != tc.ready ||
@@ -62,7 +62,7 @@ func TestRealSkillActionSounds(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			pcm, err := audio.DecodeWAV(b)
+			pcm, err := audio.DecodeOGG(b)
 			if err != nil || len(pcm) == 0 || len(pcm) > 4<<20 {
 				t.Fatalf("%s: invalid skill PCM (%d bytes): %v", name, len(pcm), err)
 			}
@@ -75,8 +75,8 @@ func TestRealSkillActionSounds(t *testing.T) {
 }
 
 func TestMusicUsesMapZone(t *testing.T) {
-	w := &world.WLD{MusicAssets: []string{"track.wav"}, MusicZones: []world.MusicZone{{Box: world.Box{Min: world.Vec3{0, 0, 0}, Max: world.Vec3{10, 10, 10}}, Asset: 0}}}
-	if mapMusic(w, 5, 5) != "track.wav" || mapMusic(w, 20, 5) != "" {
+	w := &world.WLD{MusicAssets: []string{"track.ogg"}, MusicZones: []world.MusicZone{{Box: world.Box{Min: world.Vec3{0, 0, 0}, Max: world.Vec3{10, 10, 10}}, Asset: 0}}}
+	if mapMusic(w, 5, 5) != "track.ogg" || mapMusic(w, 20, 5) != "" {
 		t.Fatal("zone selection mismatch")
 	}
 	w.MusicZones[0].Asset = 4
@@ -108,7 +108,7 @@ func TestRealWeaponSounds(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				pcm, err := audio.DecodeWAV(raw)
+				pcm, err := audio.DecodeOGG(raw)
 				if err != nil || len(pcm) == 0 || len(pcm) > 4<<20 {
 					t.Fatalf("%s: invalid weapon PCM (%d bytes): %v", name, len(pcm), err)
 				}

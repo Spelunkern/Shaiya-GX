@@ -48,12 +48,12 @@ def interrupt(_signum, _frame):
 
 def main():
     parser = argparse.ArgumentParser(description="Inicia el cliente y GX Server local; limpia al salir.")
-    parser.add_argument("--data", type=Path, default=Path(os.environ.get("SHAIYA_DATA") or Path.home()/"Desktop/Shaiya-Client-Decomp"))
-    parser.add_argument("--client", type=Path, default=ROOT/"build/shaiya", help="ejecutable del cliente")
+    parser.add_argument("--data", type=Path, default=Path(os.environ.get("SHAIYA_DATA") or Path.home()/"Desktop/Go project/data"))
+    parser.add_argument("--client", type=Path, default=ROOT/"build/Shaiya GX", help="ejecutable del cliente")
     parser.add_argument("--server", "--rapture", dest="rapture", type=Path, default=Path(os.environ.get("GX_SERVER_DIR") or os.environ.get("RAPTURE_DIR") or ROOT/"server"))
     parser.add_argument("--client-only", action="store_true", help="usar servidores ya levantados, sin administrarlos")
     parser.add_argument("--check", action="store_true", help="comprobar arranque y cierre sin abrir la ventana")
-    parser.add_argument("--no-build", action="store_true", help="usar build/shaiya existente")
+    parser.add_argument("--no-build", action="store_true", help="usar build/Shaiya GX existente")
     parser.add_argument("client_args", nargs=argparse.REMAINDER, help="opciones del cliente después de --")
     args = parser.parse_args()
     args.data = args.data.expanduser().resolve()
@@ -65,9 +65,8 @@ def main():
     with (ROOT/"work/play.lock").open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            for name in ("data.sah", "data.saf"):
-                if not (args.data/name).is_file():
-                    raise RuntimeError(f"Falta {args.data/name}")
+            if not args.data.is_dir():
+                raise RuntimeError(f"Falta la carpeta de data: {args.data}")
             if not args.no_build:
                 subprocess.run(["nice", str(ROOT/"tools/build.sh")], cwd=ROOT, check=True)
             if not os.access(args.client, os.X_OK):
@@ -77,7 +76,7 @@ def main():
                     raise RuntimeError("GX Server no está escuchando en 30800/30810")
             else:
                 if any(listening(port) for port in PORTS):
-                    raise RuntimeError("Hay servidores escuchando; usar --client-only o build/shaiya")
+                    raise RuntimeError("Hay servidores escuchando; usar --client-only o build/Shaiya GX")
                 for name in ("gx_login", "gx_world"):
                     if not os.access(args.rapture/"build"/name, os.X_OK):
                         raise RuntimeError(f"Falta el binario de GX Server: {name}")

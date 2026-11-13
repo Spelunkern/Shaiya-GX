@@ -44,7 +44,7 @@ type ChatPanel struct {
 
 func NewChatPanel(t Textures) (*ChatPanel, error) {
 	ld := &loader{t: t}
-	c := &ChatPanel{scroll: ld.get("scrollbar.tga"), ChannelNames: chatChannelNames, input: ld.get("chat.tga"), modeHeld: -1, Rows: [2]int{5, 5}}
+	c := &ChatPanel{scroll: ld.get("scrollbar.png"), ChannelNames: chatChannelNames, input: ld.get("chat.png"), modeHeld: -1, Rows: [2]int{5, 5}}
 	c.modeButton = Button{Tex: c.input, DrawW: 64, DrawH: 22, HitW: 64, HitH: 22}
 	for state, row := range []int{0, 32, 64, 64, 96} {
 		c.modeButton.UV[state] = UV{0, float32(row) / 256, 64.0 / 512, float32(row+22) / 256}

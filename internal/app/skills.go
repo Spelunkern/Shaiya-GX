@@ -437,7 +437,7 @@ func (a *App) drawActionBar(w, h int) {
 	for i := range slots {
 		if action, ok := a.localAction(i); ok {
 			u, v := float32(action%4)/4, float32(action/4)/4
-			slots[i] = ui.ActionSlot{Icon: a.assets.Texture("interface/icon/icon_sub.tga"), UV: ui.UV{U0: u, V0: v, U1: u + .25, V1: v + .25}, Label: subActionNames[action]}
+			slots[i] = ui.ActionSlot{Icon: a.assets.Texture("interface/icon/icon_sub.png"), UV: ui.UV{U0: u, V0: v, U1: u + .25, V1: v + .25}, Label: subActionNames[action]}
 		}
 	}
 	for i := range slots {

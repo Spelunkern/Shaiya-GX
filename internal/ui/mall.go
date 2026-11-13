@@ -49,7 +49,7 @@ type Mall struct {
 
 func NewMall(t Textures, blank *render.Texture) (*Mall, error) {
 	ld := &loader{t: t}
-	m := &Mall{frame: ld.get("ins_market.tga"), giftFrame: ld.get("ins_market_store.tga"), scrollbar: ld.get("scrollbar.tga"), blank: blank, Selected: -1, heldProduct: -1, heldGift: -1, heldTab: -1, selectedGift: -1, lastGift: -1}
+	m := &Mall{frame: ld.get("ins_market.png"), giftFrame: ld.get("ins_market_store.png"), scrollbar: ld.get("scrollbar.png"), blank: blank, Selected: -1, heldProduct: -1, heldGift: -1, heldTab: -1, selectedGift: -1, lastGift: -1}
 	for i := range m.arrows {
 		b := &m.arrows[i]
 		*b = Button{Tex: m.scrollbar, OffX: 565, OffY: 164 + i*176, DrawW: 16, DrawH: 32, HitW: 13, HitH: 19}
@@ -57,7 +57,7 @@ func NewMall(t Textures, blank *render.Texture) (*Mall, error) {
 			b.UV[state] = UV{float32(col) / 8, float32(i) / 2, float32(col+1) / 8, float32(i+1) / 2}
 		}
 	}
-	tabs := ld.get("ins_market_menu_button.tga")
+	tabs := ld.get("ins_market_menu_button.png")
 	for i := range m.tabs {
 		b := &m.tabs[i]
 		*b = Button{Tex: tabs, OffX: 16 + i*128, OffY: 130, DrawW: 128, DrawH: 32, HitW: 96, HitH: 26, Toggle: true}
@@ -65,16 +65,16 @@ func NewMall(t Textures, blank *render.Texture) (*Mall, error) {
 			b.UV[state] = UV{float32(i) / 4, float32(row) / 4, float32(i+1) / 4, float32(row+1) / 4}
 		}
 	}
-	tex := ld.get("ins_market_button.tga")
+	tex := ld.get("ins_market_button.png")
 	for i, b := range []*Button{&m.buy, &m.gift} {
 		*b = Button{Tex: tex, OffX: 287 + i*101, OffY: 401, DrawW: 128, DrawH: 32, HitW: 86, HitH: 26}
 		for state, row := range []int{0, 1, 2, 2, 3} {
 			b.UV[state] = UV{float32(i) / 2, float32(row) / 8, float32(i+1) / 2, float32(row+1) / 8}
 		}
 	}
-	m.giftBox = Button{Tex: ld.get("ins_market_store_button.tga"), OffX: 24, OffY: 401, DrawW: 128, DrawH: 32, HitW: 107, HitH: 26, UV: FourRowUV}
-	m.cancel = Button{Tex: ld.get("cancel_button.tga"), OffX: 489, OffY: 401, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
-	closeTex := ld.get("talk1_close_button.tga")
+	m.giftBox = Button{Tex: ld.get("ins_market_store_button.png"), OffX: 24, OffY: 401, DrawW: 128, DrawH: 32, HitW: 107, HitH: 26, UV: FourRowUV}
+	m.cancel = Button{Tex: ld.get("cancel_button.png"), OffX: 489, OffY: 401, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	closeTex := ld.get("talk1_close_button.png")
 	m.close = nativeClose(closeTex, 554, 3)
 	m.giftClose = nativeClose(closeTex, 307, 4)
 	return m, ld.err

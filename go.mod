@@ -7,6 +7,7 @@ require (
 	github.com/ebitengine/oto/v3 v3.5.1
 	github.com/go-gl/gl v0.0.0-20260331235117-4566fea9a276
 	github.com/go-gl/glfw/v3.4/glfw v0.1.0-pre.1.0.20260707082822-2a407d02d01a
+	github.com/jfreymuth/oggvorbis v1.0.5
 	golang.org/x/image v0.24.0
 	modernc.org/sqlite v1.59.0
 )
@@ -32,6 +33,7 @@ require (
 	github.com/hack-pad/safejs v0.1.0 // indirect
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade // indirect
 	github.com/jfreymuth/pulse v0.1.3 // indirect
+	github.com/jfreymuth/vorbis v1.0.2 // indirect
 	github.com/jsummers/gobmp v0.0.0-20230614200233-a9de23ed2e25 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

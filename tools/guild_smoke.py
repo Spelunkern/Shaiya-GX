@@ -37,7 +37,7 @@ cfg = tempfile.TemporaryDirectory(prefix="shaiya-guild-")
 env = dict(os.environ, XDG_CONFIG_HOME=cfg.name, SHAIYA_TEST_DISPOSABLE="1",
            RAPTURE_LOGIN_LISTEN="127.0.0.1:30800", RAPTURE_WORLD_LISTEN="127.0.0.1:30810",
            RAPTURE_PUBLIC_IP="127.0.0.1", RAPTURE_DB_HOST="127.0.0.1", RAPTURE_DB_PORT="14346",
-           SHAIYA_DATA=str(Path.home() / "Desktop/Go project"), GOTOOLCHAIN="local",
+           SHAIYA_DATA=os.environ.get('SHAIYA_DATA', str(Path.home() / "Desktop/Go project/data")), GOTOOLCHAIN="local",
            GOPATH=str(Path.home() / ".local/share/go"))
 env["PATH"] = str(Path.home() / ".local/opt/go-1.27.3/bin") + ":" + env["PATH"]
 

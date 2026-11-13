@@ -92,7 +92,7 @@ func (e *Engine) pcm(file string) ([]byte, error) {
 		e.failed[key] = err
 		return nil, err
 	}
-	pcm, err := DecodeWAV(raw)
+	pcm, err := DecodeOGG(raw)
 	if err != nil {
 		err = fmt.Errorf("%s: %w", file, err)
 		e.failed[key] = err

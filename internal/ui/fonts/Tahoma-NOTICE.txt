@@ -1,0 +1,13 @@
+Wine Tahoma — embedded without modification
+
+Copyright (c) 2004 Larry Snyder. Based on Bitstream Vera Sans,
+Copyright (c) 2003 Bitstream, Inc. Renamed in accordance with its license.
+Please do not contact Bitstream Inc. regarding this font.
+
+This is Wine's metric-compatible Tahoma, not Microsoft's proprietary font.
+Source of the exact embedded file: /usr/share/wine/fonts/tahoma.ttf from
+the local Wine installation; identical to the previous client font.
+
+The font's name table licenses it under GNU LGPL version 2.1 or later.
+See LGPL-2.1-or-later.txt. Its original copyright and license metadata
+remain embedded unchanged in the TTF.

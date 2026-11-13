@@ -74,7 +74,7 @@ func (s *Assets) texture(file string, world bool) *render.Texture {
 	}
 	var tex *render.Texture
 	if b, err := s.Arc.ReadFile(file); err == nil {
-		if t, err := img.Decode(b); err == nil {
+		if t, err := img.DecodeResource(file, b); err == nil {
 			if world {
 				tex = render.UploadWorld(t)
 			} else {

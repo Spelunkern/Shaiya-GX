@@ -18,8 +18,8 @@ type AppearanceEditor struct {
 
 func NewAppearanceEditor(t Textures) (*AppearanceEditor, error) {
 	l := &loader{t: t}
-	e := &AppearanceEditor{frame: l.get("message.tga")}
-	tex := l.get("market_button.tga")
+	e := &AppearanceEditor{frame: l.get("message.png")}
+	tex := l.get("market_button.png")
 	for i := range e.arrows {
 		side := i % 2
 		b := &e.arrows[i]
@@ -28,8 +28,8 @@ func NewAppearanceEditor(t Textures) (*AppearanceEditor, error) {
 			b.UV[state] = UV{float32(side) / 2, float32(row) / 4, float32(side+1) / 2, float32(row+1) / 4}
 		}
 	}
-	e.ok = Button{Tex: l.get("ok_button.tga"), OffX: 48, OffY: 150, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
-	e.cancel = Button{Tex: l.get("cancel_button.tga"), OffX: 143, OffY: 150, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	e.ok = Button{Tex: l.get("ok_button.png"), OffX: 48, OffY: 150, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	e.cancel = Button{Tex: l.get("cancel_button.png"), OffX: 143, OffY: 150, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	return e, l.err
 }
 

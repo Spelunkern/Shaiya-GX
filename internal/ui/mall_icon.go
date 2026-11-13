@@ -14,9 +14,9 @@ func MallIcon(icon uint32) (string, UV, bool) {
 	if index >= 256 {
 		return "", UV{}, false
 	}
-	name := "icon/icon_somo2.dds"
+	name := "icon/icon_somo2_dds.png"
 	if typ == 102 {
-		name = "icon/icon_somo3.dds"
+		name = "icon/icon_somo3_dds.png"
 	}
 	u, v := float32(index%16)/16, float32(index/16)/16
 	return name, UV{u, v, u + 1.0/16, v + 1.0/16}, true

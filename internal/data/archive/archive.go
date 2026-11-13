@@ -1,4 +1,4 @@
-// Package archive reads the original data.sah index and data.saf payloads.
+// Package archive indexes loose GX data directories and imports legacy SAH/SAF.
 //
 // Format (Parsec Shaiya/Data/Sah.cs): "SAH", version:i32, fileCount:i32,
 // 40 padding bytes, then the root directory: name, fileCount:i32, files
@@ -27,10 +27,11 @@ const (
 )
 
 type File struct {
-	Name    string
-	Offset  int64
-	Length  uint32
-	Version int32
+	Name     string
+	Offset   int64
+	Length   uint32
+	Version  int32
+	diskPath string
 }
 
 type Dir struct {
@@ -48,8 +49,9 @@ type Archive struct {
 	FileCount int32
 	Root      *Dir
 
-	mu  sync.Mutex
-	saf *os.File
+	mu        sync.Mutex
+	saf       *os.File
+	directory string
 }
 
 // Hash is the client's name hash (0x40af40).
@@ -65,8 +67,11 @@ func Hash(name string) uint32 {
 	return h
 }
 
-// Open reads dir/data.sah and opens dir/data.saf.
+// Open detects legacy dir/data.sah + data.saf, otherwise indexes loose files.
 func Open(dir string) (*Archive, error) {
+	if _, err := os.Stat(dir + "/data.sah"); errors.Is(err, os.ErrNotExist) {
+		return OpenDirectory(dir)
+	}
 	return OpenFiles(dir+"/data.sah", dir+"/data.saf")
 }
 
@@ -94,9 +99,14 @@ func OpenFiles(sahPath, safPath string) (*Archive, error) {
 	return a, nil
 }
 
-func (a *Archive) Close() error { return a.saf.Close() }
+func (a *Archive) Close() error {
+	if a.saf == nil {
+		return nil
+	}
+	return a.saf.Close()
+}
 
-// Lookup resolves a path like "interface/login.tga" (either slash).
+// Lookup resolves a path like "interface/login.png" (either slash).
 func (a *Archive) Lookup(path string) (*File, bool) {
 	parts := strings.FieldsFunc(path, func(r rune) bool { return r == '/' || r == '\\' })
 	if len(parts) == 0 {
@@ -104,11 +114,18 @@ func (a *Archive) Lookup(path string) (*File, bool) {
 	}
 	d := a.Root
 	for _, p := range parts[:len(parts)-1] {
+		if a.directory != "" {
+			p = PortableName(p)
+		}
 		if d = d.dirByHash[Hash(p)]; d == nil {
 			return nil, false
 		}
 	}
-	f, ok := d.fileByHash[Hash(parts[len(parts)-1])]
+	name := parts[len(parts)-1]
+	if a.directory != "" {
+		name = PortableName(name)
+	}
+	f, ok := d.fileByHash[Hash(name)]
 	return f, ok
 }
 
@@ -116,6 +133,9 @@ func (a *Archive) Lookup(path string) (*File, bool) {
 func (a *Archive) LookupDir(path string) (*Dir, bool) {
 	d := a.Root
 	for _, p := range strings.FieldsFunc(path, func(r rune) bool { return r == '/' || r == '\\' }) {
+		if a.directory != "" {
+			p = PortableName(p)
+		}
 		if d = d.dirByHash[Hash(p)]; d == nil {
 			return nil, false
 		}
@@ -135,6 +155,16 @@ func (a *Archive) ReadFile(path string) ([]byte, error) {
 }
 
 func (a *Archive) Read(f *File) ([]byte, error) {
+	if a.directory != "" {
+		handle, err := os.Open(f.diskPath)
+		if err != nil {
+			return nil, err
+		}
+		defer handle.Close()
+		buf := make([]byte, f.Length)
+		_, err = io.ReadFull(handle, buf)
+		return buf, err
+	}
 	buf := make([]byte, f.Length)
 	a.mu.Lock()
 	defer a.mu.Unlock()

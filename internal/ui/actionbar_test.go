@@ -35,11 +35,11 @@ func TestSkillIconUsesNativeSheetAndOneBasedIndex(t *testing.T) {
 		file string
 		u, v float32
 	}{
-		{1, "icon/icon_skill.tga", 0, 0},
-		{16, "icon/icon_skill.tga", 15.0 / 16, 0},
-		{17, "icon/icon_skill.tga", 0, 1.0 / 16},
-		{1001, "icon/icon_skill2.dds", 0, 0},
-		{2256, "icon/icon_skill3.dds", 15.0 / 16, 15.0 / 16},
+		{1, "icon/icon_skill.png", 0, 0},
+		{16, "icon/icon_skill.png", 15.0 / 16, 0},
+		{17, "icon/icon_skill.png", 0, 1.0 / 16},
+		{1001, "icon/icon_skill2_dds.png", 0, 0},
+		{2256, "icon/icon_skill3_dds.png", 15.0 / 16, 15.0 / 16},
 	} {
 		file, uv, ok := SkillIcon(tc.icon)
 		if !ok || file != tc.file || uv.U0 != tc.u || uv.V0 != tc.v {

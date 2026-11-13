@@ -41,8 +41,8 @@ type Market struct {
 
 func NewMarket(t Textures) (*Market, error) {
 	ld := &loader{t: t}
-	m := &Market{frame: ld.get("market.tga")}
-	tex := ld.get("market_button.tga")
+	m := &Market{frame: ld.get("market.png")}
+	tex := ld.get("market_button.png")
 	for i := range m.arrows {
 		b := &m.arrows[i]
 		*b = Button{Tex: tex, OffX: 95 + i*50, OffY: 308, DrawW: 32, DrawH: 32, HitW: 22, HitH: 22}
@@ -51,7 +51,7 @@ func NewMarket(t Textures) (*Market, error) {
 		}
 	}
 	// Common native close art; placement follows the auxiliary Phoenix reference.
-	m.close = nativeClose(ld.get("talk1_close_button.tga"), 228, 5)
+	m.close = nativeClose(ld.get("talk1_close_button.png"), 228, 5)
 	return m, ld.err
 }
 func (m *Market) controls(w, h, page, count int, busy bool) {

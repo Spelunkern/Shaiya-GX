@@ -12,29 +12,29 @@ func ItemIcon(typ, icon uint8) (string, UV, bool) {
 	name := ""
 	switch typ {
 	case 25, 38, 41, 42, 43, 44, 94:
-		name, columns = "icon_somo.dds", 16
+		name, columns = "icon_somo_dds.png", 16
 	case 78, 79, 80:
-		name, columns = "icon_somo1.dds", 16
+		name, columns = "icon_somo1_dds.png", 16
 	case 100, 101:
-		name, columns = "icon_somo2.dds", 16
+		name, columns = "icon_somo2_dds.png", 16
 	case 102, 103:
-		name, columns = "icon_somo3.dds", 16
+		name, columns = "icon_somo3_dds.png", 16
 	case 27, 28, 29:
-		name, columns = "icon_quest.dds", 8
+		name, columns = "icon_quest_dds.png", 8
 	case 99:
-		name, columns = "icon_quest2.dds", 8
+		name, columns = "icon_quest2_dds.png", 8
 	case 30, 95:
-		name, columns = "icon_rapis.dds", 8
+		name, columns = "icon_rapis_dds.png", 8
 	}
 	family := itemIconFamily(typ)
 	if name == "" {
 		if family < 1 || family > 41 {
 			return "", UV{}, false
 		}
-		name = fmt.Sprintf("%02d.dds", family)
+		name = fmt.Sprintf("%02d_dds.png", family)
 		if columns == 4 && index >= 100 {
 			index -= 100
-			name = fmt.Sprintf("1%02d.dds", family)
+			name = fmt.Sprintf("1%02d_dds.png", family)
 		}
 	} else if columns == 8 && index >= 100 && typ != 30 && typ != 95 {
 		return "", UV{}, false // Alternate quest atlases are absent from EP5 data.

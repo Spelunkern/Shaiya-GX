@@ -40,6 +40,8 @@ __pycache__/
 *.wld
 *.svmap
 *.wav
+*.ogg
+!internal/audio/testdata/tone.ogg
 *.mp3
 *.7z
 *.zip
