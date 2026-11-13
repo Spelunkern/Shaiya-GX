@@ -45,7 +45,8 @@ def snapshot(source, destination):
         manifest = staged.with_suffix(".manifest.json")
         manifest.write_text(json.dumps({"tables": tables, "sha256": hashlib.sha256(staged.read_bytes()).hexdigest()}, indent=2) + "\n")
         for path in (staged, manifest):
-            with path.open("rb") as stream:
+            # Windows FlushFileBuffers requires a writable descriptor.
+            with path.open("rb+") as stream:
                 os.fsync(stream.fileno())
         os.replace(staged, destination)
         os.replace(manifest, destination.with_suffix(".manifest.json"))
