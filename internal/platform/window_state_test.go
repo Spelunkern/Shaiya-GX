@@ -6,7 +6,9 @@ import (
 )
 
 func TestWindowStatePersistence(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	testConfigDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", testConfigDir)
+	t.Setenv("APPDATA", testConfigDir)
 	state, err := loadWindowState()
 	if err != nil || state.Width != 0 {
 		t.Fatal("first launch must use defaults", state, err)

@@ -16,7 +16,9 @@ import (
 )
 
 func TestShortcutDragAgainstRapture(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	testConfigDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", testConfigDir)
+	t.Setenv("APPDATA", testConfigDir)
 	st, world, send, wait := testworld.Enter(t)
 	arc, err := archive.Open(os.Getenv("SHAIYA_DATA"))
 	if err != nil {
