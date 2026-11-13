@@ -71,4 +71,13 @@ jobs:
           cp portable/gx-server-linux-amd64/*.tar.gz release/
           cp portable/gx-server-windows-amd64/*.zip release/
           (cd release && sha256sum *.tar.gz *.zip > SHA256SUMS.txt)
-          gh release create "$GX_TAG" release/* --verify-tag --title "GX Server $GX_TAG" --generate-notes
+          cat > release-notes.txt <<'NOTES'
+          GX Server is now integrated directly into Shaiya GX. Both portable archives include login, world, console and the one-button GX Server app.
+
+          The distributed SQLite database intentionally includes the current development accounts, characters and inventory. SQLite is embedded for development convenience and will be replaced by a different backend in the future.
+
+          Extract the complete folder, run build/gx_server (Linux) or build/gx_server.exe (Windows), and click Start server. Closing the controller leaves services running; use Stop server before updating. The console launcher accepts start server / shutdown server. Server maps/configuration are included; client game archives are not.
+
+          SHA256SUMS.txt verifies downloads. Source guides cover Windows/Linux installation, LAN, accounts, backup and updates. CI validates native builds, server integration, relocated startup and controller isolation on both systems. Client graphics/gameplay validation still requires local game assets and OpenGL 4.5 drivers.
+          NOTES
+          gh release create "$GX_TAG" release/* --verify-tag --title "GX Server $GX_TAG" --notes-file release-notes.txt
