@@ -271,10 +271,12 @@ func (s *Session) applyMobSkill(d pendingDamage, md *db.MobDef, mc *mobCombat, s
 		var frame []byte
 		switch {
 		case drain:
-			if r, ok := HealMob(ch.MapID, d.MobGlobalID, hp); ok {
+			var healed [3]uint16
+			if r, gain, ok := HealMob(ch.MapID, d.MobGlobalID, hp); ok {
+				healed[0] = uint16(min(gain, 65535))
 				sendNear(ch.MapID, r.PosX, r.PosZ, CombatRadius, buildMobCurrentHP(r.ID, r.CurrentHP), "0x0610 mob hp after drain")
 			}
-			frame = buildMobSkillPacket(0x060C, result, d.MobGlobalID, ch.ID, sk, words, &words, d.Slot)
+			frame = buildMobSkillPacket(0x060C, result, d.MobGlobalID, ch.ID, sk, words, &healed, d.Slot)
 		case first:
 			frame = buildMobSkillPacket(0x060D, result, d.MobGlobalID, ch.ID, sk, words, nil, d.Slot)
 		default:

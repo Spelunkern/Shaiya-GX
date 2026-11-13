@@ -61,7 +61,7 @@ func (a *App) CursorIndex(w, h int) int {
 	if a.skills.assign != nil || len(a.wv.approachSkill) > 0 {
 		return 6
 	}
-	if a.pickGroundLabel(in, w, h) != 0 || a.pickGroundModel(in, w, h) != 0 {
+	if a.pickGroundModel(in, w, h) != 0 {
 		return 2
 	}
 	if a.pickNPC(in, w, h) != 0 {

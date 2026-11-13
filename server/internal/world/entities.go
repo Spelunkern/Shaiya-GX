@@ -1413,16 +1413,17 @@ func buildMobCurrentHP(mobID, hp uint32) []byte {
 }
 
 // HealMob restores HP to a living mob (a drain's heal); returns the mob.
-func HealMob(mapID uint16, id, amount uint32) (MapMob, bool) {
+func HealMob(mapID uint16, id, amount uint32) (MapMob, uint32, bool) {
 	s := shard(mapID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i := range s.entities.Mobs {
 		m := &s.entities.Mobs[i]
 		if m.ID == id && m.CurrentHP > 0 {
+			before := m.CurrentHP
 			m.CurrentHP = min(satAdd(m.CurrentHP, amount), m.MaxHP)
-			return *m, true
+			return *m, m.CurrentHP - before, true
 		}
 	}
-	return MapMob{}, false
+	return MapMob{}, 0, false
 }
