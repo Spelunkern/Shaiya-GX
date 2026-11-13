@@ -269,6 +269,7 @@ func TestCameraRightDragKeepsOwnershipAcrossPanels(t *testing.T) {
 	}
 	// A right press that starts over chat still belongs to chat on exit.
 	a.wv.mouselook = false
+	a.chatUI.ShowHistory()
 	a.worldControls(&platform.Input{MouseX: 20, MouseY: 500, RightPressed: true, RightDown: true}, 1024, 768)
 	controls = a.worldControls(&platform.Input{MouseX: 400, MouseY: 300, RightDown: true}, 1024, 768)
 	if controls.RightDown {

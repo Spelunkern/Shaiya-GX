@@ -87,7 +87,8 @@ func (h *HUD) Draw(s *render.Sprites, f *Font, state HUDState) {
 		f.Draw(s, text, left+1, top+1, shadow, width)
 		f.Draw(s, text, left, top, tint, width)
 	}
-	label(state.Name, x+88, y+14, 109, 16, false)
+	// Centered over the bars (x+82, 114 wide), not left-aligned in the plate.
+	label(state.Name, x+82, y+18, 114, 16, true) // +4: middle of the dark name plate
 	label(fmt.Sprint(state.Level), x+62, y+15, 22, 20, true)
 	for i, pool := range []Resource{state.HP, state.MP, state.SP} {
 		label(fmt.Sprintf("%d/%d", pool.Current, pool.Max), x+81, y+36+16*i, 116, 20, true)
@@ -111,7 +112,8 @@ func (h *HUD) Draw(s *render.Sprites, f *Font, state HUDState) {
 			if state.TargetHP.Max == 0 {
 				text = fmt.Sprintf("HP %d", state.TargetHP.Current)
 			}
-			f.Draw(s, text, tx+128-f.Width(text)/2, ty+43, white, 140)
+			// Centered on the 140px bar drawn at tx+41.
+			f.Draw(s, text, tx+111-f.Width(text)/2, ty+43, white, 140)
 		}
 	}
 }

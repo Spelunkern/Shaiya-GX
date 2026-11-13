@@ -137,6 +137,7 @@ func TestChatHistoryRestoresUnsentDraft(t *testing.T) {
 func TestChatHistoryOwnsPointerWithoutBlockingHeldMovement(t *testing.T) {
 	a := inputApp()
 	a.msg = chatTestMessages
+	a.chatUI.ShowHistory()
 	in := platform.Input{MouseX: 40, MouseY: ui.ChatOrigin(734) + 130, Wheel: 120, Down: "W"}
 	controls := a.worldControls(&in, 1024, 734)
 	if controls.Wheel != 0 || controls.Down != "W" {
@@ -169,9 +170,9 @@ func TestPhoenixChatPickerOwnsClicksAboveActionBars(t *testing.T) {
 
 func TestPhoenixChatClickFocusAndChannelAliases(t *testing.T) {
 	a := inputApp()
-	a.updateChatPointer(&platform.Input{MouseX: 100, MouseY: 734 - 75, Pressed: true, MouseDown: true}, 1024, 734)
-	if !a.chatOpen {
-		t.Fatal("persistent message input did not focus on click")
+	// The input row is hidden until Enter opens it, so a click there belongs to the world.
+	if a.updateChatPointer(&platform.Input{MouseX: 100, MouseY: 734 - 75, Pressed: true, MouseDown: true}, 1024, 734) || a.chatOpen {
+		t.Fatal("hidden message input captured a click")
 	}
 	for _, tc := range []struct {
 		value   string
