@@ -4,6 +4,7 @@ Start with [first run](quickstart.md), then [building and testing](building.md).
 
 | Guide | Contents |
 |---|---|
+| [Portable client](client-portable.md) | Complete Drive download for Linux/Windows, runtime requirements and executable updates |
 | [Data formats](data-formats.md) | Loose data layout, PNG and Ogg conversion |
 | [First run](quickstart.md) | Windows/Linux downloads, verification, accounts and local play |
 | [Build and test](building.md) | Toolchains, native/cross builds, CI, integration and packaging |

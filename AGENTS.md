@@ -6,6 +6,12 @@ This is Shaiya GX: client at the root, integrated **GX Server** in `server/`. On
 
 Preserve existing uncommitted work. Do not use subagents or delegate unless the user explicitly requests it. Do not commit, push, publish releases or delete repositories without user authorization. A migration request that explicitly authorizes publication/deletion applies to that migration, not unrelated future changes.
 
+## Contribution direction
+
+Build a functional foundation faithful to original Shaiya, not a collection of individual custom-server preferences. Welcome bugs, behavior-preserving refactors, missing original features, parity corrections, reverse-engineering evidence, measured optimizations and aligned suggestions. Do not add unrelated features, unusual graphical overhauls or personal gameplay rules.
+
+Keep Go and the current OpenGL 4.5 graphics API. Linux is the primary development platform and must remain so; Windows is a supported build/runtime target whose compatibility must be preserved. See `CONTRIBUTING.md` for contributor requirements.
+
 ## Boundaries
 
 Keep game rules and persistence authoritative on the server. Preserve protocol framing, opcodes and binary model/world layouts. Client owns presentation and movement prediction. Repository integration and rebranding do not authorize unrelated rule/schema changes.

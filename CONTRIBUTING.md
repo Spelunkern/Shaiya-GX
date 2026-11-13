@@ -2,17 +2,37 @@
 
 GX includes both the client and **GX Server** (`server/`, formerly Rapture). Contribute to this repository; do not open changes against a standalone Rapture repository. Public documentation, commit messages and review discussions should be in English.
 
+## Project direction
+
+The goal is a functional foundation that faithfully reproduces original Shaiya behavior. Contributions should advance that shared foundation. GX is not tailored to each person's private-server preferences, custom rules or personal feature requests. An original Shaiya feature is welcome; unrelated additions, unusual graphical overhauls and visual redesigns outside the original game's direction are out of scope.
+
+The technical direction is fixed: **Go**, the current **OpenGL 4.5 graphics API**, and **Linux as the primary development platform**. Contributions must not replace the language or graphics API, or make Windows the primary development platform. Windows remains a supported build and runtime target; preserve its compatibility while developing primarily on Linux.
+
+## Ways to contribute
+
+Contributions do not have to be code or complete systems. We welcome:
+
+- Bug reports and fixes, with reproduction steps when possible.
+- Refactors that improve clarity or maintainability while preserving behavior.
+- Complete implementations of missing original features.
+- Corrections to existing features that behave differently from original Shaiya.
+- Reverse engineering, documented findings, format/protocol analysis and reproducible evidence.
+- Optimizations backed by measurements that preserve original behavior and appearance.
+- Suggestions and discussions aligned with this project's direction.
+
+For parity work, explain the original behavior, GX's current behavior and the evidence for the proposed correction. Incomplete findings can still be useful when their limits and open questions are clear. You can contribute through an issue or discussion without submitting a pull request.
+
 ## Set up
 
 1. Read [README](README.md), [build instructions](docs/building.md), [architecture](docs/architecture.md) and the component's status/parity notes.
 2. Install Go 1.27.3, an x64 C compiler and the documented platform dependencies.
-3. Build with `tools/build.sh` on Linux or `tools/build.ps1` on Windows.
+3. Develop primarily on Linux and build with `tools/build.sh`. Use `tools/build.ps1` for the supported Windows target.
 4. Run `go vet ./...`, `go test ./...` and, for server changes, `go test -tags integration ./server/... -count=1`.
-5. Use your own compatible client archives locally. Server maps and the requested test DB are included; client archives are not.
+5. Use compatible loose client `data/` locally; see [data formats](docs/data-formats.md) for importing archives. Server maps and the requested test DB are included; client game data is not.
 
 ## Scope and design
 
-Keep modules small, readable and focused. The server is authoritative for combat, inventory and persistence. Client prediction is presentation/movement only. Preserve packet bytes and original asset interpretation; document deliberate visual adaptations and known differences. Changes to gameplay rules need a stated purpose and tests/evidence, rather than being hidden in a refactor.
+Keep modules small, readable and focused. The server is authoritative for combat, inventory and persistence. Client prediction is presentation/movement only. Preserve packet bytes and original asset interpretation; document deliberate visual adaptations and known differences. Gameplay corrections must be grounded in original behavior and supported by evidence/tests. Personal rule changes and unrelated visual redesigns do not belong in the shared foundation.
 
 SQLite is a temporary embedded development backend for easy setup. A different database backend is planned. Keep storage inside `server/internal/db` and avoid spreading SQL/backend-specific assumptions through gameplay or UI code.
 

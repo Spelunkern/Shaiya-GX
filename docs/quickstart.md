@@ -65,7 +65,11 @@ The tool prompts for a password; avoid putting passwords in shell commands. It i
 
 ## Run the client
 
-Build using [the OS-specific instructions](building.md). Import your compatible EP5.4 archives using [data conversion](data-formats.md). Keep those files outside Git. Do not use the original `Game.exe` to run GX.
+Download the complete [portable client for Linux and Windows](https://drive.google.com/file/d/15BFHAGpLi_JJZbZ4fi8jpDsFQLdHmOyq/view?usp=sharing) from Drive and extract it. Keep both executables, `data/` and `licenses/` together. Run `Shaiya GX` on Linux or `Shaiya GX.exe` on Windows. The game discovers its adjacent data automatically; no build tools or data conversion are needed for this package. Start GX Server separately before signing in.
+
+See [portable client requirements and updates](client-portable.md). GitHub releases provide executable updates without data. Developers can instead [build from source](building.md) and [import their compatible archives](data-formats.md); keep game data outside Git. Do not use the original `Game.exe` to run GX.
+
+The following examples are for a source checkout with data in a separate installation:
 
 Windows PowerShell, from the GX checkout:
 
