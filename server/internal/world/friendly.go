@@ -28,6 +28,8 @@ const (
 
 // pendingFriendly is a heal, cure or buff to apply in a target's session.
 type pendingFriendly struct {
+	Source       uint32
+	Op           packet.Opcode
 	SkillID      uint16
 	Level        uint8
 	HP, MP, SP   uint32
@@ -159,10 +161,7 @@ func (s *Session) friendlySkill(k db.CharacterSkill, def *db.SkillDef, target ui
 		if party {
 			op = packet.SkillPartyMember
 		}
-		frame := buildSkillUseResult(op, skillResultNormal, ch.ID, p.CharacterID, k.SkillID, k.Level,
-			uint16(min(heal.HP, 65535)), uint16(min(heal.SP, 65535)), uint16(min(heal.MP, 65535)))
-		x, z := p.PositionXZ()
-		sendNear(p.MapID(), x, z, BroadcastRadius, frame, "skill on user")
+		heal.Source, heal.Op = ch.ID, op
 		if p == s.player {
 			s.applyFriendly(heal)
 		} else {
@@ -177,6 +176,7 @@ func (s *Session) applyFriendly(f pendingFriendly) {
 	if s.char == nil || s.dead {
 		return
 	}
+	var hp, mp, sp uint32
 	switch {
 	case f.IsBuff:
 		if def := db.MustDefs().Skill(f.SkillID, f.Level); def != nil {
@@ -185,10 +185,14 @@ func (s *Session) applyFriendly(f pendingFriendly) {
 	case f.Cure:
 		s.removeEffects(func(b *ActiveBuff) bool { return b.Effect == typeEffectDebuff }, "cure")
 	default:
-		s.healDelta(f.HP, f.MP, f.SP)
+		hp, mp, sp = s.healDelta(f.HP, f.MP, f.SP)
 		s.persist()
 		st := s.stats()
 		s.send(buildCurrentHitpoints(&st), "0x0521 healed")
+	}
+	if f.Source != 0 {
+		frame := buildSkillUseResult(f.Op, skillResultNormal, f.Source, s.char.ID, f.SkillID, f.Level, uint16(min(hp, 65535)), uint16(min(sp, 65535)), uint16(min(mp, 65535)))
+		sendNear(s.char.MapID, s.char.PosX, s.char.PosZ, BroadcastRadius, frame, "applied skill on user")
 	}
 }
 

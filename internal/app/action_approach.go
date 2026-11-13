@@ -81,6 +81,7 @@ func (a *App) updateActionApproach(in *platform.Input) bool {
 			return true
 		}
 		goal = render.V3{item.X, item.Y, item.Z}
+		reach = 9.5 // Server accepts pickup within 10 units.
 	} else {
 		e := a.state.Entities[v.approachTarget]
 		if e == nil || e.Dead && (len(v.approachSkill) == 0 || e.Kind == game.KindMob) || a.state.Target != v.approachTarget {
@@ -123,6 +124,9 @@ func (a *App) updateActionApproach(in *platform.Input) bool {
 	if len(v.approachSkill) > 0 {
 		packet := v.approachSkill
 		v.approachSkill = nil
+		if !a.skillResourcesAvailable(a.skillDefs[sdata.SkillKey{ID: v.approachLearned.ID, Level: v.approachLearned.Level}]) {
+			return true
+		}
 		if !a.faceRequestedTarget(id) {
 			return false
 		}

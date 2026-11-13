@@ -334,8 +334,11 @@ func (a *App) learnedSkillPacket(k proto.LearnedSkill) []byte {
 	if a.skills.cooldowns[k.ID] > a.clock {
 		return nil
 	}
-	target := a.state.Target
 	def := a.skillDefs[sdata.SkillKey{ID: k.ID, Level: k.Level}]
+	if !a.skillResourcesAvailable(def) {
+		return nil
+	}
+	target := a.state.Target
 	if def.Target == 2 || def.Target == 4 || def.Target == 5 {
 		target = a.state.SelfID
 	}
@@ -445,4 +448,20 @@ func (a *App) drawActionBar(w, h int) {
 	}
 	a.actionBar.Draw(a.sprites, a.font, a.white, w, h, slots, false)
 	a.queueActionTooltip(w, h)
+}
+
+// Resource failures never start predicted animation, sound or an approach.
+func (a *App) skillResourcesAvailable(d sdata.Skill) bool {
+	for _, cost := range []struct {
+		needed    uint16
+		available uint32
+		label     int
+	}{{d.MP, a.state.Pools.MP, 418}, {d.SP, a.state.Pools.SP, 417}} {
+		// Original cost 1 consumes the current pool, rather than one point.
+		if cost.needed != 1 && uint32(cost.needed) > cost.available {
+			a.systemMessage(1, 214, map[string]string{"hp": a.msg.Get(cost.label)})
+			return false
+		}
+	}
+	return true
 }

@@ -2,6 +2,13 @@
 
 This log records delivered changes and data-package updates. Client data is hosted separately on Drive; changing it does not automatically produce a new executable release.
 
+## Unreleased gameplay fixes
+
+- Reject skills locally when the known MP/SP budget is insufficient, with SysMsg 214 and the MP/SP label; recheck queued skills on reaching their target before sending or predicting animation.
+- Remove floating labels from dropped items and route model clicks through pickup approach using the server's ten-unit range with a safety margin.
+- Select the local player through the portrait or F2, with their name and current HP in the target frame.
+- Announce friendly healing only after the recipient applies it; combat numbers reflect effective HP restored, and zero gain produces no number.
+
 ## Unreleased documentation
 
 - Visible screenshots at the top of the README and a full gallery.

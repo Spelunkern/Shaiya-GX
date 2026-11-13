@@ -58,15 +58,14 @@ func (a *App) updateCombat(in *platform.Input, w, h int) {
 		}
 		return
 	}
-	id := a.pickGroundLabel(in, w, h)
-	if id == 0 {
-		id = a.pickGroundModel(in, w, h)
+	if in.HasKey(platform.KeySelfTarget) {
+		a.selectSelf()
+		return
 	}
+	id := a.pickGroundModel(in, w, h)
 	if id != 0 {
 		a.wv.mobClick = mobClick{}
-		if err := a.world.Send(proto.PickupPacket(id)); err != nil {
-			a.backToLogin("Unable to request item pickup.")
-		}
+		a.approachLoot(id)
 		return
 	}
 	if id := a.pickNPC(in, w, h); id != 0 {
@@ -78,7 +77,7 @@ func (a *App) updateCombat(in *platform.Input, w, h int) {
 		target := a.pickMob(in, w, h)
 		if in.HasKey(platform.KeyPreviousTarget) {
 			target = a.state.PreviousTarget
-			if e := a.state.Entities[target]; e == nil || e.Dead {
+			if e := a.state.Entities[target]; target != a.state.SelfID && (e == nil || e.Dead) {
 				return
 			}
 		}
@@ -241,7 +240,9 @@ func (a *App) drawCombat(w, h int) {
 			break
 		}
 	}
-	if e := s.Entities[s.Target]; e != nil && e.Kind == game.KindMob {
+	if s.Target == s.SelfID && s.SelfID != 0 {
+		view.TargetName, view.TargetHP, view.TargetKnown = view.Name, view.HP, true
+	} else if e := s.Entities[s.Target]; e != nil && e.Kind == game.KindMob {
 		view.TargetName = fmt.Sprintf("Target %d", e.TypeID)
 		if def, err := a.assets.MonsterDefinition(e.TypeID); err == nil {
 			view.TargetName, view.TargetHP.Max = def.Name, def.HP
@@ -263,4 +264,22 @@ func (a *App) drawCombat(w, h int) {
 	a.hud.Draw(a.sprites, a.font, view)
 	a.bottom.QuestOpen, a.bottom.GuildOpen = a.questLog.open, a.guild.open
 	a.bottom.Draw(a.sprites, a.font, a.white, w, h, view, a.inventory.open, a.skills.open, a.status.open, a.subActionsOpen)
+}
+
+func (a *App) selectSelf() {
+	if a.state.Target != a.state.SelfID {
+		if old := a.state.Entities[a.state.Target]; old != nil && old.Kind == game.KindMob && a.world != nil {
+			if err := a.world.Send(proto.StopAttackPacket()); err != nil {
+				a.backToLogin("Unable to stop attack.")
+				return
+			}
+		}
+		a.state.PreviousTarget = a.state.Target
+	}
+	a.state.Target = a.state.SelfID
+	if a.wv != nil {
+		a.wv.approachTarget = 0
+		a.wv.approachSkill = nil
+		a.wv.mobClick = mobClick{}
+	}
 }

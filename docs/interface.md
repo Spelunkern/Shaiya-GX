@@ -166,3 +166,12 @@ Buddy result codes are0 rejection/1 acceptance/2 different area (SysMsg399–401
 block uses402/403 and search registration404/405. Candidate filtering and rare
 original service states still need full comparison. Presence refreshes every
 three seconds; membership changes follow ACKs.
+
+
+## Resource checks, self-targeting and loot
+
+Skill requests check the known MP/SP budget before sending or starting predicted animation. Failures use SysMsg 214 with the original MP/SP labels. Queued approach skills recheck on arrival; the server remains authoritative. The original cost value 1 retains its consume-current-pool meaning.
+
+F2 or a left click on the local portrait selects the player as a normal friendly target; the target frame displays their name and current HP. Dropped items have no floating text. Click their models or use H to approach and pick up, stopping within the server's accepted ten-unit range with a safety margin. Pickup and removal still require server confirmation.
+
+Friendly skill results are sent after the recipient applies the heal. Green numbers show effective HP gained rather than the requested amount; zero gain displays no number. Apply the updated GX Server build as well as the client to use the corrected healing announcements.

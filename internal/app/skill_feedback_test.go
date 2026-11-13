@@ -57,3 +57,19 @@ func TestPeriodicSkillFeedbackUsesRelevantTargetsAndSkillType(t *testing.T) {
 		t.Fatal("unrelated or unknown pulse guessed", a.combatNumbers)
 	}
 }
+
+func TestConfirmedZeroHealingProducesNoNumber(t *testing.T) {
+	a := inputApp()
+	a.state.SelfID = 1
+	a.skillDefs = map[sdata.SkillKey]sdata.Skill{{ID: 4, Level: 1}: {Effect: 2}}
+	a.state.LastSkill = proto.SkillResult{Source: 1, Target: 1, ID: 4, Level: 1, HP: 0}
+	a.confirmedSkillFeedback(proto.SkillUseNoTarget)
+	if len(a.combatNumbers) != 0 {
+		t.Fatal("zero healing produced a number")
+	}
+	a.state.LastSkill.HP = 7
+	a.confirmedSkillFeedback(proto.SkillUseNoTarget)
+	if len(a.combatNumbers) != 1 || a.combatNumbers[0].Amount != 7 {
+		t.Fatal("actual healing delta not displayed", a.combatNumbers)
+	}
+}

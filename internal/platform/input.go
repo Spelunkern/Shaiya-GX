@@ -23,6 +23,7 @@ const (
 	KeyHome
 	KeyPageUp
 	KeyPageDown
+	KeySelfTarget // F2 selects the local player.
 	KeyF9
 	KeyF10
 	KeySpace
@@ -68,6 +69,7 @@ func (in *Input) HasKey(k Key) bool {
 
 var keyMap = map[glfw.Key]Key{
 	glfw.KeyGraveAccent: KeyTarget,
+	glfw.KeyF2:          KeySelfTarget,
 	glfw.KeyEnter:       KeyEnter, glfw.KeyKPEnter: KeyEnter, glfw.KeyTab: KeyTab,
 	glfw.KeyBackspace: KeyBackspace, glfw.KeyEscape: KeyEscape, glfw.KeyUp: KeyUp,
 	glfw.KeyHome: KeyHome, glfw.KeyPageUp: KeyPageUp, glfw.KeyPageDown: KeyPageDown,

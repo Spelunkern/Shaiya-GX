@@ -355,9 +355,6 @@ func (a *App) drawPlayerNames(w, h int) {
 			a.font.DrawOutlined(a.sprites, name, x-a.font.Width(name)/2, y-a.font.Height-offset, tint)
 		}
 	}
-	for _, it := range a.state.GroundItems {
-		label(a.groundItemName(it), groundItemLabelPosition(v.world, it), white, 0)
-	}
 	if slot, ok := a.selfSlot(); ok && v.self != nil && settings.OwnName {
 		if pos, ok := v.self.NameAnchor(); ok {
 			label(slot.Name, pos, white, 0)

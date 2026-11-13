@@ -78,6 +78,7 @@ GX Server retains Rapture's gameplay and protocol behavior. Its process names ar
 | Right mouse / both buttons | Steer / move forward |
 | Wheel / F9 / F10 | Zoom / reset camera / first person |
 | Space / C / Tab / NumLock | Jump / sit / walk or run / automatic movement |
+| F2 | Select yourself |
 | F / X / H | Attack target / stop attack / approach nearby loot |
 | I / T / K / B | Inventory / Status / skills / actions |
 | U / G / M / O | Quests / guild / map / options |

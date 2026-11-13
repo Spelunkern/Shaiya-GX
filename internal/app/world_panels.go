@@ -59,5 +59,8 @@ func (a *App) updateBottom(in *platform.Input, w, h int) bool {
 
 func (a *App) updateHUDPointer(in *platform.Input, _, _ int) bool {
 	// Native status window 0x509f10; target window 0x50a2e0.
+	if in.Clicked && in.MouseX >= 25 && in.MouseX < 80 && in.MouseY >= 34 && in.MouseY < 87 {
+		a.selectSelf()
+	}
 	return panelPointer(in, 8, 8, 213, 114) || a.state.Target != 0 && panelPointer(in, 256, 0, 256, 64)
 }
