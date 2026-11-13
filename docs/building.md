@@ -50,7 +50,7 @@ python3 tools/check_publication.py --history
 
 The publication check inspects staged source and, with `--history`, reachable history. Stage intended files first. It permits the explicitly distributed `server/data/` fixtures and the authored micro app icon, while rejecting client assets, local runtime copies, credentials and generated binaries.
 
-`.github/workflows/ci.yml` builds and tests on native Linux and Windows runners, including server integration and portable startup from a relocated directory containing spaces. Portable packages are uploaded as workflow artifacts. Tagged GX releases publish the portable archives and checksums. A green run does not establish full visual parity: graphical tests need licensed local assets and a real OpenGL context.
+`.github/workflows/ci.yml` builds and tests on native Linux and Windows runners, including server integration, portable startup from a relocated directory containing spaces, and console Start/Stop isolation from a second running installation. Portable packages are uploaded as workflow artifacts. Tagged GX releases publish the portable archives and checksums. A green run does not establish full visual parity: graphical tests need licensed local assets and a real OpenGL context.
 
 ## Local assets and graphics checks
 
