@@ -214,3 +214,12 @@ const (
 	UserLeave      Opcode = 0x0202 // client handler 0x0059cf70 case 0x0202
 	LoginRequestEx Opcode = 0xA106 // 0x5992f0 with its flag set: 33-byte password
 )
+
+// Monster skill results: native handlers 0x57add0/0x579b80/0x57a2c0.
+const (
+	MobSkillUse   Opcode = 0x060B
+	MobSkillDrain Opcode = 0x060C
+	MobSkillOther Opcode = 0x060D
+)
+
+const MobSpeed Opcode = 0x0609

@@ -154,7 +154,34 @@ func (a *App) appearance(c *proto.CharacterSlot) scene.Appearance {
 	ap.Upper, ap.Lower, ap.Hand, ap.Foot = m(1), m(2), m(3), m(4)
 	ap.WeaponType, ap.WeaponModel = c.EquipType[5], m(5)
 	ap.ShieldType, ap.ShieldModel = c.EquipType[6], m(6)
+	ap.CloakType, ap.CloakModel = c.EquipType[7], m(7)
+	if a.state != nil && c.ID == a.state.SelfID && a.state.InventoryReady {
+		ap.WeaponEnchant = weaponEnchantFromCraft(a.state.Inventory[[2]uint8{0, 5}].Craft)
+		ap.OffhandEnchant = weaponEnchantFromCraft(a.state.Inventory[[2]uint8{0, 6}].Craft)
+	}
+	if upper := a.itemsItem(c.EquipType[1], c.EquipTypeID[1]); upper != nil {
+		fit := uint8(upper.ReqVG) - 1
+		if fit < 8 {
+			ap.CloakFit = fit
+		}
+	}
+	settings := a.clientSettings()
+	ap.ShowHelmet = !settings.HideHelmet
+	if settings.HideCloak {
+		ap.CloakType = 0
+	}
 	return ap
+}
+
+func weaponEnchantFromCraft(craft string) uint8 {
+	if _, ok := parseCraftValues(craft); !ok {
+		return 0
+	}
+	level := (craft[18]-'0')*10 + craft[19] - '0'
+	if level >= 50 {
+		return 0
+	}
+	return level
 }
 
 // selectActor returns the posed actor of the selected slot.

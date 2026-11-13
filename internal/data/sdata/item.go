@@ -21,7 +21,7 @@ type Item struct {
 	Grow                               uint8
 	RequiredStats, Stats               [6]uint16
 	Range, AttackTime, Attribute       uint8
-	ReqOG                              uint8
+	ReqOG, ReqIg                       uint8
 	ReqVG                              uint16
 	Slot                               uint8
 	Quality                            uint16
@@ -106,7 +106,7 @@ func ParseItems(raw []byte) (map[ItemKey]*Item, error) {
 			}
 			it.ReqVG = c.u16()
 			it.ReqOG = c.u8()
-			c.take(1) // ReqIg
+			it.ReqIg = c.u8()
 			it.Range, it.AttackTime, it.Attribute = c.u8(), c.u8(), c.u8()
 			it.Special = c.u8()
 			it.Slot = c.u8()

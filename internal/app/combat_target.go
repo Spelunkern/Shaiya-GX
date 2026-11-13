@@ -77,7 +77,11 @@ func (a *App) pickNPC(in *platform.Input, w, h int) uint32 {
 			continue
 		}
 		dx, dz := e.X-a.wv.pos[0], e.Z-a.wv.pos[2]
-		if dx*dx+dz*dz >= 100 {
+		reach := float32(100)
+		if e.NpcType == 2 {
+			reach = 50 * 50
+		}
+		if dx*dx+dz*dz >= reach {
 			continue
 		}
 		if lo, hi, valid := actor.actor.WorldBounds(); valid && rayOK {
@@ -183,10 +187,16 @@ func rayBox(origin, direction, lo, hi render.V3) (float32, bool) {
 	return near, true
 }
 
-// Tab selects the nearest monster; pointer selection also supports players.
+// Grave accent cycles monsters in increasing distance, wrapping to the nearest; pointer selection also supports players.
 // Pointer selection uses the camera from the last rendered frame.
 func (a *App) pickMob(in *platform.Input, w, h int) uint32 {
 	best, target := float32(math.MaxFloat32), uint32(0)
+	nextDistance, nextTarget := float32(math.MaxFloat32), uint32(0)
+	currentDistance := float32(-1)
+	if current := a.state.Entities[a.state.Target]; current != nil && !current.Dead {
+		dx, dz := current.X-a.wv.pos[0], current.Z-a.wv.pos[2]
+		currentDistance = dx*dx + dz*dz
+	}
 	var vp render.M4
 	var origin, direction render.V3
 	var rayOK bool
@@ -212,6 +222,9 @@ func (a *App) pickMob(in *platform.Input, w, h int) uint32 {
 		}
 		dx, dz := e.X-a.wv.pos[0], e.Z-a.wv.pos[2]
 		d := dx*dx + dz*dz
+		if !in.Clicked && id != a.state.Target && d > currentDistance && (d < nextDistance || d == nextDistance && id < nextTarget) {
+			nextDistance, nextTarget = d, id
+		}
 		if in.Clicked {
 			var actor *scene.Character
 			if e.Kind == game.KindMob {
@@ -253,6 +266,9 @@ func (a *App) pickMob(in *platform.Input, w, h int) uint32 {
 		if bestRay == math.MaxFloat32 && (d < best || d == best && id < target) {
 			best, target = d, id
 		}
+	}
+	if !in.Clicked && nextTarget != 0 {
+		return nextTarget
 	}
 	return target
 }

@@ -4,12 +4,13 @@ import "fmt"
 
 // VANI contains a complete vertex pose for each animation frame.
 type VANI struct {
-	Center      Vec3
-	Radius      float32
-	Bounds      Box
-	FrameCount  int
-	Meshes      []VANIMesh
-	FinalBounds Box
+	Center            Vec3
+	Radius            float32
+	Bounds            Box
+	FrameCount        int
+	FrameMilliseconds int32
+	Meshes            []VANIMesh
+	FinalBounds       Box
 }
 
 type VANIMesh struct {
@@ -22,7 +23,7 @@ func ParseVANI(data []byte) (*VANI, error) {
 	r := &reader{b: data}
 	v := &VANI{Center: r.vec3(), Radius: r.f32(), Bounds: r.box()}
 	meshes, frames := r.i32(), r.i32()
-	r.i32() // unknown header field
+	v.FrameMilliseconds = r.i32() // native interval between complete poses
 	if r.err != nil {
 		return nil, r.err
 	}

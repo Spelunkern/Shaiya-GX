@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"log"
+	"math"
 	"sort"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
@@ -18,6 +19,8 @@ type skillsView struct {
 	assignMode, editing bool
 	assign              *proto.QuickSlot
 	cooldowns           map[uint16]float64
+	pressedUntil        [ui.TotalActionSlots]float64
+	heldActions         uint32
 	offset              int
 	category            uint8
 	deadline            float64
@@ -166,9 +169,12 @@ func (a *App) updateSkills(in *platform.Input, w, h int) bool {
 		}
 	} else if action.Learn < 0 && action.Select >= 0 && v.offset+action.Select < len(keys) {
 		if k, ok := a.learnedSkill(keys[v.offset+action.Select].ID); ok && a.skillDefs[sdata.SkillKey{ID: k.ID, Level: k.Level}].Effect != 0 && a.world != nil {
-			if err := a.world.Send(a.learnedSkillPacket(k)); err != nil {
-				a.backToLogin("Unable to use skill.")
-				return true
+			if packet := a.learnedSkillPacket(k); packet != nil && !a.approachSkillPacket(packet) {
+				if err := a.world.Send(packet); err != nil {
+					a.backToLogin("Unable to use skill.")
+					return true
+				}
+				a.requestedSkillPresentation(packet)
 			}
 		}
 	} else if action.Learn >= 0 {
@@ -187,6 +193,7 @@ func (a *App) updateSkills(in *platform.Input, w, h int) bool {
 }
 
 func (a *App) updateActions(in *platform.Input, w, h int) bool {
+	a.skills.heldActions = in.ActionHeld
 	if a.state.Self.Dead {
 		return false
 	}
@@ -241,8 +248,8 @@ func (a *App) drawSkills(w, h int) {
 	x, y := a.skillBook.Origin(w, h)
 	a.clearTooltipUnderPanel(x, y, ui.SkillBookWidth, ui.SkillBookHeight)
 	keys := a.visibleSkills()
-	a.skills.offset = max(0, min(a.skills.offset, max(0, ((len(keys)+1)/2-9)*2)))
-	a.skillBook.Draw(a.sprites, a.font, w, h, int(a.skills.category), a.skills.offset, len(keys), a.state.Details.SkillPoint, a.learnableRows(keys))
+	a.skills.offset = max(0, min(a.skills.offset, max(0, len(keys)-ui.SkillBookRows)))
+	a.skillBook.Draw(a.sprites, a.font, w, h, int(a.skills.category), a.skills.offset, len(keys), a.state.Details.SkillPoint, a.learnableRows(keys), a.msg.Get(480))
 	for row := 0; row < ui.SkillBookRows && a.skills.offset+row < len(keys); row++ {
 		key := keys[a.skills.offset+row]
 		d := a.skillDefs[key]
@@ -258,55 +265,39 @@ func (a *App) drawSkills(w, h int) {
 			if tex := a.assets.Texture("interface/" + file); tex != nil {
 				tint := white
 				if _, known := a.learnedSkill(key.ID); !known {
-					tint = [4]float32{.45, .45, .45, .65}
+					tint = [4]float32{64.0 / 255, 64.0 / 255, 64.0 / 255, 1}
 				}
 				a.sprites.Draw(tex, float32(x+cx), float32(y+cy), 32, 32, uv.U0, uv.V0, uv.U1, uv.V1, tint)
+				if until := a.skills.cooldowns[key.ID]; until > a.clock {
+					ratio := float32(1)
+					if iconDef.ResetTime > 0 {
+						ratio = float32((until - a.clock) / float64(iconDef.ResetTime))
+					}
+					a.sprites.DrawCooldown(a.white, float32(x+cx), float32(y+cy), 32, ratio, [4]float32{0, 0, 0, 160.0 / 255})
+					a.font.Draw(a.sprites, fmt.Sprintf("%.0f", math.Ceil(until-a.clock)), x+cx+2, y+cy+9, white, 32)
+				}
 			}
 		}
 		name := iconDef.Name
 		if q := a.skills.assign; q != nil && a.state.Skills[uint8(q.Number)].ID == key.ID {
 			name = "> " + name
 		}
-		known := false
-		if _, ok := a.learnedSkill(key.ID); ok {
-			known = true
-		}
-		nameY, nameTint := y+cy+1, gray
-		if known {
-			nameY, nameTint = y+cy+8, white
-		}
-		a.font.DrawScaled(a.sprites, name, float32(x+cx+41), float32(nameY), 11.0/13, nameTint, 96)
-		detail := fmt.Sprintf("Lv %d | %d pts", d.RequiredLevel, d.Points)
-		tint := white
-		if a.skills.assignMode {
-			detail = fmt.Sprintf("Skill Lv %d", key.Level)
-		} else if !a.canLearn(key) {
-			tint = gray
-		}
-		if _, learned := a.learnedSkill(key.ID); !learned {
-			a.font.DrawScaled(a.sprites, detail, float32(x+cx+41), float32(y+cy+20), 10.0/13, tint, 104)
+		nameY, nameTint := y+cy+3, white
+		a.font.DrawScaled(a.sprites, name, float32(x+88), float32(nameY), 1, nameTint, 184)
+		learned, hasLearned := a.learnedSkill(key.ID)
+		if !hasLearned || key.Level > learned.Level && d.RequiredLevel > 0 {
+			levelColor, pointColor := white, white
+			if own, ok := a.selfSlot(); ok && own.Level < d.RequiredLevel {
+				levelColor = [4]float32{1, 100.0 / 255, 100.0 / 255, 1}
+			}
+			if a.state.Details.SkillPoint < uint16(d.Points) {
+				pointColor = [4]float32{1, 100.0 / 255, 100.0 / 255, 1}
+			}
+			a.font.Draw(a.sprites, fmt.Sprintf("%s : %s %2d", a.msg.Get(5249), a.msg.Get(5065), d.RequiredLevel), x+88, y+cy+19, levelColor, 100)
+			a.font.Draw(a.sprites, fmt.Sprintf("%s %2d", a.msg.Get(480), d.Points), x+190, y+cy+19, pointColor, 85)
 		}
 	}
 
-	text := "Drag learned skills to an action bar."
-	if a.state.LastLearn.ID != 0 {
-		text = "Skill learned."
-	}
-	switch a.state.LastLearn.Result {
-	case 1:
-		text = "Not enough skill points."
-	case 2:
-		text = "Your level is too low."
-	case 3:
-		text = "This skill is not available for this character."
-	}
-	if a.skills.pending {
-		text = "Waiting for server..."
-	}
-	if a.skills.assignMode {
-		text = "Drag learned skills to an action bar."
-	}
-	a.font.Draw(a.sprites, text, x+32, y+ui.SkillBookHeight+4, white, 301)
 	if row, ok := ui.SkillBookHit(a.lastMouseX-x, a.lastMouseY-y); ok && a.skills.offset+row < len(keys) {
 		key := keys[a.skills.offset+row]
 		if k, ok := a.learnedSkill(key.ID); ok {
@@ -327,7 +318,7 @@ func (a *App) actionPacket(index int) []byte {
 			if a.inventory.pending || a.shop.pending {
 				return nil
 			}
-			if _, ok := a.state.Inventory[[2]uint8{q.Bag, uint8(q.Number)}]; !ok {
+			if it, ok := a.state.Inventory[[2]uint8{q.Bag, uint8(q.Number)}]; !ok || a.itemCooldown(it) > 0 {
 				return nil
 			}
 			return proto.UseItemPacket(q.Bag, uint8(q.Number))
@@ -340,10 +331,18 @@ func (a *App) actionPacket(index int) []byte {
 }
 
 func (a *App) learnedSkillPacket(k proto.LearnedSkill) []byte {
+	if a.skills.cooldowns[k.ID] > a.clock {
+		return nil
+	}
 	target := a.state.Target
 	def := a.skillDefs[sdata.SkillKey{ID: k.ID, Level: k.Level}]
-	if def.Target == 2 {
+	if def.Target == 2 || def.Target == 4 || def.Target == 5 {
 		target = a.state.SelfID
+	}
+	if def.Target == 6 {
+		// A caster-centred area is valid with no selected victim; keep the mob
+		// opcode so its recipients are resolved by the server's area route.
+		return proto.UseSkillPacket(k.Number, 0, false)
 	}
 	userTarget := target == a.state.SelfID || a.state.Party.Member(target) != nil
 	if e := a.state.Entities[target]; e != nil && e.Kind == game.KindUser {
@@ -372,6 +371,9 @@ func (a *App) useAction(index int) {
 	if a.world == nil {
 		return
 	}
+	if index >= 0 && index < ui.TotalActionSlots {
+		a.skills.pressedUntil[index] = a.clock + .15
+	}
 	if action, ok := a.localAction(index); ok {
 		a.activateSubAction(action)
 		return
@@ -384,8 +386,17 @@ func (a *App) useAction(index int) {
 		}
 	}
 	if p := a.actionPacket(index); p != nil {
+		if a.approachSkillPacket(p) {
+			return
+		}
 		if err := a.world.Send(p); err != nil {
 			a.backToLogin("Unable to use action.")
+		} else {
+			a.requestedSkillPresentation(p)
+			if proto.Op(p) == proto.UseItem {
+				a.inventory.pending = true
+				a.inventory.deadline = a.clock + 10
+			}
 		}
 	}
 }
@@ -399,6 +410,8 @@ func (a *App) drawActionBar(w, h int) {
 		d := a.skillDefs[sdata.SkillKey{ID: k.ID, Level: k.Level}]
 		slot := &slots[i]
 		slot.Cooldown = max(0, a.skills.cooldowns[k.ID]-a.clock)
+		slot.CooldownDuration = float64(d.ResetTime)
+		slot.ReadyFlash = cooldownFlash(a.skills.cooldowns[k.ID], a.clock)
 		slot.Label, slot.Level = fmt.Sprintf("%s Lv%d | MP %d SP %d", d.Name, k.Level, d.MP, d.SP), k.Level
 		if file, uv, ok := ui.SkillIcon(d.Icon); ok {
 			slot.Icon, slot.UV = a.assets.Texture("interface/"+file), uv
@@ -413,6 +426,9 @@ func (a *App) drawActionBar(w, h int) {
 		slot.Label, slot.Count = "Empty", it.Count
 		if d := a.itemsItem(it.Type, it.TypeID); d != nil {
 			slot.Label = fmt.Sprintf("%s x%d", d.Name, it.Count)
+			slot.Cooldown = a.itemCooldown(it)
+			slot.CooldownDuration = itemReuseSeconds(d.ReqIg)
+			slot.ReadyFlash = cooldownFlash(a.inventory.cooldowns[d.ReqIg], a.clock)
 			if file, uv, ok := ui.ItemIcon(it.Type, d.Icon); ok {
 				slot.Icon, slot.UV = a.assets.Texture("interface/"+file), uv
 			}
@@ -423,6 +439,9 @@ func (a *App) drawActionBar(w, h int) {
 			u, v := float32(action%4)/4, float32(action/4)/4
 			slots[i] = ui.ActionSlot{Icon: a.assets.Texture("interface/icon/icon_sub.tga"), UV: ui.UV{U0: u, V0: v, U1: u + .25, V1: v + .25}, Label: subActionNames[action]}
 		}
+	}
+	for i := range slots {
+		slots[i].Pressed = a.skills.pressedUntil[i] > a.clock || a.skills.heldActions&(1<<i) != 0
 	}
 	a.actionBar.Draw(a.sprites, a.font, a.white, w, h, slots, false)
 	a.queueActionTooltip(w, h)

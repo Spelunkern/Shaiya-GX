@@ -11,21 +11,26 @@ type ChatEntry struct {
 	Text   string
 	System bool
 	Color  [4]float32
+	Style  uint8
+	Markup bool
 }
 
 type chatPane struct {
 	lines    []string
-	colors   [][4]float32
+	runs     [][]chatRun
 	offset   int
 	arrows   [2]Button
 	dragging bool
 }
 
-// ChatPanel uses 0x470120/0x4707d0, TipBox (0x50ff10) and the original
-// scroll/input atlases. Seven rows per pane match the observed EP5 layout.
+// ChatPanel follows Phoenix chat_hud.gd and ep4_chat.gd: flat persistent
+// histories, 16px rows, a 64px selector and a 286px nine-patch input.
 type ChatPanel struct {
-	Resized                          bool
+	FocusRequested                   bool
+	Resized, ChannelChanged          bool
 	scroll, input                    *render.Texture
+	ChannelNames                     [7]string
+	Recipient                        string
 	entries                          []ChatEntry
 	panes                            [2]chatPane
 	modeButton                       Button
@@ -39,7 +44,7 @@ type ChatPanel struct {
 
 func NewChatPanel(t Textures) (*ChatPanel, error) {
 	ld := &loader{t: t}
-	c := &ChatPanel{scroll: ld.get("scrollbar.tga"), input: ld.get("chat.tga"), modeHeld: -1, Rows: [2]int{5, 5}}
+	c := &ChatPanel{scroll: ld.get("scrollbar.tga"), ChannelNames: chatChannelNames, input: ld.get("chat.tga"), modeHeld: -1, Rows: [2]int{5, 5}}
 	c.modeButton = Button{Tex: c.input, DrawW: 64, DrawH: 22, HitW: 64, HitH: 22}
 	for state, row := range []int{0, 32, 64, 64, 96} {
 		c.modeButton.UV[state] = UV{0, float32(row) / 256, 64.0 / 512, float32(row+22) / 256}
@@ -51,46 +56,52 @@ func ChatOrigin(h int) int { return max(0, h-344) }
 
 func (c *ChatPanel) paneGeometry(h, index int) (y, height, capacity int) {
 	rows := c.Rows[index]
-	if rows < 1 {
-		rows = 5
-	}
+	rows = max(0, min(20, rows))
 	lowerRows := c.Rows[1]
-	if lowerRows < 1 {
-		lowerRows = 5
-	}
+	lowerRows = max(0, min(20, lowerRows))
 	height = (rows + 2 + 2*index) * 16
 	y = h - 84 - (lowerRows+4)*16
 	if index == 0 {
 		y -= 4 + height
 	}
-	return max(0, y), height, (height - 8) / 16
+	return max(0, y), height, max(1, (height-8)/16)
 }
 
 func (c *ChatPanel) SetEntries(f *Font, entries []ChatEntry) {
 	if slices.Equal(c.entries, entries) {
 		return
 	}
+	overlap := min(len(c.entries), len(entries))
+	for overlap > 0 && !slices.Equal(c.entries[len(c.entries)-overlap:], entries[:overlap]) {
+		overlap--
+	}
+	added := [2]int{}
 	c.entries = append(c.entries[:0], entries...)
-	previous := [2]int{len(c.panes[0].lines), len(c.panes[1].lines)}
 	for i := range c.panes {
 		c.panes[i].lines = c.panes[i].lines[:0]
-		c.panes[i].colors = c.panes[i].colors[:0]
+		clear(c.panes[i].runs)
+		c.panes[i].runs = c.panes[i].runs[:0]
 	}
-	for _, entry := range entries {
+	for entryIndex, entry := range entries {
+		index := 1
+		if entry.System {
+			index = 0
+		}
 		pane := &c.panes[1]
 		if entry.System {
 			pane = &c.panes[0]
 		}
-		rows := wrapLines(f, entry.Text, 316)
-		pane.lines = append(pane.lines, rows...)
-		for range rows {
-			pane.colors = append(pane.colors, entry.Color)
+		runs, rows := wrapChatMarkup(f, entry.Text, entry.Color, entry.Markup)
+		if entryIndex >= overlap {
+			added[index] += len(rows)
 		}
+		pane.runs = append(pane.runs, runs...)
+		pane.lines = append(pane.lines, rows...)
 	}
 	for i := range c.panes {
 		p := &c.panes[i]
 		if p.offset > 0 {
-			p.offset += max(0, len(p.lines)-previous[i])
+			p.offset += added[i]
 		}
 		p.offset = min(p.offset, max(0, len(p.lines)-c.capacity(i)))
 	}
@@ -113,10 +124,30 @@ func (c *ChatPanel) controls(h int) {
 	}
 }
 
+// Contains keeps world picking behind the visible chat panels from handling
+// the same pointer gesture. Geometry follows the current resized histories.
+func (c *ChatPanel) Contains(mx, my, h int) bool {
+	if mx < 0 || mx >= 350 {
+		return false
+	}
+	if my >= h-82 && my < h-60 {
+		return true
+	}
+	for i := range c.panes {
+		y, height, _ := c.paneGeometry(h, i)
+		if my >= y && my < y+height {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ChatPanel) Update(in *platform.Input, h int) bool {
 	c.Resized = false
+	c.ChannelChanged = false
+	c.FocusRequested = false
 	if c.resizing {
-		c.Rows[c.resizePane] = min(20, max(1, c.resizeStart+(c.resizeY-in.MouseY)/16))
+		c.Rows[c.resizePane] = min(20, max(0, c.resizeStart+(c.resizeY-in.MouseY)/16))
 		if in.Clicked || !in.MouseDown {
 			c.resizing = false
 			c.Resized = true
@@ -126,10 +157,7 @@ func (c *ChatPanel) Update(in *platform.Input, h int) bool {
 	if in.Pressed && in.MouseX >= 25 && in.MouseX < 350 {
 		for pane := range c.panes {
 			y, _, _ := c.paneGeometry(h, pane)
-			if in.MouseY >= y-4 && in.MouseY < y+2 {
-				if c.Rows[pane] < 1 {
-					c.Rows[pane] = 5
-				}
+			if in.MouseY >= y-4 && in.MouseY < y+5 {
 				c.resizing = true
 				c.resizePane, c.resizeY, c.resizeStart = pane, in.MouseY, c.Rows[pane]
 				return true
@@ -138,34 +166,35 @@ func (c *ChatPanel) Update(in *platform.Input, h int) bool {
 	}
 	c.controls(h)
 	inputY := h - 82
-	if c.Typing {
-		c.modeButton.OriginY = inputY
-		if c.modeButton.Update(in) {
-			c.ModeOpen = !c.ModeOpen
-		}
-		if c.ModeOpen {
-			row := -1
-			if in.MouseX >= 0 && in.MouseX < 100 && in.MouseY >= inputY-5*22 && in.MouseY < inputY {
-				row = (in.MouseY - (inputY - 5*22)) / 22
-			}
-			if in.Pressed {
-				c.modeHeld = row
-			}
-			if in.Clicked && row >= 0 && c.modeHeld == row {
-				c.Channel = uint8(row)
-				c.ModeOpen = false
-			}
-			if in.Pressed && row < 0 && !c.modeButton.hit(in) {
-				c.ModeOpen = false
-			}
-			return true
-		}
-		if in.MouseX >= 0 && in.MouseX < 350 && in.MouseY >= inputY && in.MouseY < inputY+22 {
-			return true
-		}
-	} else {
-		c.ModeOpen = false
+	c.modeButton.OriginY = inputY
+	if c.modeButton.Update(in) {
+		c.ModeOpen = !c.ModeOpen
 	}
+	if c.ModeOpen {
+		row := -1
+		if in.MouseX >= 0 && in.MouseX < 120 && in.MouseY >= inputY-7*22 && in.MouseY < inputY {
+			row = (in.MouseY - (inputY - 7*22)) / 22
+		}
+		if in.Pressed {
+			c.modeHeld = row
+		}
+		if in.Clicked && row >= 0 && c.modeHeld == row {
+			c.Channel = chatChannelOrder[row]
+			c.ChannelChanged = true
+			c.FocusRequested = true
+			c.Recipient = ""
+			c.ModeOpen = false
+		}
+		if in.Pressed && row < 0 && !c.modeButton.hit(in) {
+			c.ModeOpen = false
+		}
+		return true
+	}
+	if in.MouseX >= 0 && in.MouseX < 350 && in.MouseY >= inputY && in.MouseY < inputY+22 {
+		c.FocusRequested = in.Pressed && in.MouseX >= 64
+		return true
+	}
+
 	captured := false
 	for i := range c.panes {
 		p := &c.panes[i]
@@ -217,51 +246,66 @@ func (c *ChatPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, h in
 		s.Draw(blank, 0, float32(y), 350, float32(height), 0, 0, 1, 1, [4]float32{.114, .122, .141, .54})
 		end := max(0, len(p.lines)-p.offset)
 		start := max(0, end-capacity)
-		for row, line := range p.lines[start:end] {
-			tint := p.colors[start+row]
-			if tint[3] == 0 {
-				tint = white
+		for row := start; row < end; row++ {
+			yText := y + height - 8 - capacity*16 + 2 + (capacity-(end-start)+row-start)*16
+			for _, run := range p.runs[row] {
+				tint := run.color
+				if tint[3] == 0 {
+					tint = white
+				}
+				f.Draw(s, run.text, 26+run.x, yText+1, [4]float32{0, 0, 0, tint[3]}, 316-run.x)
+				f.Draw(s, run.text, 25+run.x, yText, tint, 316-run.x)
 			}
-			f.Draw(s, line, 25, y+height-8-capacity*16+2+(capacity-(end-start)+row)*16, tint, 316)
 		}
+		// Phoenix's bordered scrollbar rail is always visible, alpha 0.82.
+		s.Draw(blank, 4, float32(y+4), 16, float32(height-8), 0, 0, 1, 1, [4]float32{.31, .27, .19, .8 * .82})
+		s.Draw(blank, 5, float32(y+5), 14, float32(height-10), 0, 0, 1, 1, [4]float32{.037, .035, .031, .7 * .82})
 		for arrow := range p.arrows {
 			p.arrows[arrow].Draw(s)
 		}
-		s.Draw(blank, 9, float32(y+20), 3, float32(height-40), 0, 0, 1, 1, [4]float32{.3, .3, .3, .6})
-		track := max(1, height-48)
-		thumb := track
-		if limit := len(p.lines) - capacity; limit > 0 {
-			thumb -= track * p.offset / limit
-		}
-		s.Draw(c.scroll, 4, float32(y+20+thumb), 13, 8, .5, 0, .5+13.0/128, 8.0/64, white)
 	}
+	y := h - 82
+	c.modeButton.OriginY = y
+	c.modeButton.Draw(s)
+	label := c.ChannelNames[min(int(c.Channel), 6)]
+	scale := float32(11.0 / 12)
+	if c.Channel == 5 {
+		scale = 10.0 / 12
+	}
+	f.DrawScaled(s, label, 6, float32(y+4), scale, [4]float32{0, 0, 0, 1}, int(44/scale))
+	f.DrawScaled(s, label, 5, float32(y+3), scale, white, int(44/scale))
+	// Phoenix CleanFrame: source 272x22, 4px side patches, 284px target.
+	s.Draw(c.input, 64, float32(y), 4, 22, 0, .5, 4.0/512, 150.0/256, white)
+	s.Draw(c.input, 68, float32(y), 276, 22, 4.0/512, .5, 268.0/512, 150.0/256, white)
+	s.Draw(c.input, 344, float32(y), 4, 22, 268.0/512, .5, 272.0/512, 150.0/256, white)
+	s.Draw(c.input, 348, float32(y), 2, 22, 290.0/512, .5, 292.0/512, 150.0/256, white)
+	shown := []rune(text)
 	if typing {
-		y := h - 82
-		// Phoenix ep4_chat.gd: original 64x22 mode button and 286x22 input.
-		c.modeButton.OriginY = y
-		c.modeButton.Draw(s)
-		f.Draw(s, chatChannelNames[min(int(c.Channel), 4)], 5, y+4, white, 43)
-		s.Draw(c.input, 64, float32(y), 4, 22, 0, .5, 4.0/512, 150.0/256, white)
-		s.Draw(c.input, 68, float32(y), 280, 22, 4.0/512, .5, 268.0/512, 150.0/256, white)
-		s.Draw(c.input, 348, float32(y), 2, 22, 290.0/512, .5, 292.0/512, 150.0/256, white)
-		shown := []rune(text + "_")
-		for len(shown) > 1 && f.Width(string(shown)) > 280 {
-			shown = shown[1:]
-		}
-		f.Draw(s, string(shown), 70, y+4, white, 274)
-		if c.ModeOpen {
-			s.Draw(blank, 0, float32(y-110), 100, 110, 0, 0, 1, 1, [4]float32{29.0 / 255, 31.0 / 255, 36.0 / 255, .97})
-			for i, label := range chatChannelNames {
-				tint := white
-				if i == int(c.Channel) {
-					tint = [4]float32{1, 1, 0, 1}
-				}
-				f.Draw(s, label, 8, y-110+i*22+4, tint, 84)
-			}
-		}
+		shown = append(shown, '_')
 	}
+	for len(shown) > 1 && f.Width(string(shown)) > 274 {
+		shown = shown[1:]
+	}
+	f.Draw(s, string(shown), 70, y+2, white, 274)
 }
 
-var chatChannelNames = [5]string{"Normal", "Trade", "Guild", "Party", "Shout"}
+var chatChannelNames = [7]string{"Normal", "Trade", "Guild", "Party", "Area", "Whisper", "Raid"}
+var chatChannelOrder = [7]uint8{0, 3, 2, 5, 4, 1, 6}
 
 func (c *ChatPanel) capacity(index int) int { _, _, n := c.paneGeometry(768, index); return n }
+
+// DrawOverlay keeps the Phoenix channel picker above movable HUD bars.
+func (c *ChatPanel) DrawOverlay(s *render.Sprites, f *Font, blank *render.Texture, h int) {
+	if !c.ModeOpen {
+		return
+	}
+	top := h - 82 - 7*22
+	s.Draw(blank, 0, float32(top), 120, 154, 0, 0, 1, 1, [4]float32{.114, .122, .141, .97})
+	for i, channel := range chatChannelOrder {
+		tint := white
+		if channel == c.Channel {
+			tint = RGBColor(0xffff00)
+		}
+		f.Draw(s, c.ChannelNames[channel], 8, top+i*22+3, tint, 104)
+	}
+}

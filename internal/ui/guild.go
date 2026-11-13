@@ -8,29 +8,42 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
 )
 
-const GuildWidth, GuildHeight, GuildRows = 337, 512, 19
+const GuildWidth, GuildHeight, GuildRows = 337, 512, 15
 
-// GuildPanel uses the roster half of the original 1024x512 guild sheet.
+// GuildPanel follows 0x4f2960/0x4ef9d0, using the original single roster sheet.
 type GuildPanel struct {
-	Position     WindowPosition
-	frame        *render.Texture
-	waitFrame    *render.Texture
-	headers      [5]*render.Texture
-	waitHeaders  [3]*render.Texture
-	close        Button
-	actions      [3]Button
-	waitActions  [2]Button
-	toggle, back Button
-	notice       Button
-	held         int
+	Page, navHeld           int
+	Position                WindowPosition
+	frame                   *render.Texture
+	waitFrame               *render.Texture
+	headers                 [5]*render.Texture
+	waitHeaders             [3]*render.Texture
+	close                   Button
+	actions                 [3]Button
+	waitActions             [2]Button
+	toggle, back            Button
+	notice                  Button
+	held                    int
+	scroll                  panelScroll
+	headerButtons           [5]Button
+	SortColumn              int
+	Descending, SortChanged bool
+	ClassNames              [6]string
+	nav                     *render.Texture
+	hoverRow                int
 }
 
 func NewGuildPanel(t Textures) (*GuildPanel, error) {
 	ld := &loader{t: t}
-	p := &GuildPanel{frame: ld.get("guild_master.tga"), held: -1}
+	p := &GuildPanel{frame: ld.get("guild.tga"), held: -1, navHeld: -1, hoverRow: -1, SortColumn: 3}
 	p.waitFrame = ld.get("guild_wait.tga")
+	p.nav = ld.get("friend_left_nav.tga")
+	p.scroll = newPanelScroll(ld.get("scrollbar.tga"), 303, 99, 356)
 	for i, name := range []string{"guild_sort_lv.tga", "guild_sort_name.tga", "guild_sort_job.tga", "guild_sort_grade.tga", "guild_sort_on.tga"} {
 		p.headers[i] = ld.get(name)
+		left := [5]int{36, 62, 184, 247, 276}[i]
+		width := [5]int{25, 121, 61, 27, 37}[i]
+		p.headerButtons[i] = Button{Tex: p.headers[i], OffX: left, OffY: 70, DrawW: []int{32, 128, 64, 32, 64}[i], DrawH: 32, HitW: width, HitH: 29, UV: FourRowUV}
 	}
 	for i, name := range []string{"guild_wait_lv.tga", "guild_wait_name.tga", "guild_wait_job.tga"} {
 		p.waitHeaders[i] = ld.get(name)
@@ -39,7 +52,7 @@ func NewGuildPanel(t Textures) (*GuildPanel, error) {
 	buttons := ld.get("guild_button1.tga")
 	for i := range p.actions {
 		b := &p.actions[i]
-		*b = Button{Tex: buttons, OffX: 37 + 69*i, OffY: 453, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25}
+		*b = Button{Tex: buttons, OffX: 37 + 69*i, OffY: 466, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25}
 		for state, col := range []int{0, 1, 2, 2, 3} {
 			b.UV[state] = UV{float32(col) / 4, float32(i) / 4, float32(col+1) / 4, float32(i+1) / 4}
 		}
@@ -47,14 +60,17 @@ func NewGuildPanel(t Textures) (*GuildPanel, error) {
 	waitButtons := ld.get("guild_wait_button.tga")
 	for i := range p.waitActions {
 		b := &p.waitActions[i]
-		*b = Button{Tex: waitButtons, OffX: 41 + 72*i, OffY: 453, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25}
+		*b = Button{Tex: waitButtons, OffX: 41 + 72*i, OffY: 466, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25}
 		for state, col := range []int{0, 1, 2, 2, 3} {
 			b.UV[state] = UV{float32(col) / 4, float32(i) / 2, float32(col+1) / 4, float32(i+1) / 2}
 		}
 	}
 	p.toggle = Button{Tex: ld.get("guild_button2.tga"), OffX: 237, OffY: 47, DrawW: 128, DrawH: 32, HitW: 75, HitH: 21, UV: FourRowUV}
 	p.back = Button{Tex: ld.get("guild_wait_button2.tga"), OffX: 237, OffY: 47, DrawW: 128, DrawH: 32, HitW: 75, HitH: 21, UV: FourRowUV}
-	p.notice = Button{OffX: 220, OffY: 481, DrawW: 90, DrawH: 25, HitW: 90, HitH: 25}
+	p.notice = Button{Tex: buttons, OffX: 249, OffY: 466, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25}
+	for state, col := range []int{0, 1, 2, 2, 3} {
+		p.notice.UV[state] = UV{float32(col) / 4, .75, float32(col+1) / 4, 1}
+	}
 	return p, ld.err
 }
 
@@ -67,15 +83,7 @@ func (p *GuildPanel) UpdateNotice(in *platform.Input, w, h int, enabled bool) bo
 func (p *GuildPanel) DrawNotice(s *render.Sprites, f *Font, blank *render.Texture, w, h int, enabled bool, etin uint32, etinKnown bool) {
 	x, y := p.Origin(w, h)
 	p.notice.OriginX, p.notice.OriginY, p.notice.Disabled = x, y, !enabled
-	if etinKnown {
-		f.Draw(s, fmt.Sprintf("Etin: %d", etin), x+39, y+485, white, 170)
-	}
-	color := [4]float32{.18, .16, .12, .8}
-	if !enabled {
-		color = [4]float32{.09, .09, .09, .5}
-	}
-	s.Draw(blank, float32(x+220), float32(y+481), 90, 25, 0, 0, 1, 1, color)
-	f.Draw(s, "Edit notice", x+230, y+486, white, 80)
+	p.notice.Draw(s)
 }
 
 func (p *GuildPanel) Origin(w, h int) (int, int) {
@@ -84,6 +92,18 @@ func (p *GuildPanel) Origin(w, h int) (int, int) {
 
 func (p *GuildPanel) Update(in *platform.Input, w, h, count, offset int, waiting, canToggle bool, allowed [3]bool) (row, scroll, action int, toggle, close bool) {
 	x, y := p.Origin(w, h)
+	p.SortChanged = false
+	if !waiting {
+		for i := range p.headerButtons {
+			b := &p.headerButtons[i]
+			b.OriginX, b.OriginY = x, y
+			if b.Update(in) {
+				p.Descending = p.SortColumn == i && !p.Descending
+				p.SortColumn = i
+				p.SortChanged = true
+			}
+		}
+	}
 	p.close.OriginX, p.close.OriginY = x, y
 	close = p.close.Update(in)
 	row, scroll, action = -1, max(0, min(offset, max(0, count-GuildRows))), -1
@@ -102,7 +122,7 @@ func (p *GuildPanel) Update(in *platform.Input, w, h, count, offset int, waiting
 		}
 	}
 	hit := -1
-	if in.MouseX >= x+37 && in.MouseX < x+306 && in.MouseY >= y+99 && in.MouseY < y+99+GuildRows*18 {
+	if in.MouseX >= x+37 && in.MouseX < x+303 && in.MouseY >= y+112 && in.MouseY < y+112+GuildRows*23 {
 		if in.Wheel != 0 {
 			delta := 1
 			if in.Wheel < 0 {
@@ -110,8 +130,10 @@ func (p *GuildPanel) Update(in *platform.Input, w, h, count, offset int, waiting
 			}
 			scroll = max(0, min(max(0, count-GuildRows), scroll-delta))
 		}
-		hit = (in.MouseY - y - 99) / 18
+		hit = (in.MouseY - y - 112) / 23
 	}
+	scroll = p.scroll.Update(in, x, y, count, GuildRows, scroll)
+	p.hoverRow = hit
 	if in.Pressed {
 		p.held = hit
 	}
@@ -126,62 +148,66 @@ func (p *GuildPanel) Update(in *platform.Input, w, h, count, offset int, waiting
 
 func (p *GuildPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, w, h int, name string, members []proto.GuildMember, offset int, selected uint32, waiting, canToggle bool, allowed [3]bool) {
 	x, y := p.Origin(w, h)
-	// The left 256px of guild_master is a separate guild-directory panel.
+	frame := p.frame
 	if waiting {
-		s.Draw(p.waitFrame, float32(x), float32(y), 337, 512, 0, 0, 337.0/512, 1, white)
-	} else {
-		s.Draw(p.frame, float32(x+26), float32(y), 311, 489, 256.0/1024, 0, 586.0/1024, 489.0/512, white)
+		frame = p.waitFrame
 	}
-	if !waiting {
-		for i, rect := range [][2]int{{36, 25}, {62, 105}, {168, 32}, {201, 68}, {270, 43}} {
-			if p.headers[i] != nil {
-				t := p.headers[i]
-				s.Draw(t, float32(x+rect[0]), float32(y+70), float32(rect[1]), 29, 0, 0, float32(rect[1])/float32(t.W), 29/float32(t.H), white)
+	s.Draw(frame, float32(x), float32(y), 337, 512, 0, 0, 337.0/512, 1, white)
+	p.DrawNavigation(s, x, y)
+
+	if waiting {
+		for i, rect := range [][2]int{{69, 33}, {101, 138}, {239, 73}} {
+			t := p.waitHeaders[i]
+			if t != nil {
+				s.Draw(t, float32(x+rect[0]), float32(y+70), float32([]int{64, 256, 128}[i]), 32, 0, 0, 1, .25, white)
 			}
 		}
 	} else {
-		for i, rect := range [][2]int{{69, 32}, {101, 138}, {239, 73}} {
-			if t := p.waitHeaders[i]; t != nil {
-				s.Draw(t, float32(x+rect[0]), float32(y+70), float32(rect[1]), 29, 0, 0, float32(rect[1])/float32(t.W), 29/float32(t.H), white)
-			}
+		for i := range p.headerButtons {
+			b := &p.headerButtons[i]
+			b.OriginX, b.OriginY = x, y
+			b.Draw(s)
 		}
 	}
-	nameX := 38
-	if waiting {
-		nameX = 65
+	f.Draw(s, name, x+69, y+52, [4]float32{.6, .827, .106, 1}, 160)
+	classes := [6]string{"Fighter", "Defender", "Ranger", "Archer", "Mage", "Priest"}
+	for i, name := range p.ClassNames {
+		if name != "" {
+			classes[i] = name
+		}
 	}
-	f.Draw(s, name, x+nameX, y+43, white, 160)
-	classes := [...]string{"Ftr", "Def", "Rng", "Arc", "Mag", "Pri"}
 	for i := 0; i < GuildRows && offset+i < len(members); i++ {
 		m := members[offset+i]
-		rowY := y + 101 + i*18
-		if m.ID == selected {
-			s.Draw(blank, float32(x+36), float32(rowY-1), 276, 17, 0, 0, 1, 1, [4]float32{.28, .23, .15, .55})
+		top := y + 112 + i*23
+		tint := [4]float32{130.0 / 255, 128.0 / 255, 120.0 / 255, 1}
+		if i == p.hoverRow {
+			tint = [4]float32{.667, .667, .667, 1}
 		}
-		color := [4]float32{.85, .81, .72, 1}
-		if !m.Online {
-			color = [4]float32{.53, .53, .53, 1}
+		if m.ID == selected {
+			tint = white
 		}
 		class := "?"
 		if int(m.Class) < len(classes) {
 			class = classes[m.Class]
 		}
 		if waiting {
-			f.Draw(s, fmt.Sprint(m.Level), x+72, rowY, white, 27)
-			f.Draw(s, m.Name, x+104, rowY, white, 130)
-			f.Draw(s, class, x+242, rowY, white, 68)
+			f.Draw(s, fmt.Sprint(offset+i+1), x+42, top, tint, 25)
+			f.Draw(s, fmt.Sprint(m.Level), x+79, top, tint, 28)
+			f.Draw(s, m.Name, x+112, top, tint, 125)
+			f.Draw(s, class, x+247, top, tint, 65)
 			continue
 		}
-		f.Draw(s, fmt.Sprint(m.Level), x+38, rowY, color, 24)
-		f.Draw(s, m.Name, x+63, rowY, color, 102)
-		f.Draw(s, class, x+169, rowY, color, 31)
-		f.Draw(s, fmt.Sprint(m.Rank), x+205, rowY, color, 62)
-		status := "Off"
+		f.Draw(s, fmt.Sprint(m.Level), x+40, top, tint, 24)
+		f.Draw(s, m.Name, x+67, top, tint, 114)
+		f.Draw(s, class, x+189, top, tint, 56)
+		f.Draw(s, fmt.Sprint(m.Rank), x+259, top, tint, 16)
+		status, color := "Off", [4]float32{1, 0, 0, 1}
 		if m.Online {
-			status = "On"
+			status, color = "On", [4]float32{1, 1, 0, 1}
 		}
-		f.Draw(s, status, x+272, rowY, color, 40)
+		f.Draw(s, status, x+284, top, color, 28)
 	}
+	p.scroll.Draw(s, x, y, len(members), GuildRows, offset)
 	p.close.OriginX, p.close.OriginY = x, y
 	p.close.Draw(s)
 	buttonSet := p.actions[:]
@@ -195,5 +221,39 @@ func (p *GuildPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, w, 
 		b := &buttonSet[i]
 		b.OriginX, b.OriginY, b.Disabled = x, y, !allowed[i]
 		b.Draw(s)
+	}
+}
+
+func (p *GuildPanel) UpdateNavigation(in *platform.Input, x, y int) bool {
+	hit := -1
+	for i, top := range []int{61, 124, 186, 248} {
+		if in.MouseX >= x && in.MouseX < x+30 && in.MouseY >= y+top && in.MouseY < y+top+55 {
+			hit = i
+		}
+	}
+	if in.Pressed {
+		p.navHeld = hit
+	}
+	if in.Clicked {
+		held := p.navHeld
+		p.navHeld = -1
+		if hit >= 0 && held == hit {
+			p.Page = hit
+			return true
+		}
+	}
+	return false
+}
+func (p *GuildPanel) DrawNavigation(s *render.Sprites, x, y int) {
+	if p.nav == nil {
+		return
+	}
+	for i, top := range []int{61, 124, 186, 248} {
+		left, v := x, float32(0)
+		if i == p.Page {
+			left += 2
+			v = .5
+		}
+		s.Draw(p.nav, float32(left), float32(y+top), 32, 128, float32(i)/4, v, float32(i+1)/4, v+.25, white)
 	}
 }

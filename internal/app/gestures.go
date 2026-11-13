@@ -41,7 +41,7 @@ func (a *App) confirmedGesture(op proto.Opcode) {
 	}
 	message := a.msg.Get(5228 + int(m.Motion-116))
 	if name != "" && message != "" {
-		a.questMessage(strings.ReplaceAll(message, "<p>", name))
+		a.systemMessage(0, 5228+int(m.Motion-116), map[string]string{"p": name})
 	}
 }
 

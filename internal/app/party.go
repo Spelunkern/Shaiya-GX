@@ -151,8 +151,8 @@ func (a *App) drawParty(w, h int) {
 	}
 }
 
-// Slash commands expose native requests while the original character-context
-// menu is pending. They never add/remove members before server confirmation.
+// Slash commands share the same native requests as the player-context menu.
+// They never add/remove members before server confirmation.
 func (a *App) partyCommand(text string) bool {
 	fields := strings.Fields(text)
 	if len(fields) == 0 {

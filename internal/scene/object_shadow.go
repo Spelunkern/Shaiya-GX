@@ -67,7 +67,7 @@ func (w *World) projectObjectShadows(target *render.ShadowMap, s *render.Scene3D
 		if center[0]+radius < x0 || center[0]-radius > x1 || center[2]+radius < z0 || center[2]-radius > z1 || center[1]+radius < height-50 || center[1]-radius > height+8 {
 			return
 		}
-		frame := int(math.Mod(math.Floor(w.elapsed*12), float64(asset.count)))
+		frame := asset.frameAt(w.elapsed)
 		for _, part := range asset.parts {
 			vertices, indices = vertices[:0], indices[:0]
 			for _, face := range part.faces {

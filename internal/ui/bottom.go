@@ -18,6 +18,7 @@ const (
 	BottomSubActions
 	BottomMall
 	BottomOptions
+	BottomQuests
 )
 
 // BottomBar uses the 800/1024 art, button layout and EXP pass from
@@ -28,6 +29,7 @@ type BottomBar struct {
 	hover                int
 	expHover             bool
 	blessHover           bool
+	QuestOpen, GuildOpen bool
 }
 
 func NewBottomBar(t Textures) (*BottomBar, error) {
@@ -72,8 +74,8 @@ func (b *BottomBar) controls(w, h int, inventory, skills, status, subActions boo
 		}
 		button.DrawW, button.DrawH = g.drawW, 32
 		button.Toggle = true
-		button.Checked = i == 1 && status || i == 2 && inventory || i == 3 && skills || i == 4 && subActions
-		button.Disabled = i == 6
+		button.Checked = i == 1 && status || i == 2 && inventory || i == 3 && skills || i == 4 && subActions || i == 5 && b.QuestOpen || i == 6 && b.GuildOpen
+		button.Disabled = false
 		for state, row := range []int{0, 1, 2, 2, 3} {
 			button.UV[state] = UV{float32(i) / 8, float32(row) / 4, float32(i+1) / 8, float32(row+1) / 4}
 		}
@@ -105,6 +107,8 @@ func (b *BottomBar) Update(in *platform.Input, w, h int, inventory, skills, stat
 			} else if i == 4 {
 				action = BottomSubActions
 			} else if i == 5 {
+				action = BottomQuests
+			} else if i == 6 {
 				action = BottomGuild
 			} else if i == 7 {
 				action = BottomOptions
@@ -171,8 +175,11 @@ func (b *BottomBar) Draw(s *render.Sprites, f *Font, blank *render.Texture, w, h
 		label = "Sub Skill (B)"
 		left = b.buttons[4].X()
 	} else if b.hover == 5 {
-		label = "Guild (G)"
+		label = "Quest (U)"
 		left = b.buttons[5].X()
+	} else if b.hover == 6 {
+		label = "Guild (G)"
+		left = b.buttons[6].X()
 	} else if b.hover == 7 {
 		label = "Options (O)"
 		left = b.buttons[7].X()

@@ -141,8 +141,19 @@ func (a *App) clientSettings() ui.ClientSettings {
 }
 
 func (a *App) applyClientSettings() {
+	if a.wv != nil && a.wv.self != nil {
+		settings := a.clientSettings()
+		if settings.HideCloak != a.appliedHideCloak || settings.HideHelmet != a.appliedHideHelmet {
+			a.appliedHideCloak, a.appliedHideHelmet = settings.HideCloak, settings.HideHelmet
+			a.refreshSelf(a.wv)
+			for id := range a.wv.actors {
+				delete(a.wv.actors, id)
+			}
+		}
+	}
 	if a.chatUI != nil {
-		a.chatUI.Rows = a.clientSettings().ChatRows
+		settings := a.clientSettings()
+		a.chatUI.Rows = settings.ChatRows
 	}
 	if a.sound != nil {
 		s := a.clientSettings()
@@ -180,6 +191,9 @@ func (a *App) loadClientSettings() {
 		return
 	}
 	a.gameMenu.Settings = value
+	if a.chatUI != nil {
+		a.chatUI.Channel = value.ChatChannel
+	}
 	a.applyClientSettings()
 }
 

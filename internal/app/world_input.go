@@ -49,6 +49,10 @@ func (a *App) checkPendingActions() bool {
 func (a *App) worldControls(in *platform.Input, w, h int) platform.Input {
 	controls := *in
 	v := a.wv
+	if a.socialInviteUI != nil && a.socialInviteUI.Visible {
+		a.updateSocialInvitation(in, w, h)
+		return platform.Input{MouseX: in.MouseX, MouseY: in.MouseY, SuppressAutoRun: true}
+	}
 	if a.menuOpen {
 		var captured bool
 		controls, captured = a.gameMenuControls(in, w, h)
@@ -101,7 +105,16 @@ func (a *App) worldControls(in *platform.Input, w, h int) platform.Input {
 		pointer.Wheel = 0
 		in = &pointer
 	}
-	captured := a.updateShortcutDrag(in, w, h)
+	captured := false
+	if a.chatUI != nil && a.chatUI.ModeOpen {
+		captured = a.updateChatPointer(in, w, h)
+		if captured && in.Pressed {
+			v.uiLeft = -3
+		}
+	}
+	if !captured {
+		captured = a.updateShortcutDrag(in, w, h)
+	}
 	if a.state == nil || a.wv == nil {
 		return platform.Input{SuppressAutoRun: true}
 	}

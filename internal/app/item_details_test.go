@@ -37,14 +37,14 @@ func TestItemDetailUsesInstanceAndGemDefinitions(t *testing.T) {
 		texts = append(texts, row.text)
 	}
 	joined := strings.Join(texts, "|")
-	for _, want := range []string{"Sword +2", "Durability: 17", "STR +1", "Lapis: Power Lapis", "Lapis: Lapis 9"} {
+	for _, want := range []string{"Sword [2]", "endurance : 17", "STR +1", "Lapis: Power Lapis", "Lapis: Lapis 9"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("missing %q in %q", want, joined)
 		}
 	}
 	shop := itemDetailLines(def, nil, 1, "Buy: 100 gold", nil)
 	for _, row := range shop {
-		if strings.Contains(row.text, "Durability") || strings.Contains(row.text, "Lapis:") {
+		if strings.Contains(row.text, "endurance") || strings.Contains(row.text, "Lapis:") {
 			t.Fatal("shop definition invented mutable instance state")
 		}
 	}

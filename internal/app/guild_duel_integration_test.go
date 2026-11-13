@@ -66,7 +66,7 @@ func TestGuildDuelAgainstRapture(t *testing.T) {
 	if !appA.playerContext.open || row < 0 {
 		t.Fatal("guild duel action missing")
 	}
-	x, y := appA.playerContext.x+5, appA.playerContext.y+row*contextRowHeight+5
+	x, y := appA.playerContext.x+10, appA.playerContext.y+ui.PlayerMenuTextInset+row*contextRowHeight+5
 	appA.worldControls(&platform.Input{MouseX: x, MouseY: y, Pressed: true, MouseDown: true}, 1024, 768)
 	appA.worldControls(&platform.Input{MouseX: x, MouseY: y, Clicked: true}, 1024, 768)
 	poll(func() bool { return a.GuildDuel.Phase == game.DuelOutgoing && b.GuildDuel.Phase == game.DuelIncoming })

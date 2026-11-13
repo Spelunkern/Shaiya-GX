@@ -43,7 +43,7 @@ func TestBottomBarClickRequiresSamePressAndCapturesBackground(t *testing.T) {
 func TestBottomBarGuildButton(t *testing.T) {
 	b := &BottomBar{}
 	b.controls(1024, 768, false, false, false, false)
-	button := b.buttons[5]
+	button := b.buttons[6]
 	in := platform.Input{MouseX: button.X() + 1, MouseY: button.Y() + 1, Pressed: true, MouseDown: true}
 	b.Update(&in, 1024, 768, false, false, false, false)
 	in.Pressed, in.MouseDown, in.Clicked = false, false, true
@@ -53,7 +53,7 @@ func TestBottomBarGuildButton(t *testing.T) {
 }
 
 func TestBottomBarMallAndStatusButtons(t *testing.T) {
-	for index, want := range map[int]BottomAction{0: BottomMall, 1: BottomStatus} {
+	for index, want := range map[int]BottomAction{0: BottomMall, 1: BottomStatus, 5: BottomQuests, 6: BottomGuild} {
 		b := &BottomBar{}
 		b.controls(1024, 768, false, false, false, false)
 		button := b.buttons[index]

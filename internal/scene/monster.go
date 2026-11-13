@@ -11,11 +11,13 @@ import (
 // CreatureActor shares the character skinning path, with clips from MON.
 type CreatureActor struct {
 	*Character
-	Name    string
-	folder  string
-	visual  model.Creature
-	action  int
-	cueTime float32
+	Name       string
+	Level      uint16
+	Definition sdata.Monster
+	folder     string
+	visual     model.Creature
+	action     int
+	cueTime    float32
 }
 
 func (s *Assets) MonsterDefinition(id uint16) (sdata.Monster, error) {
@@ -54,7 +56,11 @@ func (s *Assets) BuildMonster(id uint16) (*CreatureActor, error) {
 		return nil, fmt.Errorf("monster model %d out of range", def.Model)
 	}
 	visual := s.creatures[def.Model]
-	return s.buildCreature("Monster", visual, def.Name)
+	actor, err := s.buildCreature("Monster", visual, def.Name)
+	if actor != nil {
+		actor.Level, actor.Definition = def.Level, def
+	}
+	return actor, err
 }
 
 func (s *Assets) BuildNPC(def sdata.NPC) (*CreatureActor, error) {
@@ -116,9 +122,10 @@ func (m *CreatureActor) SetAction(action int) error {
 
 // Death is a one-shot; live movement/breath clips loop in the shared sampler.
 func (m *CreatureActor) Update(dt float32) {
+	oneShot := m.cueTime > 0
 	m.cueTime = max(0, m.cueTime-dt)
 	m.Character.Update(dt)
-	if m.action == 5 && m.clip != nil {
+	if (m.action == 5 || oneShot) && m.clip != nil {
 		if end := m.clip.Duration(); end > 0 {
 			m.Time = min(m.Time, max(0, end-0.001))
 		}
@@ -127,6 +134,10 @@ func (m *CreatureActor) Update(dt float32) {
 
 // PlayOnce presents a confirmed attack/hit; locomotion resumes afterward.
 func (m *CreatureActor) PlayOnce(action int) {
+	// A damage reaction must not restart or replace a confirmed attack.
+	if action == 7 && m.Attacking() {
+		return
+	}
 	m.cueTime = 0
 	if err := m.SetAction(action); err != nil {
 		m.assets.Missing[err.Error()] = true
@@ -144,4 +155,16 @@ func (m *CreatureActor) Sound(index int) string {
 		return ""
 	}
 	return m.visual.Sounds[index]
+}
+
+func (m *CreatureActor) Attacking() bool { return m.cueTime > 0 && m.action >= 2 && m.action <= 4 }
+func (m *CreatureActor) AttackAction(slot uint8) int {
+	if slot > 2 {
+		slot = 0
+	}
+	action := int(m.Definition.AttackAnimations[slot]) - 1
+	if action < 0 || action > 2 {
+		action = 0
+	}
+	return action + 2
 }

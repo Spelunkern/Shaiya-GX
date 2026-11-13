@@ -2,6 +2,7 @@ package app
 
 import (
 	"log"
+	"math"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
@@ -9,11 +10,16 @@ import (
 )
 
 type mobActor struct {
-	typeID   uint16
-	entity   *game.Entity
-	actor    *scene.CreatureActor
-	pos      render.V3
-	position remotePosition
+	typeID       uint16
+	entity       *game.Entity
+	actor        *scene.CreatureActor
+	pos          render.V3
+	position     remotePosition
+	attackTarget uint32
+	lastSkill    uint16
+	skillAt      float64
+	soundSkill   uint16
+	soundAt      float64
 }
 
 func (a *App) prepareMonsters() {
@@ -42,11 +48,35 @@ func (a *App) prepareMonsters() {
 		if cached.actor == nil {
 			continue
 		}
+		newMove := cached.position.initialized && cached.position.moveSerial != e.MoveSerial
 		pos := cached.position.update(e, a.clock)
+		if newMove && cached.position.duration > 0 {
+			ms := cached.actor.Definition.NormalTimeMS
+			if e.Motion != 0 {
+				ms = cached.actor.Definition.ChaseTimeMS
+			}
+			if ms > 0 {
+				duration := float64(ms) / 1000
+				if e.Motion != 0 && cached.actor.Definition.ChaseStep > 0 {
+					delta := cached.position.to.Sub(cached.position.from)
+					step := float64(cached.actor.Definition.ChaseStep)
+					if e.MobSpeedKnown && e.MobMoveSpeed <= 4 {
+						step = max(1, step+float64([]int{-4, -2, 0, 2, 4}[e.MobMoveSpeed]))
+					}
+					duration *= math.Hypot(float64(delta[0]), float64(delta[2])) / step
+				}
+				cached.position.duration = min(10, max(.05, duration))
+			}
+		}
 		if v.world.HasTerrain() {
 			pos[1] = v.world.Height(pos[0], pos[2])
 		}
 		fwd := pos.Sub(cached.pos)
+		if cached.actor.Attacking() {
+			if target, ok := a.effectPosition(cached.attackTarget); ok {
+				fwd = target.Sub(pos)
+			}
+		}
 		fwd[1] = 0
 		if fwd.Len() > 0.001 {
 			cached.actor.World = render.Basis(pos, fwd.Scale(-1), render.V3{0, 1, 0})
@@ -58,8 +88,11 @@ func (a *App) prepareMonsters() {
 		}
 		cached.pos = pos
 		action := 6
-		if e.Motion != 0 || cached.position.pos[0] != e.X || cached.position.pos[2] != e.Z {
-			action = 1
+		if cached.position.pos[0] != e.X || cached.position.pos[2] != e.Z {
+			action = 0
+			if e.Motion != 0 {
+				action = 1
+			}
 		}
 		if e.Dead {
 			action = 5

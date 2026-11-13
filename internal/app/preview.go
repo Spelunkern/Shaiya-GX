@@ -369,9 +369,9 @@ func (a *App) Preview(name string) error {
 			a.state.Slots[0] = proto.CharacterSlot{ID: 1, Name: "Chat preview", Level: 4}
 			a.state.Chat = append(a.state.Chat, game.ChatLine{Text: "System message preview."})
 			for i := 1; i <= 12; i++ {
-				a.state.Chat = append(a.state.Chat, game.ChatLine{Sender: "Player2", Text: fmt.Sprintf("Message %d: the chat keeps a readable history.", i)})
+				a.state.Chat = append(a.state.Chat, game.ChatLine{Op: proto.ChatNormal, Sender: "Player2", Text: fmt.Sprintf("Message %d: the chat keeps a readable history.", i)})
 			}
-			a.state.Chat = append(a.state.Chat, game.ChatLine{Sender: "Player3", Text: "A longer message wraps onto another line instead of disappearing outside the window."})
+			a.state.Chat = append(a.state.Chat, game.ChatLine{Op: proto.ChatNormal, Sender: "Player3", Text: "A longer message wraps onto another line instead of disappearing outside the window."})
 			a.chatOpen, a.chatInput.Text = true, "/party Ready to go?"
 		}
 		for i := uint32(0); i < 2; i++ {

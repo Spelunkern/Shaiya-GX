@@ -129,8 +129,8 @@ func TestGuildInviteAcceptAgainstRapture(t *testing.T) {
 		t.Fatalf("guild UI roster: %+v", appA.guild.roster)
 	}
 	x, y = appA.guildUI.Origin(1024, 768)
-	appA.worldControls(&platform.Input{MouseX: x + 45, MouseY: y + 120, Pressed: true, MouseDown: true}, 1024, 768)
-	appA.worldControls(&platform.Input{MouseX: x + 45, MouseY: y + 120, Clicked: true}, 1024, 768)
+	appA.worldControls(&platform.Input{MouseX: x + 45, MouseY: y + 140, Pressed: true, MouseDown: true}, 1024, 768)
+	appA.worldControls(&platform.Input{MouseX: x + 45, MouseY: y + 140, Clicked: true}, 1024, 768)
 	if appA.guild.selected != b.SelfID {
 		t.Fatal("guild UI did not select partner")
 	}
@@ -262,11 +262,11 @@ func TestGuildApplicationAgainstRapture(t *testing.T) {
 	if b.Guild.ApplyResult != 1 || b.Guild.ID != 0 {
 		t.Fatal("application changed membership early")
 	}
-	click(105, 103)
+	click(105, 116)
 	if appA.guild.selected != b.SelfID {
 		t.Fatal("applicant not selectable")
 	}
-	click(115, 457) // Reject.
+	click(115, 470) // Reject.
 	poll(appA, func() bool { _, ok := a.Guild.Applicants[b.SelfID]; return !ok })
 	poll(appB, func() bool { return b.Guild.JoinSerial == 1 })
 	if b.Guild.JoinResult != 0 || b.Guild.ID != 0 {
@@ -276,8 +276,8 @@ func TestGuildApplicationAgainstRapture(t *testing.T) {
 	poll(appB, func() bool { return b.Guild.ApplySerial == 2 })
 	poll(appA, func() bool { _, ok := a.Guild.Applicants[b.SelfID]; return ok })
 	appA.clock = 1
-	click(105, 103)
-	click(45, 457) // Accept.
+	click(105, 116)
+	click(45, 470) // Accept.
 	if b.Guild.ID != 0 {
 		t.Fatal("application accepted before server confirmation")
 	}

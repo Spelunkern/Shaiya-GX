@@ -1,0 +1,5 @@
+# Supplied game data retains its original bytes, encodings and line endings.
+# Existing formatting in these imported files is not authored Go/source style.
+data/game/** -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+data/maps/*.svmap binary
+data/rapture.sqlite binary

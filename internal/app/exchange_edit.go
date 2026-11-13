@@ -127,7 +127,7 @@ func (a *App) updateExchangeDrag(in *platform.Input, w, h int) bool {
 		return true
 	}
 	if item.Type == 27 || item.Type == 28 || item.Type == 29 {
-		a.questMessage("Quest items cannot be traded.")
+		a.localizedNotice(1, 231, nil, "Quest items cannot be traded.")
 		return true
 	}
 	if a.state.Exchange.Own[slot].Item.Type != 0 {

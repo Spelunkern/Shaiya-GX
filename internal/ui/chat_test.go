@@ -31,7 +31,7 @@ func TestOriginalChatModeButtonSelectsChannel(t *testing.T) {
 	if !c.ModeOpen {
 		t.Fatal("mode button did not open channels")
 	}
-	click(20, y-110+3*22+8)
+	click(20, y-154+1*22+8)
 	if c.Channel != 3 || c.ModeOpen {
 		t.Fatal("party selection failed", c.Channel, c.ModeOpen)
 	}
@@ -55,7 +55,7 @@ func TestChatWrapIncludesUnbrokenMessages(t *testing.T) {
 }
 
 func TestChatPanesScrollIndependentlyAndKeepNewMessages(t *testing.T) {
-	c, f := &ChatPanel{}, chatTestFont()
+	c, f := &ChatPanel{Rows: [2]int{5, 5}}, chatTestFont()
 	entries := []ChatEntry{{Text: "System", System: true}}
 	for i := range 20 {
 		entries = append(entries, ChatEntry{Text: fmt.Sprint(i)})
@@ -100,5 +100,46 @@ func TestChatPanesScrollIndependentlyAndKeepNewMessages(t *testing.T) {
 	in.MouseX = 500
 	if c.Update(&in, 734) || c.panes[1].dragging {
 		t.Fatal("new press continued an interrupted scrollbar drag")
+	}
+}
+
+func TestPhoenixChatRetainsSystemMarkupAndLiteralPlayerText(t *testing.T) {
+	c, f := &ChatPanel{Rows: [2]int{5, 5}}, chatTestFont()
+	entries := []ChatEntry{{Text: "damage", System: true, Style: 0}, {Text: "acquired {c3}item{/c}", System: true, Style: 3, Markup: true}, {Text: "literal {c3}message", Style: 9}}
+	c.SetEntries(f, entries)
+	if c.panes[0].lines[1] != "acquired item" || len(c.panes[0].runs[1]) != 2 || c.panes[1].lines[0] != "literal {c3}message" {
+		t.Fatal("system markup or literal chat changed", c.panes)
+	}
+}
+
+func TestPhoenixChatGeometryAndZeroRows(t *testing.T) {
+	c := &ChatPanel{Rows: [2]int{5, 5}}
+	for i, want := range [][3]int{{424, 112, 6}, {540, 144, 8}} {
+		y, height, capacity := c.paneGeometry(768, i)
+		if [3]int{y, height, capacity} != want {
+			t.Fatal(i, y, height, capacity)
+		}
+	}
+	c.Rows = [2]int{0, 0}
+	for i, want := range [][3]int{{584, 32, 1}, {620, 64, 3}} {
+		y, height, capacity := c.paneGeometry(768, i)
+		if [3]int{y, height, capacity} != want {
+			t.Fatal("collapsed history", i, y, height, capacity)
+		}
+	}
+}
+
+func TestNativeChatScrollAnchorSurvivesHistoryLimit(t *testing.T) {
+	c, f := &ChatPanel{Rows: [2]int{5, 5}}, chatTestFont()
+	var entries []ChatEntry
+	for i := range 100 {
+		entries = append(entries, ChatEntry{Text: fmt.Sprint(i), Style: 9})
+	}
+	c.SetEntries(f, entries)
+	c.panes[1].offset = 10
+	entries = append(entries[1:], ChatEntry{Text: "100", Style: 9})
+	c.SetEntries(f, entries)
+	if c.panes[1].offset != 11 {
+		t.Fatal("new message moved historical view", c.panes[1].offset)
 	}
 }

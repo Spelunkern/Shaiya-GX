@@ -190,15 +190,21 @@ func (a *App) updateGuildVote(in *platform.Input, w, h int) bool {
 		} else if g.DisbandResult == 3 {
 			msg = "Guild disband vote was declined."
 		}
-		a.questMessage(msg)
+		id := 380
+		if g.DisbandResult == 2 {
+			id = 382
+		} else if g.DisbandResult == 3 {
+			id = 383
+		}
+		a.localizedNotice(1, id, nil, msg)
 	}
 	if g.LeaveSerial != v.leaveSerial {
 		v.leaveSerial = g.LeaveSerial
 		v.lifecyclePending = false
 		if g.LeaveResult == 1 {
-			a.questMessage("You left the guild.")
+			a.localizedNotice(17, 390, nil, "You left the guild.")
 		} else {
-			a.questMessage("Guild leave request refused.")
+			a.localizedNotice(1, 391, nil, "Guild leave request refused.")
 		}
 	}
 	if g.DisbandedSerial != v.disbandedSerial {
@@ -206,7 +212,7 @@ func (a *App) updateGuildVote(in *platform.Input, w, h int) bool {
 		v.lifecyclePending = false
 		v.voting = false
 		a.guildVoteMessage.Visible = false
-		a.questMessage("Guild disbanded.")
+		a.localizedNotice(17, 395, nil, "Guild disbanded.")
 	}
 	if g.CreateSerial != v.createSerial {
 		v.createSerial = g.CreateSerial
@@ -218,7 +224,16 @@ func (a *App) updateGuildVote(in *platform.Input, w, h int) bool {
 		if msg == "" {
 			msg = "Guild creation refused."
 		}
-		a.questMessage(msg)
+		ids := map[uint8]int{1: 372, 3: 374, 4: 375, 5: 376, 6: 377, 8: 379}
+		id := ids[g.CreateResult]
+		if id == 0 {
+			id = 371
+		}
+		name := g.Name
+		if name == "" && a.guildCreateUI != nil {
+			name = a.guildCreateUI.Name.Text
+		}
+		a.localizedNotice(17, id, map[string]string{"b": name}, msg)
 	}
 	if g.FailureSerial != v.failureSerial {
 		v.failureSerial = g.FailureSerial
@@ -230,7 +245,20 @@ func (a *App) updateGuildVote(in *platform.Input, w, h int) bool {
 		if msg == "" {
 			msg = "Guild creation failed."
 		}
-		a.questMessage(msg)
+		id := 371
+		switch g.CreateFailure {
+		case 2:
+			id = 373
+		case 6:
+			id = 377
+		case 7:
+			id = 378
+		}
+		name := g.Name
+		if name == "" && a.guildCreateUI != nil {
+			name = a.guildCreateUI.Name.Text
+		}
+		a.localizedNotice(1, id, map[string]string{"b": name}, msg)
 	}
 	if !a.guildVoteMessage.Visible {
 		return false
@@ -247,23 +275,37 @@ func (a *App) updateGuildVote(in *platform.Input, w, h int) bool {
 	return true
 }
 
+func (a *App) toggleGuild() {
+	a.guild.open = !a.guild.open
+	if a.guild.open {
+		a.questLog.open = false
+		a.guild.etinRequestedFor = 0
+	}
+	a.guild.rosterDirty = true
+}
+
 func (a *App) updateGuild(in *platform.Input, w, h int) bool {
 	if a.guild.remarkPending && a.clock >= a.guild.remarkDeadline {
 		a.guild.remarkPending = false
 		a.questMessage("Guild notice request timed out.")
 	}
 	for _, r := range in.Chars {
-		if r == 'g' || r == 'G' {
-			a.guild.open = !a.guild.open
-			if a.guild.open {
-				a.guild.etinRequestedFor = 0
-			}
-			a.guild.rosterDirty = true
+		if (r == 'g' || r == 'G') && !(a.socialUI != nil && a.socialUI.Focus && a.guild.open && a.guildUI != nil && a.guildUI.Page != 0) {
+			a.toggleGuild()
 			return true
 		}
 	}
 	if !a.guild.open || a.guildUI == nil {
 		return false
+	}
+	gx, gy := a.guildUI.Origin(w, h)
+	if a.guildUI.UpdateNavigation(in, gx, gy) {
+		a.social.offset = 0
+		a.social.selected = 0
+		return true
+	}
+	if a.guildUI.Page != 0 {
+		return a.updateSocial(in, w, h)
 	}
 	if a.state.Guild.ID != 0 && a.guild.etinRequestedFor != a.state.Guild.ID && a.world != nil {
 		if err := a.world.Send(proto.GuildEtinPacket()); err != nil {
@@ -286,6 +328,10 @@ func (a *App) updateGuild(in *platform.Input, w, h int) bool {
 		allowed = [3]bool{canToggle && ok, canToggle && ok, false}
 	}
 	row, scroll, action, toggle, close := a.guildUI.Update(in, w, h, len(a.guild.roster), a.guild.offset, a.guild.waiting, canToggle, allowed)
+	if a.guildUI.SortChanged {
+		a.guild.rosterDirty = true
+		a.refreshGuildRoster()
+	}
 	canEdit := !a.guild.waiting && a.state.Guild.ID != 0 && a.state.Guild.Rank == 1 && !a.guild.remarkPending && a.guildCreateUI != nil
 	if a.guildUI.UpdateNotice(in, w, h, canEdit) {
 		a.guildCreateUI.OpenNotice(a.state.Guild.Name, a.state.Guild.Remark)
@@ -328,6 +374,35 @@ func (a *App) refreshGuildRoster() {
 	}
 	sort.Slice(a.guild.roster, func(i, j int) bool {
 		left, right := a.guild.roster[i], a.guild.roster[j]
+		column, descending := 3, false
+		if a.guildUI != nil {
+			column, descending = a.guildUI.SortColumn, a.guildUI.Descending
+		}
+		order := 0
+		switch column {
+		case 0:
+			order = int(left.Level) - int(right.Level)
+		case 1:
+			order = strings.Compare(strings.ToLower(left.Name), strings.ToLower(right.Name))
+		case 2:
+			order = int(left.Class) - int(right.Class)
+		case 3:
+			order = int(left.Rank) - int(right.Rank)
+		case 4:
+			if left.Online != right.Online {
+				if left.Online {
+					order = -1
+				} else {
+					order = 1
+				}
+			}
+		}
+		if order != 0 {
+			if descending {
+				return order > 0
+			}
+			return order < 0
+		}
 		if left.Rank != right.Rank {
 			return left.Rank < right.Rank
 		}
@@ -355,6 +430,10 @@ func (a *App) drawGuild(w, h int) {
 	}
 	x, y := a.guildUI.Origin(w, h)
 	a.clearTooltipUnderPanel(x, y, ui.GuildWidth, ui.GuildHeight)
+	if a.guildUI.Page != 0 {
+		a.drawSocial(w, h)
+		return
+	}
 	a.refreshGuildRoster()
 	canToggle := a.state.Guild.ID != 0 && a.state.Guild.Rank > 0 && a.state.Guild.Rank <= 2
 	allowed := a.guildActions(a.guild.selected)
@@ -362,7 +441,14 @@ func (a *App) drawGuild(w, h int) {
 		_, ok := a.state.Guild.Applicants[a.guild.selected]
 		allowed = [3]bool{canToggle && ok, canToggle && ok, false}
 	}
-	a.guildUI.Draw(a.sprites, a.font, a.white, w, h, a.state.Guild.Name, a.guild.roster, a.guild.offset, a.guild.selected, a.guild.waiting, canToggle, allowed)
+	for i := range a.guildUI.ClassNames {
+		a.guildUI.ClassNames[i] = ui.ClassName(a.msg, a.state.Faction.Faction == 0, uint8(i))
+	}
+	name := a.state.Guild.Name
+	if suffix := a.msg.Get(0x13e0); name != "" && suffix != "" {
+		name += " " + suffix
+	}
+	a.guildUI.Draw(a.sprites, a.font, a.white, w, h, name, a.guild.roster, a.guild.offset, a.guild.selected, a.guild.waiting, canToggle, allowed)
 	if !a.guild.waiting {
 		a.guildUI.DrawNotice(a.sprites, a.font, a.white, w, h, a.state.Guild.Rank == 1 && !a.guild.remarkPending, a.state.Guild.Etin, a.state.Guild.EtinKnown)
 	}
@@ -503,9 +589,9 @@ func (a *App) updateGuildInvite(in *platform.Input, w, h int) bool {
 	if g.JoinSerial != v.joinSerial {
 		v.joinSerial = g.JoinSerial
 		if g.JoinResult == 0 {
-			a.questMessage("Guild application declined.")
+			a.localizedNotice(17, 385, nil, "Guild application declined.")
 		} else if g.JoinResult == 1 {
-			a.questMessage("You joined a guild.")
+			a.localizedNotice(17, 384, nil, "You joined a guild.")
 		}
 	}
 	if !a.guildMessage.Visible {

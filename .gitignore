@@ -75,3 +75,20 @@ __pycache__/
 *.eft
 *.3de
 *.mlt
+
+# Integrated GX Server: publish its supplied game data and development seed.
+!/server/data/
+!/server/data/**/
+!/server/data/**/*.SData
+!/server/data/**/*.svmap
+!/server/data/rapture.sqlite
+!/server/cmd/gx_server/icon.png
+/server/build/
+/server/out/
+/server/.local/
+/server/runtime/
+/server/logs/
+/server/internal/world/logs/
+/server/tools/refs/
+/server/docs/images/
+/out/

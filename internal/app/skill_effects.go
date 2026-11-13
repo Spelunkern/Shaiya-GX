@@ -31,6 +31,8 @@ func (a *App) confirmedEffects(p []byte) {
 		return
 	}
 	switch proto.Op(p) {
+	case proto.MobSkillUse, proto.MobSkillDrain, proto.MobSkillOther:
+		a.startMobSkillEffects(a.state.LastSkill)
 	case proto.CharacterMove, proto.CharacterDeath:
 		a.stopCastEffects(proto.NewReader(p).U32())
 	case proto.SkillUse, proto.SkillUseNoTarget, proto.SkillUserDrain, proto.SkillMobDrain:
@@ -44,6 +46,10 @@ func (a *App) confirmedEffects(p []byte) {
 		a.loadSkills()
 		d := a.skillDefs[sdata.SkillKey{ID: r.ID, Level: r.Level}]
 		file := effect.CastLibrary(r.ID)
+		until := float64(0) // Unknown duration: wait for the authoritative result.
+		if d.ReadyTime > 0 {
+			until = a.clock + float64(d.ReadyTime)*.25
+		}
 		for hand := 0; hand < 2; hand++ {
 			x := a.loadSkillEffect(file, 1)
 			if x == nil {
@@ -52,16 +58,17 @@ func (a *App) confirmedEffects(p []byte) {
 			if len(v.castEffects) >= 16 {
 				v.castEffects = v.castEffects[1:]
 			}
-			v.castEffects = append(v.castEffects, castEffect{r.Source, hand, a.clock + float64(d.ReadyTime)*.25, x})
+			v.castEffects = append(v.castEffects, castEffect{r.Source, hand, until, x})
 		}
 	}
 }
 
 func (a *App) updateCastEffects() {
 	v := a.wv
+	a.updateRequestedSkillPresentation()
 	alive := v.castEffects[:0]
 	for _, e := range v.castEffects {
-		if a.clock >= e.until {
+		if e.until > 0 && a.clock >= e.until {
 			e.instance.Stop()
 		}
 		actor := a.playerActor(e.source)

@@ -39,6 +39,12 @@ func TestInventoryModelInCompleteFrameGL(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer a.Close()
+	cursors := a.LoadCursors(win)
+	defer cursors.Close()
+	for i := 0; i < 7; i++ {
+		cursors.Set(i)
+	}
+	cursors.Set(0)
 	if err := a.Preview("world-inventory"); err != nil {
 		t.Fatal(err)
 	}

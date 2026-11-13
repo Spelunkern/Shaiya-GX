@@ -2,15 +2,19 @@ package render
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/go-gl/gl/v4.5-core/gl"
 )
 
 // WaterTarget owns a reusable color/depth target for the reflected scene.
 type WaterTarget struct {
-	fbo, color, depth uint32
-	width, height     int32
-	bytes             uint64
+	toneFailed           bool
+	fbo, color, depth    uint32
+	toneProgram, toneVAO uint32
+	toneExponent         int32
+	width, height        int32
+	bytes                uint64
 }
 
 func NewWaterTarget(width, height int) (*WaterTarget, error) {
@@ -77,6 +81,8 @@ func (t *WaterTarget) Delete() {
 	if t == nil {
 		return
 	}
+	gl.DeleteProgram(t.toneProgram)
+	gl.DeleteVertexArrays(1, &t.toneVAO)
 	gl.DeleteFramebuffers(1, &t.fbo)
 	gl.DeleteTextures(1, &t.color)
 	gl.DeleteRenderbuffers(1, &t.depth)
@@ -92,4 +98,61 @@ func (t *WaterTarget) Present() {
 	gl.GetIntegerv(gl.DRAW_FRAMEBUFFER_BINDING, &draw)
 	gl.GetIntegerv(gl.VIEWPORT, &viewport[0])
 	gl.BlitNamedFramebuffer(t.fbo, uint32(draw), 0, 0, t.width, t.height, viewport[0], viewport[1], viewport[0]+viewport[2], viewport[1]+viewport[3], gl.COLOR_BUFFER_BIT, gl.NEAREST)
+}
+
+// PresentBrightness applies the original windowed power curve (0x541540),
+// without changing the desktop gamma ramp. The existing frame target supplies
+// the source, so no extra scene capture or texture allocation is needed.
+func (t *WaterTarget) PresentBrightness(level int) {
+	if t.toneFailed {
+		t.Present()
+		return
+	}
+	if t.toneProgram == 0 {
+		p, err := Program(glowVS, `#version 450 core
+layout(binding=0) uniform sampler2D sceneTexture;
+uniform float exponent;
+in vec2 vUV;
+out vec4 frag;
+void main(){ vec3 c=texture(sceneTexture,vUV).rgb;
+ c=clamp(floor(pow(c*(255.0/256.0),vec3(exponent))*255.0+10.0),0.0,255.0)/255.0;
+ frag=vec4(c,1.0); }`)
+		if err != nil {
+			log.Printf("brightness shader: %v", err)
+			t.toneFailed = true
+			t.Present()
+			return
+		}
+		t.toneProgram = p
+		t.toneExponent = gl.GetUniformLocation(p, gl.Str("exponent\x00"))
+		gl.CreateVertexArrays(1, &t.toneVAO)
+	}
+	var program, vao, active, texture int32
+	gl.GetIntegerv(gl.CURRENT_PROGRAM, &program)
+	gl.GetIntegerv(gl.VERTEX_ARRAY_BINDING, &vao)
+	gl.GetIntegerv(gl.ACTIVE_TEXTURE, &active)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.GetIntegerv(gl.TEXTURE_BINDING_2D, &texture)
+	gl.ActiveTexture(uint32(active))
+	caps := [...]uint32{gl.BLEND, gl.DEPTH_TEST, gl.CULL_FACE, gl.SCISSOR_TEST, gl.CLIP_DISTANCE0}
+	var enabled [len(caps)]bool
+	for i, c := range caps {
+		enabled[i] = gl.IsEnabled(c)
+		gl.Disable(c)
+	}
+	gl.UseProgram(t.toneProgram)
+	gl.BindVertexArray(t.toneVAO)
+	gl.BindTextureUnit(0, t.color)
+	factor := 1 + float32(min(4, max(0, level))-2)*.15
+	gl.Uniform1f(t.toneExponent, 1/factor)
+	gl.DrawArrays(gl.TRIANGLES, 0, 3)
+	drawCalls++
+	gl.BindTextureUnit(0, uint32(texture))
+	gl.UseProgram(uint32(program))
+	gl.BindVertexArray(uint32(vao))
+	for i, c := range caps {
+		if enabled[i] {
+			gl.Enable(c)
+		}
+	}
 }

@@ -6,9 +6,9 @@ import (
 )
 
 func TestSkillBookRowsAndControls(t *testing.T) {
-	for _, tc := range []struct{ row, y int }{{0, 79}, {16, 423}} {
+	for _, tc := range []struct{ row, y int }{{0, 78}, {8, 422}} {
 		x, y, ok := SkillBookRow(tc.row)
-		if !ok || x != 45 || y != tc.y {
+		if !ok || x != 46 || y != tc.y {
 			t.Fatal("native row", tc.row, x, y)
 		}
 		if row, ok := SkillBookHit(x+31, y+31); !ok || row != tc.row {
@@ -31,18 +31,18 @@ func TestSkillBookRowsAndControls(t *testing.T) {
 		category, offset = a.Category, a.Offset
 		return a
 	}
-	if a := click(62, 96); a.Learn != 0 {
+	if a := click(279, 85); a.Learn != 0 {
 		t.Fatal("learn hit", a)
 	}
 	enabled[0] = false
-	if a := click(62, 96); a.Learn != -1 {
+	if a := click(279, 85); a.Learn != -1 {
 		t.Fatal("disabled learn activated", a)
 	}
 	if a := click(4, 199); a.Category != 2 || a.Offset != 0 {
 		t.Fatal("combat category", a)
 	}
 	a := b.Update(&platform.Input{MouseX: x + 100, MouseY: y + 200, Wheel: -120}, 1024, 768, category, 0, 24, enabled)
-	if a.Offset != 2 {
+	if a.Offset != 1 {
 		t.Fatal("scroll should advance one row", a)
 	}
 	if a := click(304, 9); !a.Close {

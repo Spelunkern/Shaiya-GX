@@ -22,6 +22,8 @@ type Appearance struct {
 	Hand, Foot                                       uint8
 	ShowHelmet                                       bool
 	WeaponType, WeaponModel, ShieldType, ShieldModel uint8
+	WeaponEnchant, OffhandEnchant                    uint8
+	CloakType, CloakModel, CloakFit                  uint8
 }
 
 var raceFolders = [...]string{"Human", "Elf", "Vile", "DeathEater"}
@@ -65,6 +67,8 @@ type skinPart struct {
 
 // Character is a posed, animated actor.
 type Character struct {
+	enchantTime          float64
+	cloak                *cloakInstance
 	attachments          []attachment
 	actions              []model.Action
 	actionsLoaded        bool
@@ -209,8 +213,9 @@ func BuildCharacter(s *Assets, a Appearance, clip string) (*Character, error) {
 	} else {
 		add("hair", int(a.Hair))
 	}
-	c.attachItem(a.WeaponType, a.WeaponModel, false)
-	c.attachItem(a.ShieldType, a.ShieldModel, true)
+	c.attachCloak(a)
+	c.attachItem(a.WeaponType, a.WeaponModel, false, a.WeaponEnchant)
+	c.attachItem(a.ShieldType, a.ShieldModel, true, a.OffhandEnchant)
 	c.SetClip(clip)
 	if c.clip == nil {
 		return c, fmt.Errorf("clip %s_%s not found", prefix, clip)
@@ -365,7 +370,11 @@ func sampleTrans(k []model.TransKey, f float32) [3]float32 {
 
 // Update advances the animation.
 func (c *Character) Update(dt float32) {
+	c.enchantTime += float64(max(0, dt))
 	c.Time += dt
+	if c.cloak != nil {
+		c.cloak.elapsed += max(0, dt)
+	}
 	if c.castLeft > 0 {
 		c.castLeft = max(0, c.castLeft-dt)
 		if c.castLeft == 0 {
@@ -431,8 +440,14 @@ func (c *Character) ReleaseAction() {
 }
 
 func (c *Character) PlayCast(ready int, seconds float32) bool {
-	if seconds <= 0 || !c.PlayAction(ready, false) {
+	if seconds < 0 || !c.PlayAction(ready, false) {
 		return false
+	}
+	// A server cast-start has no duration on the wire. If local data gives
+	// none, keep preparing until its result/cancellation instead of reusing
+	// an instant release that was predicted before the announcement.
+	if seconds == 0 {
+		seconds = float32(math.Inf(1))
 	}
 	c.castLeft, c.castLoop = seconds, ready+1
 	return true
@@ -537,6 +552,9 @@ func (c *Character) Draw(k *render.Skinner, s *render.Scene3D) {
 		return
 	}
 	finals := c.preparePose()
+	if c.cloak != nil {
+		c.cloak.update(c.World, finals)
+	}
 	k.Begin(s, 0.8) // character ambient (Phoenix account_ep5_render)
 	for _, p := range c.parts {
 		k.SetPose(c.World, p.pose)
@@ -545,6 +563,9 @@ func (c *Character) Draw(k *render.Skinner, s *render.Scene3D) {
 			ref = 0.5
 		}
 		k.Draw(p.mesh, p.tex, ref)
+	}
+	if c.cloak != nil {
+		c.cloak.draw(s, c.World)
 	}
 	if !c.Mounted {
 		c.drawAttachments(s, finals)
@@ -570,4 +591,20 @@ func (c *Character) PortraitFrame(aspect, fov, heightScale float32) (height, dis
 	depth := (hi[2] - lo[2]) / 2
 	tangent := float32(math.Tan(float64(fov) / 2))
 	return height, max(halfY/tangent, halfX/(tangent*aspect))*1.1 + depth
+}
+
+// InventoryFrame fills the full-body opening vertically. Bind-pose arm span
+// must not shrink the idle actor, and equipment must not change camera zoom.
+func (c *Character) InventoryFrame(fov, heightScale float32) (center, distance float32) {
+	if c == nil || len(c.parts) == 0 {
+		return 1, 3
+	}
+	lo, hi := c.parts[0].min[1], c.parts[0].max[1]
+	for _, p := range c.parts {
+		lo = min(lo, p.min[1])
+		hi = max(hi, p.max[1])
+	}
+	center = (lo + hi) * heightScale / 2
+	distance = (hi - lo) * heightScale / 2 / float32(math.Tan(float64(fov)/2)) * 1.03
+	return
 }

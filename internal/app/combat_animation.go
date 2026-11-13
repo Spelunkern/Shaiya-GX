@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
@@ -56,6 +55,12 @@ func (a *App) confirmedAnimation(p []byte) {
 		}
 	case proto.SkillCastStarted:
 		r := a.state.LastCast
+		// The server may require preparation even when local SData says
+		// instant. Its cast-start supersedes the predicted release and clock.
+		if r.Source == a.state.SelfID {
+			v.requestedSkill = nil
+		}
+
 		if actor := a.playerActor(r.Source); actor != nil {
 			a.loadSkills()
 			d := a.skillDefs[sdata.SkillKey{ID: r.ID, Level: r.Level}]
@@ -64,6 +69,17 @@ func (a *App) confirmedAnimation(p []byte) {
 		}
 	case proto.SkillUse, proto.SkillUseNoTarget, proto.SkillUserDrain, proto.SkillMobDrain:
 		r := a.state.LastSkill
+		predicted := a.matchingRequestedSkill(r)
+		if r.Source == a.state.SelfID {
+			v.requestedSkill = nil
+		}
+		if predicted {
+			if r.Result > 4 || r.Result == 3 && r.Target == 0 {
+				a.wv.self.ReleaseAction()
+			} else {
+				return
+			}
+		}
 		if actor := a.playerActor(r.Source); actor != nil {
 			actor.CancelCast()
 		}
@@ -106,18 +122,17 @@ func (a *App) confirmedAnimation(p []byte) {
 			}
 		}
 		if mob := v.mobs[result.Source]; mob != nil && mob.actor != nil {
-			mob.actor.PlayOnce(2)
+			mob.attackTarget = result.Target
+			mob.actor.PlayOnce(mob.actor.AttackAction(0))
 		}
 		if result.HP > 0 {
 			if mob := v.mobs[result.Target]; mob != nil && mob.actor != nil {
 				mob.actor.PlayOnce(7)
 			}
 		}
-		a.combatNotice = fmt.Sprintf("Damage: %d", result.HP)
-		if result.Result == 3 {
-			a.combatNotice = "Miss"
+		if result.Source == a.state.SelfID || result.Target == a.state.SelfID || result.Target == a.state.Target {
+			a.showCombatNumber(result.Target, result.HP, result.Result == 1, result.Result == 3, false)
 		}
-		a.combatNoticeUntil = a.clock + 2
 	case proto.CharacterDeath:
 		id := proto.NewReader(p).U32()
 		if c := a.playerActor(id); c != nil {
@@ -132,22 +147,42 @@ func (a *App) confirmedAnimation(p []byte) {
 }
 
 func (a *App) faceSkillTarget(source, target uint32) {
-	c := a.playerActor(source)
-	if c == nil || source == target {
+	if a.wv == nil || source == target {
 		return
 	}
-	e := a.state.Entities[target]
-	if e == nil {
-		return
-	}
-	pos := render.V3{c.World[12], c.World[13], c.World[14]}
-	dir := (render.V3{e.X, pos[1], e.Z}).Sub(pos)
-	if dir.Len() < .001 {
+	goal, ok := a.effectPosition(target)
+	if !ok {
 		return
 	}
 	if source == a.state.SelfID {
-		a.wv.faceCombatTarget(dir.Norm())
-	} else {
-		a.wv.actors[source].facing = dir.Norm()
+		dir := goal.Sub(a.wv.pos)
+		dir[1] = 0
+		if dir.Len() > .001 {
+			a.wv.faceCombatTarget(dir.Norm())
+		}
+	} else if actor := a.wv.actors[source]; actor != nil && actor.character != nil {
+		pos := a.visualEntityPosition(actor.entity)
+		dir := goal.Sub(pos)
+		dir[1] = 0
+		if dir.Len() > .001 {
+			actor.facing = dir.Norm()
+		}
 	}
+}
+
+// Facing is predicted on input, before any attack/cast confirmation. Publish
+// the stationary direction before the action so peers see the same heading.
+func (a *App) faceRequestedTarget(target uint32) bool {
+	if a.wv == nil {
+		return true
+	}
+	previous := a.wv.facing
+	a.faceSkillTarget(a.state.SelfID, target)
+	if a.world != nil && previous.Sub(a.wv.facing).Len() > .0001 {
+		if err := a.world.Send(a.wv.movePacket(0)); err != nil {
+			a.backToLogin("Unable to turn toward target.")
+			return false
+		}
+	}
+	return true
 }

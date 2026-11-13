@@ -5,7 +5,8 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 )
 
-// Cooldowns are display timers; the server still decides whether a skill is ready.
+// Confirmed reuse timers drive presentation and suppress duplicate requests.
+// Server validation remains authoritative.
 func (a *App) confirmedSkills(op proto.Opcode) {
 	v := &a.skills
 	if op == proto.CharacterSkills {

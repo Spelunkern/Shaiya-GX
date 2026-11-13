@@ -255,7 +255,7 @@ func TestPanelsAgainstRapture(t *testing.T) {
 	}
 	beforePoints := st.Details.SkillPoint
 	entry := row - a.skills.offset
-	click(bx+62+135*(entry%2), by+96+43*(entry/2), false)
+	click(bx+279, by+85+43*entry, false)
 	if !a.skills.pending {
 		t.Fatal("native learn button did not request skill")
 	}

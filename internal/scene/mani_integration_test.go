@@ -65,7 +65,7 @@ func TestLoginManiAssetsGL(t *testing.T) {
 		t.Fatal("VANI did not draw its initial frame")
 	}
 	w.vanis[0].draw(renderer, .2)
-	if w.vanis[0].count > 2 && w.vanis[0].frame != 2 {
+	if w.vanis[0].frameMilliseconds != 33 || w.vanis[0].frame != 6 {
 		t.Fatal("VANI did not advance to the expected frame")
 	}
 	before := w.rotors[0].transform(w.elapsed)

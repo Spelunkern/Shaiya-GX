@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/ui"
 	"log"
 	"math"
 
@@ -103,7 +104,9 @@ func (a *App) prepareRemotePlayers() {
 			for i, it := range sh.Equipment {
 				slot.EquipType[i], slot.EquipTypeID[i] = it[0], it[1]
 			}
-			actor, err := scene.BuildCharacter(a.assets, a.appearance(&slot), "000_normal")
+			appearance := a.appearance(&slot)
+			appearance.WeaponEnchant, appearance.OffhandEnchant = sh.Equipment[5][2], sh.Equipment[6][2]
+			actor, err := scene.BuildCharacter(a.assets, appearance, "000_normal")
 			if err != nil {
 				log.Printf("player %d model: %v", id, err)
 			}
@@ -394,7 +397,10 @@ func (a *App) drawPlayerNames(w, h int) {
 					}
 				}
 			}
-			tint = [4]float32{1, .93, .35, 1}
+			if actor := v.mobs[e.ID]; actor != nil && actor.actor != nil {
+				player, _ := a.selfSlot()
+				tint = ui.RGBColor(ui.MobNameRGB(actor.actor.Level, player.Level))
+			}
 		case game.KindNpc:
 			if actor := v.npcs[e.ID]; actor != nil && actor.actor != nil {
 				name = actor.actor.Name
@@ -408,6 +414,17 @@ func (a *App) drawPlayerNames(w, h int) {
 				label(name, pos, tint, 22)
 			} else {
 				label(name, pos, tint, 0)
+				if e.Kind == game.KindMob && a.state.Target == e.ID && pos.Sub(v.pos).Len() <= 50 {
+					if x, y, depth, ok := projectLabel(pos, vp, w, h); ok {
+						a.sprites.NameDepth(depth)
+						if dot := a.assets.Texture("interface/name_select.tga"); dot != nil {
+							half := a.font.Width(name)/2 + 10
+							for _, side := range []int{-1, 1} {
+								a.sprites.DrawImage(dot, float32(x+side*half-dot.W/2), float32(y-a.font.Height+(a.font.Height-dot.H)/2))
+							}
+						}
+					}
+				}
 				if e.Kind == game.KindUser {
 					label(guildCaption(a.state, e.GuildID), pos, [4]float32{.72, .93, .72, 1}, -18)
 				}

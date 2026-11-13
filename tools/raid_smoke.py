@@ -8,8 +8,10 @@ import secrets
 import subprocess
 import tempfile
 
+raise SystemExit("Legacy SQL Server probe. Use tools/n2_smoke.py for GX Server SQLite integration.")
+
 root = Path(__file__).resolve().parents[1]
-rapture = Path(os.environ.get("RAPTURE_DIR", Path.home() / "Desktop/Rapture"))
+rapture = Path(os.environ.get("GX_SERVER_DIR", os.environ.get("RAPTURE_DIR", root / "server")))
 spec = importlib.util.spec_from_file_location("rapture_sql", rapture / "tools/sqlserver.py")
 sqltool = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sqltool)

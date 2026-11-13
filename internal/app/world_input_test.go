@@ -152,13 +152,13 @@ func TestPanelPressCannotActivateAnotherPanelOrWorld(t *testing.T) {
 	if controls.Clicked || a.inventory.selected {
 		t.Fatal("world press activated inventory on release")
 	}
-	// An ordinary click still selects the item.
+	// An ordinary click uses the item and clears selection.
 	in = platform.Input{MouseX: px, MouseY: py, Pressed: true, MouseDown: true}
 	a.worldControls(&in, 1024, 768)
 	in.Pressed, in.MouseDown, in.Clicked = false, false, true
 	a.worldControls(&in, 1024, 768)
-	if !a.inventory.selected {
-		t.Fatal("normal inventory click stopped selecting items")
+	if a.inventory.selected {
+		t.Fatal("normal inventory click retained the old move selection")
 	}
 }
 func TestPanelToggleCancelsOverlappingPanelAssignment(t *testing.T) {

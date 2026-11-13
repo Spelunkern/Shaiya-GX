@@ -5,9 +5,11 @@ import (
 	"path"
 	"strings"
 
+	"github.com/Spelunkern/Shaiya-GX/internal/data/effect"
 	"github.com/Spelunkern/Shaiya-GX/internal/data/model"
 	"github.com/Spelunkern/Shaiya-GX/internal/data/world"
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
+	"github.com/go-gl/gl/v4.5-core/gl"
 )
 
 // Bone indices: 0x417220/0x552400/0x410920, verified by the native
@@ -20,10 +22,11 @@ var itemBones = map[string][4]int{
 }
 
 type attachment struct {
-	part  *Part
-	bone  int
-	extra render.M4
-	alpha int32
+	enchant *weaponEnchant
+	part    *Part
+	bone    int
+	extra   render.M4
+	alpha   int32
 }
 
 func itemBaseType(typ uint8) uint8 {
@@ -31,13 +34,8 @@ func itemBaseType(typ uint8) uint8 {
 	case 34, 69, 75, 84, 90:
 		return 19
 	}
-	groups := [][]uint8{{1, 45}, {2, 46}, {3, 47}, {4, 48}, {5, 49, 50}, {6, 51, 52}, {7, 53, 54}, {8, 55, 56}, {9, 57}, {10, 58}, {11, 59}, {12, 60, 61}, {13, 62, 63}, {14, 64}, {15, 65}}
-	for i, g := range groups {
-		for _, v := range g {
-			if typ == v {
-				return uint8(i + 1)
-			}
-		}
+	if family := effect.WeaponFamily(typ); family != 0 {
+		return family
 	}
 	return typ
 }
@@ -108,7 +106,7 @@ func (s *Assets) itemPart(typ, index uint8) (*Part, *model.ITM, *model.ItemModel
 	return p, table, rec, nil
 }
 
-func (c *Character) attachItem(typ, index uint8, shield bool) {
+func (c *Character) attachItem(typ, index uint8, shield bool, enchant uint8) {
 	if typ == 0 {
 		return
 	}
@@ -148,7 +146,7 @@ func (c *Character) attachItem(typ, index uint8, shield bool) {
 			bone = int(binding.Bone)
 			extra = render.QuatMatrix(binding.Rotation, binding.Position)
 		}
-		c.attachments = append(c.attachments, attachment{part: part, bone: bone, extra: extra, alpha: record.Alpha})
+		c.attachments = append(c.attachments, attachment{part: part, bone: bone, extra: extra, alpha: record.Alpha, enchant: c.newWeaponEnchant(typ, enchant)})
 	}
 }
 
@@ -168,4 +166,12 @@ func (c *Character) drawAttachments(s *render.Scene3D, finals []render.M4) {
 		}
 		s.DrawModel(a.part.Mesh, a.part.Tex, matrix, ref, a.part.Alpha)
 	}
+	for i := range c.attachments {
+		a := &c.attachments[i]
+		if a.enchant != nil && a.bone >= 0 && a.bone < len(finals) {
+			c.drawWeaponEnchant(s, a, a.extra.Mul(finals[a.bone]).Mul(c.World))
+		}
+	}
+	gl.DepthMask(true)
+	gl.Disable(gl.BLEND)
 }

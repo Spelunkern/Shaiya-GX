@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/text"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 )
 
@@ -92,9 +93,17 @@ func stripItemColors(text string) string {
 	return out.String()
 }
 
-// Property order and remake colours follow Phoenix ItemTooltip.native_rows;
-// values remain Rapture/EP5 data, without Azeroth enhancement formulas.
-func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8, price string, gemName func(uint8) string) []itemDetailLine {
+// Native 0x4a3950 distinguishes equipment bonuses from consumable restoration.
+// SysMsg owns labels; inline description controls remain archive data.
+func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8, price string, gemName func(uint8) string, messages ...text.SysMsg) []itemDetailLine {
+	label := func(id int, fallback string) string {
+		if len(messages) > 0 {
+			if value := messages[0].Get(id); value != "" {
+				return value
+			}
+		}
+		return fallback
+	}
 	lines := make([]itemDetailLine, 0, 20)
 	add := func(text string, color [4]float32) {
 		if text != "" {
@@ -107,23 +116,27 @@ func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8
 	}
 	name := def.Name
 	if craft.enchant > 0 {
-		name = fmt.Sprintf("%s +%d", name, craft.enchant)
+		name = fmt.Sprintf("%s [%d]", name, craft.enchant)
 	}
-	add(name, white)
+	add(name, [4]float32{1, 1, 0, 1})
 	if def.Attack != 0 || def.AttackAdd != 0 {
-		add(fmt.Sprintf("Attack: %d - %d", def.Attack, uint32(def.Attack)+uint32(def.AttackAdd)), white)
+		add(fmt.Sprintf("%s %d - %d", label(5191, "attack-power"), def.Attack, uint32(def.Attack)+uint32(def.AttackAdd)), white)
 	}
 	if def.Def > 0 {
-		add(fmt.Sprintf("Defense: %d", def.Def), white)
+		add(fmt.Sprintf("%s %d", label(5202, "defense-power"), def.Def), white)
 	}
 	if def.Resist > 0 {
-		add(fmt.Sprintf("Resistance: %d", def.Resist), white)
+		add(fmt.Sprintf("%s %d", label(5203, "resistence"), def.Resist), white)
+	}
+	hp, mp, sp := def.RecoveryHP, def.RecoveryMP, def.RecoverySP
+	if itemHasRestoration(def.Type) {
+		hp, mp, sp = 0, 0, 0
 	}
 	specs := []struct {
 		name   string
 		base   uint16
 		remake uint16
-	}{{"HP", def.RecoveryHP, craft.stats[6]}, {"MP", def.RecoveryMP, craft.stats[7]}, {"SP", def.RecoverySP, craft.stats[8]}}
+	}{{label(5208, "max.") + " HP", hp, craft.stats[6]}, {label(5208, "max.") + " SP", sp, craft.stats[8]}, {label(5208, "max.") + " MP", mp, craft.stats[7]}}
 	for i, name := range [6]string{"STR", "DEX", "REC", "INT", "WIS", "LUC"} {
 		specs = append(specs, struct {
 			name   string
@@ -148,41 +161,23 @@ func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8
 		}
 	}
 	if def.MinLevel > 0 {
-		add(fmt.Sprintf("Required level: %d", def.MinLevel), white)
+		add(fmt.Sprintf("%s %d", label(5211, "level"), def.MinLevel), white)
 	}
-	for i, n := range def.RequiredStats {
-		if n > 0 {
-			add(fmt.Sprintf("Required %s: %d", [6]string{"STR", "DEX", "REC", "INT", "WIS", "LUC"}[i], n), white)
-		}
-	}
-	var classes []string
-	for i, flag := range def.Classes {
-		if flag != 0 {
-			classes = append(classes, [6]string{"Fighter", "Defender", "Ranger", "Archer", "Mage", "Priest"}[i])
-		}
-	}
-	if len(classes) > 0 && len(classes) < 6 {
-		add("Classes: "+strings.Join(classes, ", "), white)
-	}
-	if instance != nil && def.Quality > 0 {
-		add(fmt.Sprintf("Durability: %d / %d", instance.Quality, def.Quality), white)
-	}
-	if price != "" {
-		price = strings.Replace(price, "Sell:", "Sell price:", 1)
-		price = strings.Replace(price, "Buy:", "Buy price:", 1)
-		price = strings.ReplaceAll(price, " gold", " Gold")
+
+	if price != "" && price != "Sell: 0 gold" {
 		color := white
-		if strings.HasPrefix(price, "Buy price:") {
-			color = yellow
+		if strings.HasPrefix(price, "Buy:") {
+			price = strings.TrimPrefix(price, "Buy:")
+			price = label(5220, "Purchasing price") + " :" + price
+		} else if strings.HasPrefix(price, "Sell:") {
+			price = strings.TrimPrefix(price, "Sell:")
+			price = label(5219, "Selling price") + " :" + price
 		}
+		price = strings.TrimSuffix(price, " gold")
 		add(price, color)
 	}
-	if count > 1 || def.Count > 1 {
-		if def.Count > 1 {
-			add(fmt.Sprintf("Stack: %d / %d", count, def.Count), white)
-		} else {
-			add(fmt.Sprintf("Stack: %d", count), white)
-		}
+	if instance != nil && def.Quality > 0 {
+		add(fmt.Sprintf("%s : %d/%d", label(5221, "endurance"), instance.Quality, def.Quality), white)
 	}
 	// Keep names available to nonvisual consumers; the tooltip places sockets
 	// after its description, using the confirmed gem instance IDs.
@@ -207,4 +202,14 @@ func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8
 		}
 	}
 	return lines
+}
+
+// These native item families use ConstHP/SP/MP as restoration amounts, not
+// equipment max-pool bonuses (0x4a3950). Their descriptions carry that effect.
+func itemHasRestoration(typ uint8) bool {
+	switch typ {
+	case 25, 44, 38, 41, 78, 79, 80, 100, 101, 102, 103:
+		return true
+	}
+	return false
 }

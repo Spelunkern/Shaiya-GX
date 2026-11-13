@@ -93,6 +93,7 @@ func UseSkillPacket(number uint8, target uint32, userTarget bool) []byte {
 
 type SkillResult struct {
 	Result                       uint8
+	AttackSlot                   uint8
 	Source, Target               uint32
 	ID                           uint16
 	Level                        uint8
@@ -117,9 +118,12 @@ func DecodeSkillResult(p []byte) (m SkillResult, err error) {
 	r := NewReader(p)
 	m.Result = r.U8()
 	m.Source, m.Target = r.U32(), r.U32()
+	if Op(p) == MobSkillUse || Op(p) == MobSkillDrain {
+		m.AttackSlot = r.U8()
+	}
 	m.ID, m.Level = r.U16(), r.U8()
 	m.HP, m.SP, m.MP = r.U16(), r.U16(), r.U16()
-	if Op(p) == SkillUserDrain || Op(p) == SkillMobDrain {
+	if Op(p) == SkillUserDrain || Op(p) == SkillMobDrain || Op(p) == MobSkillDrain {
 		m.HealedHP, m.HealedSP, m.HealedMP = r.U16(), r.U16(), r.U16()
 	}
 	if err := r.Err(); err != nil {

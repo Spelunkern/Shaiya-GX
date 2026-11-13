@@ -178,3 +178,15 @@ func TestRayBoxHandlesInsideParallelAndDepth(t *testing.T) {
 		t.Fatal("box behind ray hit")
 	}
 }
+
+func TestNativeTargetKeyCyclesByDistanceAndWraps(t *testing.T) {
+	a := inputApp()
+	a.state.Entities = map[uint32]*game.Entity{1: {ID: 1, Kind: game.KindMob, X: 2}, 2: {ID: 2, Kind: game.KindMob, X: 4}, 3: {ID: 3, Kind: game.KindMob, X: 6, Dead: true}, 4: {ID: 4, Kind: game.KindMob, X: 8}}
+	for _, want := range []uint32{1, 2, 4, 1} {
+		got := a.pickMob(&platform.Input{Keys: []platform.Key{platform.KeyTarget}}, 1024, 768)
+		if got != want {
+			t.Fatalf("target=%d want %d", got, want)
+		}
+		a.state.Target = got
+	}
+}

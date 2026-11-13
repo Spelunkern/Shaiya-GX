@@ -47,7 +47,7 @@ func (a *App) updateGateConfirm(in *platform.Input, w, h int) {
 	}
 	v := &a.gate
 	e := a.state.Entities[v.npc]
-	if e == nil || e.NpcType != 2 || a.shop.npcID != v.npc || a.shop.questMode || a.state.Self.Dead || a.shop.pending || a.inventory.pending ||
+	if e == nil || e.NpcType != 2 || v.index >= 3 || a.shop.npcID != v.npc || a.shop.questMode || a.state.Self.Dead || a.shop.pending || a.inventory.pending ||
 		a.npcDefs[sdata.NPCKey{Type: e.NpcType, ID: e.TypeID}].Gates[v.index] != v.destination {
 		a.questMessage("Gatekeeper destination is no longer available.")
 		return
@@ -85,6 +85,7 @@ func (a *App) confirmedGatekeeper(p []byte) {
 	a.shop.npcID = 0
 }
 func (a *App) drawGatekeeper(w, h int, e *game.Entity, def sdata.NPC) {
-	portrait := a.assets.Texture("interface/NpcFace/55.tga")
-	a.gateUI.Draw(a.sprites, a.font, w, h, def.Name, def.Welcome, portrait, def.Gates, a.shop.pending || a.inventory.pending)
+	portrait := a.assets.Texture(fmt.Sprintf("interface/NpcFace/%d.tga", def.Model))
+	a.gateUI.Currency = a.msg.Get(0x146a)
+	a.gateUI.Draw(a.sprites, a.font, w, h, def.Name, questText(def.Welcome), portrait, def.Gates, a.shop.pending || a.inventory.pending)
 }

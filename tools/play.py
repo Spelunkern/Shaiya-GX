@@ -47,10 +47,10 @@ def interrupt(_signum, _frame):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Inicia el cliente y Rapture local; limpia al salir.")
+    parser = argparse.ArgumentParser(description="Inicia el cliente y GX Server local; limpia al salir.")
     parser.add_argument("--data", type=Path, default=Path(os.environ.get("SHAIYA_DATA") or Path.home()/"Desktop/Shaiya-Client-Decomp"))
     parser.add_argument("--client", type=Path, default=ROOT/"build/shaiya", help="ejecutable del cliente")
-    parser.add_argument("--rapture", type=Path, default=Path(os.environ.get("RAPTURE_DIR") or Path.home()/"Desktop/Rapture"))
+    parser.add_argument("--server", "--rapture", dest="rapture", type=Path, default=Path(os.environ.get("GX_SERVER_DIR") or os.environ.get("RAPTURE_DIR") or ROOT/"server"))
     parser.add_argument("--client-only", action="store_true", help="usar servidores ya levantados, sin administrarlos")
     parser.add_argument("--check", action="store_true", help="comprobar arranque y cierre sin abrir la ventana")
     parser.add_argument("--no-build", action="store_true", help="usar build/shaiya existente")
@@ -74,18 +74,18 @@ def main():
                 raise RuntimeError(f"Falta {args.client}; ejecutar tools/build.sh")
             if args.client_only:
                 if not all(listening(port) for port in PORTS):
-                    raise RuntimeError("Rapture no está escuchando en 30800/30810")
+                    raise RuntimeError("GX Server no está escuchando en 30800/30810")
             else:
                 if any(listening(port) for port in PORTS):
                     raise RuntimeError("Hay servidores escuchando; usar --client-only o build/shaiya")
-                for name in ("rapture_login", "rapture_world"):
+                for name in ("gx_login", "gx_world"):
                     if not os.access(args.rapture/"build"/name, os.X_OK):
-                        raise RuntimeError(f"Falta el binario de Rapture: {name}")
+                        raise RuntimeError(f"Falta el binario de GX Server: {name}")
                 if not (args.rapture/"data/rapture.sqlite").is_file():
-                    raise RuntimeError("Falta la semilla SQLite de Rapture: data/rapture.sqlite")
+                    raise RuntimeError("Falta la semilla SQLite de GX Server: data/rapture.sqlite")
                 env = dict(os.environ, RAPTURE_LOGIN_LISTEN="127.0.0.1:30800",
                            RAPTURE_WORLD_LISTEN="127.0.0.1:30810", RAPTURE_PUBLIC_IP="127.0.0.1")
-                for name, port in zip(("rapture_login", "rapture_world"), PORTS):
+                for name, port in zip(("gx_login", "gx_world"), PORTS):
                     with (ROOT/f"work/play-{name}.log").open("w") as log:
                         process = subprocess.Popen(["nice", str((args.rapture/"build"/name).resolve())],
                                                    cwd=args.rapture, env=env, stdout=log,
@@ -93,7 +93,7 @@ def main():
                     children.append((name, process))
                     wait_ready(lambda: listening(port), f"Esperando {name}…", children)
             if args.check:
-                print("Rapture listo; comprobando cierre de la sesión.", flush=True)
+                print("GX Server listo; comprobando cierre de la sesión.", flush=True)
                 code = 0
             else:
                 extra = args.client_args

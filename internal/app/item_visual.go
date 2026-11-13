@@ -24,7 +24,7 @@ func (a *App) drawItemDetails(def *sdata.Item, instance *proto.InventoryItem, co
 			return gem.Name
 		}
 		return ""
-	})
+	}, a.msg)
 
 	// Description is its own RichText block; sockets follow it in Phoenix.
 	description := strings.ReplaceAll(def.Description, `\n`, "\n")
@@ -45,7 +45,7 @@ func (a *App) drawItemDetails(def *sdata.Item, instance *proto.InventoryItem, co
 	}
 	if own, ok := a.selfSlot(); ok {
 		for i := range rows {
-			if strings.HasPrefix(rows[i].text, "Required level:") && own.Level < def.MinLevel {
+			if strings.HasPrefix(rows[i].text, a.msg.Get(5211)+" ") && own.Level < def.MinLevel {
 				rows[i].color = [4]float32{1, 0, 0, 1}
 			}
 		}

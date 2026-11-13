@@ -43,6 +43,8 @@ def main():
             shutil.copy2(file, output/name)
     shutil.copy2(os.environ.get("SHAIYA_FONT", "/usr/share/wine/fonts/tahoma.ttf"), output/"fonts/tahoma.ttf")
     shutil.copy2(ROOT/"tools/play.py", output/"tools/play.py")
+    for name in ("LICENSE", "NOTICE"):
+        shutil.copy2(ROOT/name, output/name)
     shutil.copy2(ROOT/"internal/ui/fonts/OFL.txt", output/"fonts/OpenSans-OFL.txt")
     progress = ROOT/"docs/continuar.md"
     if progress.exists():
@@ -54,15 +56,15 @@ def main():
     progress = ROOT/"docs/continuar.md"
     if progress.exists():
         shutil.copy2(progress, output/"PROGRESO.md")
-    (output/"Jugar.sh").write_text('''#!/bin/sh
+    (output/"Jugar.sh").write_text(f'''#!/bin/sh
 set -eu
 bundle_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec python3 "$bundle_dir/tools/play.py" --no-build --client "$bundle_dir/shaiya" --data "$bundle_dir" -- "$@"
+exec python3 "$bundle_dir/tools/play.py" --server "{ROOT / "server"}" --no-build --client "$bundle_dir/shaiya" --data "$bundle_dir" -- "$@"
 ''')
     (output/"Jugar.sh").chmod(0o755)
     (output/"Jugar.desktop").write_text(f'''[Desktop Entry]
 Type=Application
-Name=Shaiya Go
+Name=Shaiya GX
 Exec="{output}/Jugar.sh"
 Path={output}
 Terminal=false
@@ -72,26 +74,28 @@ Categories=Game;
     (output/"LEEME.txt").write_text('''SHAIYA GO — PRIMERA BUILD DE PRUEBA (Linux 64 bits)
 
 Abrir Jugar.sh o Jugar.desktop. Ingresar la cuenta local en el cliente.
-El lanzador inicia Rapture de ~/Desktop/Rapture y su SQL configurado.
+El lanzador inicia GX Server desde server/ o GX_SERVER_DIR (SQLite local).
 Al cerrar la ventana, guarda la salida normal y apaga los servicios que inició.
 Si Rapture ya está levantado, ejecutar ./shaiya directamente.
 
 Controles: W/S avanzar/retroceder, A/D girar, Q/E lateral; botón derecho dirige.
 Botón derecho+A/D: lateral; ambos botones: avanzar. Rueda: zoom; flechas: cámara.
 M mapa completo; rueda para zoom y arrastre para desplazarlo. Escape cierra el mapa.
-Clic/Tab target; doble clic o F atacar; X detener; K skills; 1..0 usar barra.
-I inventario/equipo; T Status/atributos; N NPC; V vender seleccionado; G loot.
+Clic selecciona target; Tab alterna caminar/correr; doble clic o F atacar; X detener; K skills; 1..0 usar barra.
+Inventario: clic izquierdo usa, clic derecho equipa y reemplaza; arrastrar mueve.
+I inventario/equipo; T Status/atributos; N NPC; V vender seleccionado; H recoger loot cercano.
 Arrastrar el título mueve inventario, skills, Status y tienda; su posición se guarda.
 Enter chat; flechas arriba/abajo: historial escrito; selector junto a la entrada: canal.
 O/Escape: opciones; Escape primero cierra paneles. Regreso/salida desde el menú.
-R revivir estando muerto. Matriz de UI completa y pendientes: docs/reconstruccion-ui.md.
+R revivir estando muerto. ` recorre enemigos; Backspace vuelve al target anterior.
+Chat: !nombre mensaje (susurro), @mensaje (party), $mensaje (trade). Matriz de UI completa y pendientes: docs/reconstruccion-ui.md.
 Grupo: /invite nombre, /leave, /kick nombre y /leader nombre; /party texto.
 
 data.sah, data.saf y textos: copia de Desktop/Shaiya-Client-Decomp.
 La fuente Tahoma va en fonts/. No requiere instalar Go ni Wine para ejecutarse.
 Usa las bibliotecas gráficas y de audio de Linux: OpenGL 4.5 y controladores.
 Las dependencias de esta máquina están en dependencias.txt.
-El backend Rapture/SQL es externo al cliente; el lanzador usa su instalación local.
+GX Server forma parte del proyecto GX; su base personal se conserva fuera de Git.
 
 PROGRESO.md y docs/ contienen estado, verificación, fuentes y pendientes.
 Agua WTR animada y sombras de actores en campos; pases avanzados y sistemas restantes en desarrollo.

@@ -43,8 +43,8 @@ func TestGuildNoticeAndEtinAgainstRapture(t *testing.T) {
 	poll(func() bool { return a.Guild.EtinKnown })
 	old := a.Guild.Remark
 	x, y := appA.guildUI.Origin(1024, 768)
-	appA.updateGuild(&platform.Input{MouseX: x + 225, MouseY: y + 486, Pressed: true, MouseDown: true}, 1024, 768)
-	appA.updateGuild(&platform.Input{MouseX: x + 225, MouseY: y + 486, Clicked: true}, 1024, 768)
+	appA.updateGuild(&platform.Input{MouseX: x + 255, MouseY: y + 470, Pressed: true, MouseDown: true}, 1024, 768)
+	appA.updateGuild(&platform.Input{MouseX: x + 255, MouseY: y + 470, Clicked: true}, 1024, 768)
 	if !appA.guildCreateUI.Visible || !appA.guildCreateUI.NoticeMode {
 		t.Fatal("notice editor did not open")
 	}

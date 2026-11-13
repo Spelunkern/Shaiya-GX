@@ -15,6 +15,7 @@ func TestItemTooltipFieldsUseEP5Offsets(t *testing.T) {
 	p[7], p[11] = 1, 1
 	p[13] = 2
 	binary.LittleEndian.PutUint16(p[16:], 27)
+	p[31] = 11
 	p[32], p[33], p[34] = 24, 3, 2
 	binary.LittleEndian.PutUint16(p[53:], 19)
 	binary.LittleEndian.PutUint16(p[63:], 23)
@@ -23,7 +24,7 @@ func TestItemTooltipFieldsUseEP5Offsets(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := defs[ItemKey{1, 2}]
-	if d.Classes != ([6]uint8{1, 0, 0, 0, 1, 0}) || d.Grow != 2 || d.RequiredStats[0] != 27 || d.Stats[0] != 19 || d.Stats[5] != 23 || d.Range != 24 || d.AttackTime != 3 || d.Attribute != 2 {
+	if d.Classes != ([6]uint8{1, 0, 0, 0, 1, 0}) || d.Grow != 2 || d.RequiredStats[0] != 27 || d.Stats[0] != 19 || d.Stats[5] != 23 || d.ReqIg != 11 || d.Range != 24 || d.AttackTime != 3 || d.Attribute != 2 {
 		t.Fatal("EP5 tooltip fields shifted", d)
 	}
 }

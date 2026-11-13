@@ -210,6 +210,15 @@ func (a *App) updateCharacters(in *platform.Input, w, h int, dt float64) {
 			}
 			return
 		}
+		if a.socialInviteUI != nil && a.socialInviteUI.Visible || a.guild.open && a.guildUI != nil && a.guildUI.Page != 0 && a.socialUI != nil && a.socialUI.Focus && !in.Pressed {
+			controls := a.worldControls(in, w, h)
+			controls.Down = ""
+			controls.SuppressAutoRun = true
+			if a.wv != nil && a.world != nil && a.state != nil {
+				a.updateWorld(&controls, dt)
+			}
+			return
+		}
 		if a.chatOpen && a.shop.quantity == nil {
 			a.updateChatPointer(in, w, h)
 		}
@@ -288,6 +297,7 @@ func (a *App) drawCharacters(w, h int) {
 		a.drawGuild(w, h)
 		a.drawMall(w, h)
 		a.drawPlayerContext(w, h)
+		a.chatUI.DrawOverlay(a.sprites, a.chatFont(), a.white, h)
 		if a.gateConfirm != nil {
 			a.gateConfirm.Draw(a.sprites, a.font, w, h)
 		}
