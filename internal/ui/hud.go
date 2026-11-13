@@ -35,11 +35,11 @@ func NewHUD(t Textures) (*HUD, error) {
 		name string
 		dst  **render.Texture
 	}{
-		{"main_stats_bar_bg.tga", &h.status}, {"main_stats_bar.tga", &h.bars},
-		{"main_stats_circle.tga", &h.circle}, {"enemy_bar_bg.tga", &h.target},
-		{"main_stats_circle2.tga", &h.portraitMask},
-		{"enemy_bar.tga", &h.targetBar},
-		{"enemy_elemental.tga", &h.elemental},
+		{"main_stats_bar_bg.png", &h.status}, {"main_stats_bar.png", &h.bars},
+		{"main_stats_circle.png", &h.circle}, {"enemy_bar_bg.png", &h.target},
+		{"main_stats_circle2.png", &h.portraitMask},
+		{"enemy_bar.png", &h.targetBar},
+		{"enemy_elemental.png", &h.elemental},
 	} {
 		tex, err := t.Interface(asset.name)
 		if err != nil {

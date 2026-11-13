@@ -237,7 +237,7 @@ func (a *App) drawMarket(w, h int, def sdata.NPC) {
 	a.clearTooltipUnderPanel(x, y, ui.MarketWidth, ui.MarketHeight)
 	// Native fallback (DAT_00868de0 = 55 at 0x56f35e). NPC-specific
 	// portrait selection is pending; NpcQuest.Model selects the world model.
-	portrait := a.assets.Texture("interface/NpcFace/55.tga")
+	portrait := a.assets.Texture("interface/NpcFace/55.png")
 	a.marketUI.Draw(a.sprites, a.font, w, h, v.page, len(def.Items), v.pending || a.inventory.pending, def.Name, portrait)
 	start := v.page * ui.MarketPageSize
 	for i := start; i < min(start+ui.MarketPageSize, len(def.Items)); i++ {

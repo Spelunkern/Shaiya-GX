@@ -45,7 +45,7 @@ func TestHUDPortraitGL(t *testing.T) {
 	defer a.Close()
 	a.state, a.wv = game.New(), &worldView{}
 	a.state.SelfID = 1
-	mask := a.assets.Texture("interface/main_stats_circle2.tga")
+	mask := a.assets.Texture("interface/main_stats_circle2.png")
 	path := filepath.Join(t.TempDir(), "portrait.png")
 	for race, jobs := range [4][]uint8{{0, 1, 5}, {2, 3, 4}, {2, 4, 5}, {0, 1, 3}} {
 		for _, job := range jobs {

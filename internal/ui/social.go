@@ -27,10 +27,10 @@ type SocialPanel struct {
 func NewSocialPanel(t Textures) (*SocialPanel, error) {
 	ld := &loader{t: t}
 	p := &SocialPanel{SortColumn: 1, sortHeld: -1, held: -1, Name: TextField{Max: 20}}
-	for i, n := range []string{"friend.tga", "friend_cut.tga", "party_find.tga"} {
+	for i, n := range []string{"friend.png", "friend_cut.png", "party_find.png"} {
 		p.frames[i] = ld.get(n)
 	}
-	for page, names := range [][]string{{"guild_sort_no.tga", "guild_sort_name.tga", "guild_sort_job.tga", "friend_sort_memo.tga", "guild_sort_on.tga"}, {"guild_sort_no.tga", "guild_sort_name.tga", "", "friend_sort_memo.tga", ""}, {"guild_sort_no.tga", "guild_sort_name.tga", "guild_sort_job.tga", "party_find_sort_level.tga", ""}} {
+	for page, names := range [][]string{{"guild_sort_no.png", "guild_sort_name.png", "guild_sort_job.png", "friend_sort_memo.png", "guild_sort_on.png"}, {"guild_sort_no.png", "guild_sort_name.png", "", "friend_sort_memo.png", ""}, {"guild_sort_no.png", "guild_sort_name.png", "guild_sort_job.png", "party_find_sort_level.png", ""}} {
 		for i, n := range names {
 			if n != "" {
 				p.headers[page][i] = ld.get(n)
@@ -51,19 +51,19 @@ func NewSocialPanel(t Textures) (*SocialPanel, error) {
 		}
 		return b
 	}
-	p.add = makeButton("friend_find_button.tga", 237, 46, 74, 20, 0)
-	p.whisper = makeButton("friend_button.tga", 48, 466, 83, 27, 0)
-	p.remove = makeButton("friend_button.tga", 234, 466, 70, 27, 0)
+	p.add = makeButton("friend_find_button.png", 237, 46, 74, 20, 0)
+	p.whisper = makeButton("friend_button.png", 48, 466, 83, 27, 0)
+	p.remove = makeButton("friend_button.png", 234, 466, 70, 27, 0)
 	for i := range p.remove.UV {
 		p.remove.UV[i].U0 += .5
 		p.remove.UV[i].U1 += .5
 	}
-	p.block = makeButton("friend_cut_button.tga", 237, 46, 74, 20, 0)
-	p.unblock = makeButton("friend_cut_button2.tga", 48, 466, 66, 27, 0)
-	p.search = makeButton("party_find_button1.tga", 184, 46, 122, 22, 0)
-	p.invite = makeButton("party_find_button4.tga", 145, 466, 66, 27, 0)
-	p.close = nativeClose(ld.get("talk1_close_button.tga"), 307, 8)
-	p.scroll = newPanelScroll(ld.get("scrollbar.tga"), 303, 99, 356)
+	p.block = makeButton("friend_cut_button.png", 237, 46, 74, 20, 0)
+	p.unblock = makeButton("friend_cut_button2.png", 48, 466, 66, 27, 0)
+	p.search = makeButton("party_find_button1.png", 184, 46, 122, 22, 0)
+	p.invite = makeButton("party_find_button4.png", 145, 466, 66, 27, 0)
+	p.close = nativeClose(ld.get("talk1_close_button.png"), 307, 8)
+	p.scroll = newPanelScroll(ld.get("scrollbar.png"), 303, 99, 356)
 	return p, ld.err
 }
 func (p *SocialPanel) buttons(page int) []*Button {

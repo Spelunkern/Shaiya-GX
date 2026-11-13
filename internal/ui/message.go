@@ -18,9 +18,9 @@ type Message struct {
 
 func NewMessage(t Textures) (*Message, error) {
 	ld := &loader{t: t}
-	m := &Message{frame: ld.get("message.tga")}
-	m.ok = Button{Tex: ld.get("ok_button.tga"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
-	m.cancel = Button{Tex: ld.get("cancel_button.tga"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	m := &Message{frame: ld.get("message.png")}
+	m.ok = Button{Tex: ld.get("ok_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	m.cancel = Button{Tex: ld.get("cancel_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	return m, ld.err
 }
 

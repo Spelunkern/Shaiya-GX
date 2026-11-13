@@ -22,8 +22,8 @@ type Quantity struct {
 
 func NewQuantity(t Textures) (*Quantity, error) {
 	ld := &loader{t: t}
-	q := &Quantity{frame: ld.get("change_item.tga")}
-	tex := ld.get("stats_on_button.tga")
+	q := &Quantity{frame: ld.get("change_item.png")}
+	tex := ld.get("stats_on_button.png")
 	for i := 0; i < 2; i++ {
 		b := &q.buttons[i]
 		*b = Button{Tex: tex, OffX: 29 + i*59, OffY: 69, DrawW: 64, DrawH: 32, HitW: 46, HitH: 20}
@@ -31,7 +31,7 @@ func NewQuantity(t Textures) (*Quantity, error) {
 			b.UV[state] = UV{float32(col) * .25, float32(i) * .5, float32(col+1) * .25, float32(i+1) * .5}
 		}
 	}
-	tex = ld.get("stats_on_select_button.tga")
+	tex = ld.get("stats_on_select_button.png")
 	for i := 0; i < 2; i++ {
 		b := &q.buttons[i+2]
 		*b = Button{Tex: tex, OffX: 108 + i*21, OffY: 31, DrawW: 32, DrawH: 32, HitW: 22, HitH: 22}
@@ -39,7 +39,7 @@ func NewQuantity(t Textures) (*Quantity, error) {
 			b.UV[state] = UV{float32(col) * .25, float32(i) * .5, float32(col+1) * .25, float32(i+1) * .5}
 		}
 	}
-	q.buttons[4] = nativeClose(ld.get("talk1_close_button.tga"), 138, 1)
+	q.buttons[4] = nativeClose(ld.get("talk1_close_button.png"), 138, 1)
 	return q, ld.err
 }
 func (q *Quantity) Open(mx, my, w, h, limit int) {

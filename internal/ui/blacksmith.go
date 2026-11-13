@@ -15,18 +15,18 @@ type Blacksmith struct {
 
 func NewBlacksmith(t Textures) (*Blacksmith, error) {
 	ld := &loader{t: t}
-	v := &Blacksmith{frame: ld.get("Remake1.tga")}
-	v.close = nativeClose(ld.get("talk1_close_button.tga"), 483, 3)
-	v.link = Button{Tex: ld.get("repair_button2.tga"), OffX: 292, OffY: 374, DrawW: 128, DrawH: 32, HitW: 124, HitH: 27,
+	v := &Blacksmith{frame: ld.get("Remake1.png")}
+	v.close = nativeClose(ld.get("talk1_close_button.png"), 483, 3)
+	v.link = Button{Tex: ld.get("repair_button2.png"), OffX: 292, OffY: 374, DrawW: 128, DrawH: 32, HitW: 124, HitH: 27,
 		UV: [5]UV{{0, 0, .5, .25}, {0, .25, .5, .5}, {0, .5, .5, .75}, {0, .5, .5, .75}, {0, .75, .5, 1}}}
-	v.extract = Button{Tex: ld.get("repair_button2.tga"), OffX: 427, OffY: 374, DrawW: 64, DrawH: 32, HitW: 64, HitH: 27,
+	v.extract = Button{Tex: ld.get("repair_button2.png"), OffX: 427, OffY: 374, DrawW: 64, DrawH: 32, HitW: 64, HitH: 27,
 		UV: [5]UV{{.5, 0, 1, .25}, {.5, .25, 1, .5}, {.5, .5, 1, .75}, {.5, .5, 1, .75}, {.5, .75, 1, 1}}}
-	v.repair = Button{Tex: ld.get("talk_blank_button.tga"), OffX: 30, OffY: 300, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26,
+	v.repair = Button{Tex: ld.get("talk_blank_button.png"), OffX: 30, OffY: 300, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26,
 		UV: [5]UV{{0, 0, .25, .5}, {.25, 0, .5, .5}, {.5, 0, .75, .5}, {.5, 0, .75, .5}, {.75, 0, 1, .5}}}
-	v.repairAll = Button{Tex: ld.get("repair_button1.tga"), OffX: 30, OffY: 335, DrawW: 96, DrawH: 32, HitW: 96, HitH: 26,
+	v.repairAll = Button{Tex: ld.get("repair_button1.png"), OffX: 30, OffY: 335, DrawW: 96, DrawH: 32, HitW: 96, HitH: 26,
 		UV: [5]UV{{0, 0, .5, .25}, {0, .25, .5, .5}, {0, .5, .5, .75}, {0, .5, .5, .75}, {0, .75, .5, 1}}}
-	v.enchant = Button{Tex: ld.get("repair_button4.tga"), OffX: 427, OffY: 320, DrawW: 128, DrawH: 32, HitW: 64, HitH: 27, UV: FourRowUV}
-	v.compose = Button{Tex: ld.get("talk_blank_button.tga"), OffX: 145, OffY: 335, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26,
+	v.enchant = Button{Tex: ld.get("repair_button4.png"), OffX: 427, OffY: 320, DrawW: 128, DrawH: 32, HitW: 64, HitH: 27, UV: FourRowUV}
+	v.compose = Button{Tex: ld.get("talk_blank_button.png"), OffX: 145, OffY: 335, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26,
 		UV: [5]UV{{0, 0, .25, .5}, {.25, 0, .5, .5}, {.5, 0, .75, .5}, {.5, 0, .75, .5}, {.75, 0, 1, .5}}}
 	return v, ld.err
 }

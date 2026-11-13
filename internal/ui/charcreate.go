@@ -30,9 +30,9 @@ type Creation struct {
 
 func NewCharCreate(t Textures, msg text.SysMsg) (*Creation, error) {
 	ld := &loader{t: t}
-	c := &Creation{msg: msg, panel: ld.get("create.tga"), Name: TextField{Max: 18}}
-	c.OK = &Button{Tex: ld.get("ok_button.tga"), OffX: 37, OffY: 622, DrawW: 128, DrawH: 32, HitW: 67, HitH: 27, UV: FourRowUV}
-	c.Cancel = &Button{Tex: ld.get("cancel_button.tga"), OffX: 150, OffY: 622, DrawW: 128, DrawH: 32, HitW: 67, HitH: 27, UV: FourRowUV}
+	c := &Creation{msg: msg, panel: ld.get("create.png"), Name: TextField{Max: 18}}
+	c.OK = &Button{Tex: ld.get("ok_button.png"), OffX: 37, OffY: 622, DrawW: 128, DrawH: 32, HitW: 67, HitH: 27, UV: FourRowUV}
+	c.Cancel = &Button{Tex: ld.get("cancel_button.png"), OffX: 150, OffY: 622, DrawW: 128, DrawH: 32, HitW: 67, HitH: 27, UV: FourRowUV}
 	c.loadControls(ld)
 	c.Navigation = newPreviewNavigation(ld)
 	return c, ld.err

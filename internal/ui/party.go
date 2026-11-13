@@ -37,10 +37,10 @@ type PartyPanel struct {
 
 func NewPartyPanel(t Textures) (*PartyPanel, error) {
 	ld := &loader{t: t}
-	p := &PartyPanel{frame: ld.get("party.tga"), graph: ld.get("party_graph.tga"), icons: ld.get("party_icon.tga"), raidFrame: ld.get("union_party.tga"), raidRows: ld.get("party2.tga"), raidCheck: ld.get("chat_check.tga"), raidSelector: ld.get("union_select.tga"), raidSlider: ld.get("option_graphic_slider.tga"), raidCompact: true, raidGroups: true, raidOpacity: 1}
-	p.raidClose = nativeClose(ld.get("talk1_close_button.tga"), 549, 4)
-	p.raidOK = Button{Tex: ld.get("ok_button.tga"), OffX: 380, OffY: 402, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
-	p.raidCancel = Button{Tex: ld.get("cancel_button.tga"), OffX: 467, OffY: 402, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	p := &PartyPanel{frame: ld.get("party.png"), graph: ld.get("party_graph.png"), icons: ld.get("party_icon.png"), raidFrame: ld.get("union_party.png"), raidRows: ld.get("party2.png"), raidCheck: ld.get("chat_check.png"), raidSelector: ld.get("union_select.png"), raidSlider: ld.get("option_graphic_slider.png"), raidCompact: true, raidGroups: true, raidOpacity: 1}
+	p.raidClose = nativeClose(ld.get("talk1_close_button.png"), 549, 4)
+	p.raidOK = Button{Tex: ld.get("ok_button.png"), OffX: 380, OffY: 402, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	p.raidCancel = Button{Tex: ld.get("cancel_button.png"), OffX: 467, OffY: 402, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	return p, ld.err
 }
 func PartyOrigin(w, h, count int) (int, int) {

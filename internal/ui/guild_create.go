@@ -19,9 +19,9 @@ type GuildCreateDialog struct {
 
 func NewGuildCreateDialog(t Textures) (*GuildCreateDialog, error) {
 	ld := &loader{t: t}
-	d := &GuildCreateDialog{frame: ld.get("guild_create_message.tga"), noticeFrame: ld.get("guild_message_input.tga"), Name: TextField{Max: 24}, Remark: TextField{Max: 64}}
-	d.ok = Button{Tex: ld.get("ok_button.tga"), OffX: 48, OffY: 210, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
-	d.cancel = Button{Tex: ld.get("cancel_button.tga"), OffX: 143, OffY: 210, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	d := &GuildCreateDialog{frame: ld.get("guild_create_message.png"), noticeFrame: ld.get("guild_message_input.png"), Name: TextField{Max: 24}, Remark: TextField{Max: 64}}
+	d.ok = Button{Tex: ld.get("ok_button.png"), OffX: 48, OffY: 210, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	d.cancel = Button{Tex: ld.get("cancel_button.png"), OffX: 143, OffY: 210, DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	return d, ld.err
 }
 func (d *GuildCreateDialog) Open() {

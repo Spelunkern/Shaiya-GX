@@ -32,7 +32,7 @@ $env:CGO_ENABLED = '1'
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 ```
 
-Do not use a 32-bit compiler or MSVC `cl` as the CGO compiler. Output: `build/shaiya.exe`, `build/shaiyacli.exe`, `build/assets.exe` and `server/build/gx_{login,world,console,server}.exe`. `gx_server.exe` is a GUI-subsystem app. Audio uses the Windows backend; ALSA is only a Linux dependency. Run from a normal desktop with your GPU vendor's OpenGL 4.5 driver.
+Do not use a 32-bit compiler or MSVC `cl` as the CGO compiler. Output: `build/Shaiya GX.exe`, `build/shaiyacli.exe`, `build/assets.exe` and `server/build/gx_{login,world,console,server}.exe`. `gx_server.exe` is a GUI-subsystem app. Audio uses the Windows backend; ALSA is only a Linux dependency. Run from a normal desktop with your GPU vendor's OpenGL 4.5 driver.
 
 ## Windows cross build from Linux
 
@@ -40,7 +40,7 @@ With `x86_64-w64-mingw32-gcc` installed:
 
 ```sh
 CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
-  go build -o build/shaiya.exe ./cmd/shaiya
+  go build -o "build/Shaiya GX.exe" ./cmd/shaiya
 python3 server/tools/package.py --platform windows-amd64 --output out/portable
 ```
 
@@ -56,17 +56,17 @@ python3 -m unittest discover -s server/tools -p 'test_*.py'
 python3 tools/check_publication.py --history
 ```
 
-The publication check inspects staged source and, with `--history`, reachable history. Stage intended files first. It permits the explicitly distributed `server/data/` fixtures and the authored micro app icon, while rejecting client assets, local runtime copies, credentials and generated binaries.
+The publication check inspects staged source and, with `--history`, reachable history. Stage intended files first. It permits the explicitly distributed `server/data/` fixtures, the authored micro app icon and the synthetic audio test tone, while rejecting client assets, local runtime copies, credentials and generated binaries.
 
 `.github/workflows/ci.yml` builds and tests on native Linux and Windows runners, including server integration, portable startup from a relocated directory containing spaces, and console Start/Stop isolation from a second running installation. Portable packages are uploaded as workflow artifacts. Tagged GX releases publish the portable archives and checksums. A green run does not establish full visual parity: graphical tests need licensed local assets and a real OpenGL context.
 
 ## Local assets and graphics checks
 
-Set `SHAIYA_DATA` to the directory containing your compatible `data.sah` and `data.saf`, and `SHAIYA_FONT` to a Tahoma-compatible font. The client also checks for archives and `fonts/tahoma.ttf` beside its executable. Open Sans SemiBold is embedded under its included SIL license; Tahoma is not bundled publicly.
+Place the converted loose `data/` directory beside the Shaiya GX executable, or set `SHAIYA_DATA` / `-data` to that directory. The game no longer reads SAH/SAF. See [data formats and conversion](data-formats.md). Wine Tahoma and Open Sans SemiBold are embedded in the executable; no external font, OS font lookup or `SHAIYA_FONT` variable is required. Their notices and licenses are retained in `internal/ui/fonts/`.
 
 ```sh
-SHAIYA_TEST_RENDER=1 SHAIYA_DATA=/path/to/game-data \
-SHAIYA_FONT=/path/to/tahoma.ttf SHAIYA_TEST_ARTIFACTS=/path/to/private/captures \
+SHAIYA_TEST_RENDER=1 SHAIYA_DATA=/path/to/ShaiyaGX/data \
+SHAIYA_TEST_ARTIFACTS=/path/to/private/captures \
   go test -tags integration ./internal/app \
   -run 'TestHUDPolishOriginalAssetsGL|TestPhoenixChatAndLoginLogoGL' -count=1 -v
 ```
@@ -85,4 +85,4 @@ Rebuilding does not take a new snapshot from a personal runtime. Refresh deliber
 
 ## Prepare a private client folder (Linux)
 
-`python3 tools/package.py --source /path/to/local/assets --output /path/to/play-folder` copies your own game files, font, client, docs and launcher for personal use. Set `GX_SERVER_DIR` to your source `server/` folder or an extracted portable server. `--update` replaces the Linux executable atomically and preserves installed archives. This helper is for private Linux play folders; Windows users can run `build/shaiya.exe` with the environment variables above. Never publish a client play folder containing game assets.
+`python3 tools/package.py --source /path/to/converted/data --output /path/to/play-folder` writes only `Shaiya GX` and its adjacent `data/` directory. It does not install fonts, launchers, documentation or development tools. `--update` replaces the Linux executable atomically and preserves the installed data directory. Start GX Server separately, then run the client directly. Windows uses the same converted data directory and its own `Shaiya GX.exe`; the Linux binary does not run on Windows. Keep source documentation/licenses in the repository and game archives out of Git.

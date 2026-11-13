@@ -8,7 +8,7 @@ import (
 const SubActionWidth, SubActionHeight = 275, 466
 const SubActionClose = -2
 
-// SubActions uses the original Sub.tga frame and the 4x4 icon_sub atlas.
+// SubActions uses the original Sub.png frame and the 4x4 icon_sub atlas.
 // Coordinates follow 0x507960/0x507C30. Click activation is a temporary
 // alternative to the original drag-to-action-bar flow.
 type SubActions struct {
@@ -20,8 +20,8 @@ type SubActions struct {
 
 func NewSubActions(t Textures) (*SubActions, error) {
 	l := &loader{t: t}
-	p := &SubActions{frame: l.get("Sub.tga"), icons: l.get("icon/icon_sub.tga"), tabs: l.get("sub_select_button.tga"), held: -1, hover: -1}
-	p.close = nativeClose(l.get("talk1_close_button.tga"), 250, 1)
+	p := &SubActions{frame: l.get("Sub.png"), icons: l.get("icon/icon_sub.png"), tabs: l.get("sub_select_button.png"), held: -1, hover: -1}
+	p.close = nativeClose(l.get("talk1_close_button.png"), 250, 1)
 	return p, l.err
 }
 func SubActionsOrigin(w, _ int) (int, int) { return max(0, w-297), 0 }

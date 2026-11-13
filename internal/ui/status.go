@@ -46,14 +46,14 @@ func StatusOrigin(w, h int, expanded bool) (int, int) {
 
 func NewStatus(t Textures) (*Status, error) {
 	ld := &loader{t: t}
-	v := &Status{frames: [2]*render.Texture{ld.get("stats_off.tga"), ld.get("stats_on.tga")}}
-	v.resourceBars, v.expBar = ld.get("main_stats_bar.tga"), ld.get("main_bottom_bar.tga")
-	v.close = nativeClose(ld.get("talk1_close_button.tga"), 250, 8)
-	v.expand = Button{Tex: ld.get("stats_button.tga"), OffX: 0, OffY: 156, DrawW: 32, DrawH: 128, HitW: 27, HitH: 102}
+	v := &Status{frames: [2]*render.Texture{ld.get("stats_off.png"), ld.get("stats_on.png")}}
+	v.resourceBars, v.expBar = ld.get("main_stats_bar.png"), ld.get("main_bottom_bar.png")
+	v.close = nativeClose(ld.get("talk1_close_button.png"), 250, 8)
+	v.expand = Button{Tex: ld.get("stats_button.png"), OffX: 0, OffY: 156, DrawW: 32, DrawH: 128, HitW: 27, HitH: 102}
 	for i := range v.expand.UV {
 		v.expand.UV[i] = UV{0, 0, 1, 1}
 	}
-	tex := ld.get("stats_on_select_button.tga")
+	tex := ld.get("stats_on_select_button.png")
 	for i := range v.steps {
 		b := &v.steps[i]
 		*b = Button{Tex: tex, OffX: 85 + i%2*26, OffY: 128 + i/2*20, DrawW: 32, DrawH: 32, HitW: 22, HitH: 20}
@@ -61,7 +61,7 @@ func NewStatus(t Textures) (*Status, error) {
 			b.UV[state] = UV{float32(col) / 4, float32(i%2) / 2, float32(col+1) / 4, float32(i%2+1) / 2}
 		}
 	}
-	tex = ld.get("stats_on_button.tga")
+	tex = ld.get("stats_on_button.png")
 	for i, b := range []*Button{&v.apply, &v.cancel} {
 		*b = Button{Tex: tex, OffX: 15 + i*65, OffY: 269, DrawW: 64, DrawH: 32, HitW: 46, HitH: 20}
 		for state, col := range []int{0, 1, 2, 2, 3} {

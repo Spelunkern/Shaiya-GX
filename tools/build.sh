@@ -11,7 +11,8 @@ export GOTOOLCHAIN=local
 mkdir -p build server/build
 go vet ./...
 for c in shaiya shaiyacli assets; do
-  go build -o "build/$c" "./cmd/$c"
+  if [ "$c" = shaiya ]; then target="Shaiya GX"; else target="$c"; fi
+  go build -o "build/$target" "./cmd/$c"
 done
 ./server/tools/build.sh
 go test ./...

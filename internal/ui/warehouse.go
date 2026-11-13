@@ -19,10 +19,10 @@ type Warehouse struct {
 
 func NewWarehouse(t Textures) (*Warehouse, error) {
 	ld := &loader{t: t}
-	v := &Warehouse{frame: ld.get("bank.tga"), bag: ld.get("inven_bag.tga"), hover: -1, held: -1}
-	v.tabs = [2]*render.Texture{ld.get("store_slot_button1.tga"), ld.get("store_slot_button2.tga")}
-	v.close = nativeClose(ld.get("talk1_close_button.tga"), 309, 5)
-	v.guildSwitch = Button{Tex: ld.get("guild_button2_blank.tga"), OffX: 237, OffY: 82, DrawW: 128, DrawH: 32, HitW: 75, HitH: 21, UV: FourRowUV}
+	v := &Warehouse{frame: ld.get("bank.png"), bag: ld.get("inven_bag.png"), hover: -1, held: -1}
+	v.tabs = [2]*render.Texture{ld.get("store_slot_button1.png"), ld.get("store_slot_button2.png")}
+	v.close = nativeClose(ld.get("talk1_close_button.png"), 309, 5)
+	v.guildSwitch = Button{Tex: ld.get("guild_button2_blank.png"), OffX: 237, OffY: 82, DrawW: 128, DrawH: 32, HitW: 75, HitH: 21, UV: FourRowUV}
 	return v, ld.err
 }
 

@@ -6,17 +6,17 @@ package scene
 func SkillActionSound(action int) string {
 	switch action {
 	case 85:
-		return "ch_maready01.wav"
+		return "ch_maready01.ogg"
 	case 87:
-		return "ef_in_firing01.wav"
+		return "ef_in_firing01.ogg"
 	case 88:
-		return "ch_maready02.wav"
+		return "ch_maready02.ogg"
 	case 90:
-		return "ch_maattack02.wav"
+		return "ch_maattack02.ogg"
 	case 91:
-		return "ch_buready01.wav"
+		return "ch_buready01.ogg"
 	case 93:
-		return "ch_buattack01.wav"
+		return "ch_buattack01.ogg"
 	}
 	return ""
 }

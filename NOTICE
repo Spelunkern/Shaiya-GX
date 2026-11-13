@@ -19,3 +19,11 @@ GX Server incorporates the former Rapture Go server. Copyright (c) 2026,
 Shaiya Core Contributors. BSD 3-Clause terms retained in server/LICENSE.
 Server development database and supplied map/configuration data are distributed
 as test fixtures; original game content retains its respective ownership.
+
+Wine Tahoma, Copyright (c) 2004 Larry Snyder, based on Bitstream Vera Sans
+Copyright (c) 2003 Bitstream, Inc. Embedded unchanged under LGPL-2.1-or-later;
+see internal/ui/fonts/Tahoma-NOTICE.txt and LGPL-2.1-or-later.txt in that folder.
+This is the Wine font, not Microsoft's proprietary Tahoma.
+
+Ogg Vorbis decoder: github.com/jfreymuth/oggvorbis and github.com/jfreymuth/vorbis,
+MIT License, Copyright Jonas Frey. See the upstream module LICENSE files.

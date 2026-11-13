@@ -120,7 +120,7 @@ GX Server already validates skill reuse by SkillID and consumables by ReqIg. The
 
 Accepted healing potions followed by the authoritative resource snapshot emit green SysMsg 100 for each restored pool, using the actual clamped gain. Ordinary regeneration does not create potion notices. Buff badges display their transmitted level except absent/special level 100.
 
-All seven `Cursor/01.cur` through `07.cur` files load directly from the local archive into OS cursors, preserving native size, hotspot, pixel alpha and AND-mask transparency. Their DIB payloads match the executable resources byte for byte. Context selection covers attack, loot, NPC conversation, bar interaction, dragging and skill aiming, with the default cursor elsewhere. Remaining specialized service/targeting states still need comparison. Cursor handles are released before the window system closes.
+All seven `Cursor/01.png` through `07.png` files load from loose data into OS cursors. Lossless conversion preserves native dimensions and RGBA pixels, including the original AND-mask transparency. All supplied cursors use a `(0,0)` hotspot; the loader applies that directly. The CUR decoder remains an import utility. Context selection covers attack, loot, NPC conversation, bar interaction, dragging and skill aiming, with the default cursor elsewhere. Remaining specialized service/targeting states still need comparison. Cursor handles are released before the window system closes.
 
 ## Inventory, monster presentation and graphics controls
 
@@ -142,7 +142,7 @@ still ongoing.
 
 The original debuff overlay (`0x4bff80`/`0x4c02d0`) fades white from alpha one at
 one unit per second, wrapping at one. Icon hit regions and authoritative buff
-lifetime remain intact. Login/server selection music is `Sound/Music/bgm_title.wav`,
+lifetime remain intact. Login/server selection music is `Sound/Music/bgm_title.ogg`,
 confirmed at `0x42caf0`; it replaces the previous `bgm_login001.wav` selection.
 
 The four graphic thumbs use the original slider art at Y184/234/284/334, with

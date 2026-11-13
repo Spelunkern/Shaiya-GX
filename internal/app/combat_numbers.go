@@ -75,7 +75,7 @@ func (a *App) drawCombatNumbers(w, h int) {
 	if len(a.combatNumbers) == 0 || a.scene3d == nil {
 		return
 	}
-	atlas, err := a.Interface("count.tga")
+	atlas, err := a.Interface("count.png")
 	if err != nil || atlas == nil || atlas.W != 512 || atlas.H != 32 {
 		return
 	}

@@ -32,20 +32,20 @@ type FactionScreen struct {
 
 func NewFaction(t Textures, msg text.SysMsg) (*FactionScreen, error) {
 	ld := &loader{t: t}
-	v := &FactionScreen{bg: ld.get("select_country_bg2.jpg"), center: ld.get("select_country1.tga"), msg: msg}
-	v.panels = [2]*render.Texture{ld.get("select_country2.tga"), ld.get("select_country3.tga")}
+	v := &FactionScreen{bg: ld.get("select_country_bg2.png"), center: ld.get("select_country1.png"), msg: msg}
+	v.panels = [2]*render.Texture{ld.get("select_country2.png"), ld.get("select_country3.png")}
 	for i, name := range []string{"light", "fury"} {
-		v.dialogs[i] = [2]*render.Texture{ld.get("choose_" + name + ".tga"), ld.get("choose_submit_" + name + ".tga")}
+		v.dialogs[i] = [2]*render.Texture{ld.get("choose_" + name + ".png"), ld.get("choose_submit_" + name + ".png")}
 	}
-	tex := ld.get("select_country_button.tga")
+	tex := ld.get("select_country_button.png")
 	for i, b := range []*Button{&v.selectButton, &v.cancelButton} {
 		*b = Button{Tex: tex, OffX: 35 + i*130, OffY: 478, DrawW: 128, DrawH: 32, HitW: 98, HitH: 25}
 		for state, row := range []int{0, 1, 2, 2, 3} {
 			b.UV[state] = UV{float32(i) / 2, float32(row) / 4, float32(i+1) / 2, float32(row+1) / 4}
 		}
 	}
-	v.ok = Button{Tex: ld.get("ok_button.tga"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
-	v.cancel = Button{Tex: ld.get("cancel_button.tga"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	v.ok = Button{Tex: ld.get("ok_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
+	v.cancel = Button{Tex: ld.get("cancel_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	v.Reset()
 	return v, ld.err
 }

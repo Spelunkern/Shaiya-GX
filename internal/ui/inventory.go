@@ -56,9 +56,9 @@ type Inventory struct {
 
 func NewInventory(t Textures) (*Inventory, error) {
 	ld := &loader{t: t}
-	v := &Inventory{frame: ld.get("inven.tga"), bag: ld.get("inven_bag.tga"), hover: -1, held: -1}
-	v.tabs = [2]*render.Texture{ld.get("inven_button1.tga"), ld.get("inven_button2.tga")}
-	v.close = nativeClose(ld.get("talk1_close_button.tga"), 231, 8)
+	v := &Inventory{frame: ld.get("inven.png"), bag: ld.get("inven_bag.png"), hover: -1, held: -1}
+	v.tabs = [2]*render.Texture{ld.get("inven_button1.png"), ld.get("inven_button2.png")}
+	v.close = nativeClose(ld.get("talk1_close_button.png"), 231, 8)
 	return v, ld.err
 }
 func (v *Inventory) Update(in *platform.Input, w, h int, bag uint8) (uint8, bool) {

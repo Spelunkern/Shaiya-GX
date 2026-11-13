@@ -48,7 +48,7 @@ func TestOriginalWeaponEnchantCatalogueGL(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer k.Delete()
-	f, err := ui.LoadFont(ui.DefaultFontPath(), 13)
+	f, err := ui.LoadFont(13)
 	if err != nil {
 		t.Fatal(err)
 	}

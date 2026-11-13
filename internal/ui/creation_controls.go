@@ -71,19 +71,19 @@ func (c *Creation) buttons() []*Button {
 	return out
 }
 func (c *Creation) loadControls(ld *loader) {
-	tex := ld.get("create_race_button.tga")
+	tex := ld.get("create_race_button.png")
 	for i := range c.races {
 		c.races[i] = creationLabel(tex, 70+i*78, 290, 2+i, 4)
 	}
-	tex = ld.get("create_sex_button.tga")
+	tex = ld.get("create_sex_button.png")
 	for i := range c.sexes {
 		c.sexes[i] = creationLabel(tex, 70+i*78, 328, i, 2)
 	}
-	tex = ld.get("create_job_button.tga")
+	tex = ld.get("create_job_button.png")
 	for i := range c.jobs {
 		c.jobs[i] = creationLabel(tex, 22+i*75, 389, 6+i, 16)
 	}
-	tex = ld.get("market_button.tga")
+	tex = ld.get("market_button.png")
 	for i := range c.arrows {
 		side, row := i%2, i/2
 		b := &c.arrows[i]
@@ -92,7 +92,7 @@ func (c *Creation) loadControls(ld *loader) {
 			b.UV[state] = UV{float32(side) / 2, float32(v) / 4, float32(side+1) / 2, float32(v+1) / 4}
 		}
 	}
-	tex = ld.get("create_mode_button.tga")
+	tex = ld.get("create_mode_button.png")
 	for i := range c.modes {
 		b := &c.modes[i]
 		*b = Button{Tex: tex, OffX: 70 + i%2*78, OffY: 554 + i/2*29, DrawW: 128, DrawH: 32, HitW: 68, HitH: 22, Toggle: true}
@@ -101,6 +101,6 @@ func (c *Creation) loadControls(ld *loader) {
 		}
 	}
 	for i, name := range []string{"af", "df", "pr", "sr", "am", "dm"} {
-		c.capabilities[i] = ld.get("class_" + name + ".tga")
+		c.capabilities[i] = ld.get("class_" + name + ".png")
 	}
 }

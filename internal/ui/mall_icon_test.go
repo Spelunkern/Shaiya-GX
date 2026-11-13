@@ -7,7 +7,7 @@ func TestMallIconsUseCashAtlasAndRawIndex(t *testing.T) {
 		icon  uint32
 		file  string
 		index int
-	}{{75, "icon/icon_somo2.dds", 74}, {256, "icon/icon_somo2.dds", 255}, {1001, "icon/icon_somo3.dds", 0}} {
+	}{{75, "icon/icon_somo2_dds.png", 74}, {256, "icon/icon_somo2_dds.png", 255}, {1001, "icon/icon_somo3_dds.png", 0}} {
 		file, uv, ok := MallIcon(tc.icon)
 		if !ok || file != tc.file || uv.U0 != float32(tc.index%16)/16 || uv.V0 != float32(tc.index/16)/16 {
 			t.Fatal(tc, file, uv, ok)

@@ -132,14 +132,14 @@ func (a *App) loadMapImage(v *mapView) {
 		return
 	}
 	v.loaded = true
-	file := fmt.Sprintf("interface/MiniMap/%d.tga", a.wv.mapID)
+	file := fmt.Sprintf("interface/MiniMap/%d.png", a.wv.mapID)
 	if _, ok := a.arc.Lookup(file); !ok {
 		return // Not every original map includes a minimap image.
 	}
 	b, err := a.arc.ReadFile(file)
 	if err == nil {
 		var decoded img.Texture
-		decoded, err = img.Decode(b)
+		decoded, err = img.DecodeResource(file, b)
 		if err == nil {
 			v.image = render.Upload(decoded)
 		}

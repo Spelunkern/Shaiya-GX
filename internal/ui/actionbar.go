@@ -36,7 +36,7 @@ type ActionBar struct {
 
 func NewActionBar(t Textures) (*ActionBar, error) {
 	ld := &loader{t: t}
-	return &ActionBar{frames: [2]*render.Texture{ld.get("main_slot_1.tga"), ld.get("main_slot_2.tga")}, change: ld.get("main_slot_change.tga"), Hover: -1, held: -1}, ld.err
+	return &ActionBar{frames: [2]*render.Texture{ld.get("main_slot_1.png"), ld.get("main_slot_2.png")}, change: ld.get("main_slot_change.png"), Hover: -1, held: -1}, ld.err
 }
 func (b *ActionBar) Size(bar int) (int, int) {
 	if b.Position[bar].Vertical {
@@ -221,9 +221,9 @@ func SkillIcon(icon uint16) (string, UV, bool) {
 	if index < 0 || index >= 256 {
 		return "", UV{}, false
 	}
-	name := "icon/icon_skill.tga"
+	name := "icon/icon_skill.png"
 	if icon >= 1000 {
-		name = fmt.Sprintf("icon/icon_skill%d.dds", int(icon)/1000+1)
+		name = fmt.Sprintf("icon/icon_skill%d_dds.png", int(icon)/1000+1)
 	}
 	u, v := float32(index%16)/16, float32(index/16)/16
 	return name, UV{u, v, u + 1.0/16, v + 1.0/16}, true

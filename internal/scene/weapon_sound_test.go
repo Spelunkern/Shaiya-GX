@@ -9,7 +9,7 @@ import (
 func TestWeaponSoundGroupsAndAliases(t *testing.T) {
 	for _, weapon := range []uint8{1, 45} {
 		swing, hit := WeaponSounds(weapon, true, 0)
-		if swing != "ch_att_swordone003.wav" || hit != "ch_hit_swordone003.wav" {
+		if swing != "ch_att_swordone003.ogg" || hit != "ch_hit_swordone003.ogg" {
 			t.Fatal("critical sword did not use native group 12/15", weapon, swing, hit)
 		}
 	}

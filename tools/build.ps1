@@ -7,7 +7,8 @@ function Check-Go { if ($LASTEXITCODE -ne 0) { throw "Go command failed: $LASTEX
 go vet ./...
 Check-Go
 foreach ($program in @("shaiya", "shaiyacli", "assets")) {
-    go build -o "build/$program.exe" "./cmd/$program"
+    $target = if ($program -eq "shaiya") { "Shaiya GX" } else { $program }
+    go build -o "build/$target.exe" "./cmd/$program"
     Check-Go
 }
 Push-Location .

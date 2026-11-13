@@ -8,7 +8,9 @@ Preserve existing uncommitted work. Do not use subagents or delegate unless the 
 
 ## Boundaries
 
-Keep game rules and persistence authoritative on the server. Preserve protocol framing, opcodes and asset formats. Client owns presentation and movement prediction. Repository integration and rebranding do not authorize unrelated rule/schema changes.
+Keep game rules and persistence authoritative on the server. Preserve protocol framing, opcodes and binary model/world layouts. Client owns presentation and movement prediction. Repository integration and rebranding do not authorize unrelated rule/schema changes.
+
+The playable client is `Shaiya GX` (`Shaiya GX.exe` on Windows), with loose `data/` beside it. Runtime uses the directory loader, Ogg Vorbis sounds and PNG interface images; SAH/SAF and WAV remain import tools only. Preserve `_dds.png` atlas distinctions, authored PNG mipmaps and legacy filename aliases; see `docs/data-formats.md`. Do not restore old archive packaging or external font requirements.
 
 The micro app is **GX Server**, command `server/cmd/gx_server`; headless commands are `gx_login`, `gx_world`, `gx_console`. Keep `RAPTURE_*` environment keys, `rapture.sqlite` and `Rapture_LoginLog` compatible unless explicitly migrating them with tests and documentation.
 

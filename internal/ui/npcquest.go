@@ -26,13 +26,13 @@ type NPCQuestAction struct {
 
 func NewNPCQuest(t Textures) (*NPCQuest, error) {
 	ld := &loader{t: t}
-	v := &NPCQuest{list: ld.get("talk1_bg.tga"), take: ld.get("quest_take.tga"), complete: ld.get("quest_complete.tga"), held: -1}
-	v.close = nativeClose(ld.get("talk1_close_button.tga"), 228, 5)
-	v.action = Button{Tex: ld.get("quest_take_button.tga"), OffX: 53, DrawW: 128, DrawH: 32, HitW: 67, HitH: 27, UV: FourRowUV}
-	v.finish = Button{Tex: ld.get("talk_button.tga"), OffX: 53, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: [5]UV{{0, 0, .25, .5}, {.25, 0, .5, .5}, {.5, 0, .75, .5}, {.5, 0, .75, .5}, {.75, 0, 1, .5}}}
-	v.serviceQuest = Button{Tex: ld.get("talk_button.tga"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: [5]UV{{0, .5, .25, 1}, {.25, .5, .5, 1}, {.5, .5, .75, 1}, {.5, .5, .75, 1}, {.75, .5, 1, 1}}}
-	v.serviceReturn = Button{Tex: ld.get("talk_blank_button.tga"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: v.finish.UV}
-	v.back = Button{Tex: ld.get("cancel_button.tga"), OffX: 145, DrawW: 128, DrawH: 32, HitW: 67, HitH: 27, UV: FourRowUV}
+	v := &NPCQuest{list: ld.get("talk1_bg.png"), take: ld.get("quest_take.png"), complete: ld.get("quest_complete.png"), held: -1}
+	v.close = nativeClose(ld.get("talk1_close_button.png"), 228, 5)
+	v.action = Button{Tex: ld.get("quest_take_button.png"), OffX: 53, DrawW: 128, DrawH: 32, HitW: 67, HitH: 27, UV: FourRowUV}
+	v.finish = Button{Tex: ld.get("talk_button.png"), OffX: 53, DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: [5]UV{{0, 0, .25, .5}, {.25, 0, .5, .5}, {.5, 0, .75, .5}, {.5, 0, .75, .5}, {.75, 0, 1, .5}}}
+	v.serviceQuest = Button{Tex: ld.get("talk_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: [5]UV{{0, .5, .25, 1}, {.25, .5, .5, 1}, {.5, .5, .75, 1}, {.5, .5, .75, 1}, {.75, .5, 1, 1}}}
+	v.serviceReturn = Button{Tex: ld.get("talk_blank_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 26, UV: v.finish.UV}
+	v.back = Button{Tex: ld.get("cancel_button.png"), OffX: 145, DrawW: 128, DrawH: 32, HitW: 67, HitH: 27, UV: FourRowUV}
 	return v, ld.err
 }
 

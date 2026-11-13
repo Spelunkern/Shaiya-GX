@@ -24,7 +24,7 @@ type DeathDialog struct {
 
 func NewDeathDialog(t Textures) (*DeathDialog, error) {
 	l := &loader{t: t}
-	d := &DeathDialog{frame: l.get("message.tga"), singleTex: l.get("message_button.tga"), okTex: l.get("ok_button.tga"), partyTex: l.get("message_button2.tga"), blankTex: l.get("talk_blank_button.tga"), kind: -1}
+	d := &DeathDialog{frame: l.get("message.png"), singleTex: l.get("message_button.png"), okTex: l.get("ok_button.png"), partyTex: l.get("message_button2.png"), blankTex: l.get("talk_blank_button.png"), kind: -1}
 	return d, l.err
 }
 func (d *DeathDialog) Reset() { d.kind = -1 }

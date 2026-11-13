@@ -39,7 +39,7 @@ func NewBottomBar(t Textures) (*BottomBar, error) {
 			name string
 			dst  **render.Texture
 		}{{"main_bottom", &b.frames[i]}, {"main_bottom_bar", &b.bars[i]}, {"main_bottom_button", &b.sheets[i]}} {
-			tex, err := t.Interface(asset.name + suffix + ".tga")
+			tex, err := t.Interface(asset.name + suffix + ".png")
 			if err != nil {
 				return nil, err
 			}

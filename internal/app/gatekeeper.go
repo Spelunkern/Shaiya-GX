@@ -85,7 +85,7 @@ func (a *App) confirmedGatekeeper(p []byte) {
 	a.shop.npcID = 0
 }
 func (a *App) drawGatekeeper(w, h int, e *game.Entity, def sdata.NPC) {
-	portrait := a.assets.Texture(fmt.Sprintf("interface/NpcFace/%d.tga", def.Model))
+	portrait := a.assets.Texture(fmt.Sprintf("interface/NpcFace/%d.png", def.Model))
 	a.gateUI.Currency = a.msg.Get(0x146a)
 	a.gateUI.Draw(a.sprites, a.font, w, h, def.Name, questText(def.Welcome), portrait, def.Gates, a.shop.pending || a.inventory.pending)
 }

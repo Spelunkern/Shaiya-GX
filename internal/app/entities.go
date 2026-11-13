@@ -417,7 +417,7 @@ func (a *App) drawPlayerNames(w, h int) {
 				if e.Kind == game.KindMob && a.state.Target == e.ID && pos.Sub(v.pos).Len() <= 50 {
 					if x, y, depth, ok := projectLabel(pos, vp, w, h); ok {
 						a.sprites.NameDepth(depth)
-						if dot := a.assets.Texture("interface/name_select.tga"); dot != nil {
+						if dot := a.assets.Texture("interface/name_select.png"); dot != nil {
 							half := a.font.Width(name)/2 + 10
 							for _, side := range []int{-1, 1} {
 								a.sprites.DrawImage(dot, float32(x+side*half-dot.W/2), float32(y-a.font.Height+(a.font.Height-dot.H)/2))

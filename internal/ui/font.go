@@ -4,11 +4,10 @@
 package ui
 
 import (
+	_ "embed"
 	"fmt"
 	"image"
 	"image/draw"
-	"os"
-	"path/filepath"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
@@ -35,27 +34,16 @@ type glyph struct {
 	adv        int
 }
 
-// DefaultFontPath is wine's metric-compatible Tahoma; SHAIYA_FONT overrides.
-func DefaultFontPath() string {
-	if p := os.Getenv("SHAIYA_FONT"); p != "" {
-		return p
-	}
-	if exe, err := os.Executable(); err == nil {
-		p := filepath.Join(filepath.Dir(exe), "fonts", "tahoma.ttf")
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return "/usr/share/wine/fonts/tahoma.ttf"
-}
+// The same Wine Tahoma face used by the original local build is embedded so
+// moving the client never changes its font or requires an external font file.
+// See fonts/Tahoma-NOTICE.txt and fonts/LGPL-2.1-or-later.txt.
+//
+//go:embed fonts/tahoma.ttf
+var defaultFontData []byte
 
 // LoadFont rasterizes the face so that its cell is cellHeight pixels.
-func LoadFont(path string, cellHeight int) (*Font, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("font: %w", err)
-	}
-	return loadFontData(data, cellHeight, false)
+func LoadFont(cellHeight int) (*Font, error) {
+	return loadFontData(defaultFontData, cellHeight, false)
 }
 
 func loadFontData(data []byte, cellHeight int, pixelSize bool) (*Font, error) {

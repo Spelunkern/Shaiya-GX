@@ -45,7 +45,7 @@ func TestCursorHotspotBottomUpAndMask(t *testing.T) {
 	}
 }
 
-func TestOriginalArchiveCursors(t *testing.T) {
+func TestConvertedPNGCursors(t *testing.T) {
 	if os.Getenv("SHAIYA_DATA") == "" {
 		t.Skip("requires original assets")
 	}
@@ -55,17 +55,17 @@ func TestOriginalArchiveCursors(t *testing.T) {
 	}
 	defer arc.Close()
 	for i := 1; i <= 7; i++ {
-		b, err := arc.ReadFile(fmt.Sprintf("Cursor/%02d.cur", i))
+		b, err := arc.ReadFile(fmt.Sprintf("Cursor/%02d.png", i))
 		if err != nil {
 			t.Fatal(err)
 		}
-		c, err := DecodeCUR(b)
+		c, err := DecodePNG(b)
 		if err != nil {
 			t.Fatal(i, err)
 		}
 		opaque, clear := 0, 0
-		for j := 3; j < len(c.Image.Pix); j += 4 {
-			if c.Image.Pix[j] > 0 {
+		for j := 3; j < len(c.RGBA.Pix); j += 4 {
+			if c.RGBA.Pix[j] > 0 {
 				opaque++
 			} else {
 				clear++
@@ -74,6 +74,6 @@ func TestOriginalArchiveCursors(t *testing.T) {
 		if opaque == 0 || clear == 0 {
 			t.Fatal("lost cursor artwork/transparency", i)
 		}
-		t.Logf("cursor %d: %dx%d hotspot %d,%d", i, c.Image.W, c.Image.H, c.HotX, c.HotY)
+		t.Logf("cursor %d: %dx%d hotspot %d,%d", i, c.RGBA.W, c.RGBA.H, 0, 0)
 	}
 }

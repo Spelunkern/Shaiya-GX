@@ -10,7 +10,7 @@ const PlayerMenuTextInset = 10
 type PlayerMenu struct{ frame *render.Texture }
 
 func NewPlayerMenu(t Textures) (*PlayerMenu, error) {
-	frame, err := t.Interface("TipBox.TGA")
+	frame, err := t.Interface("TipBox.png")
 	return &PlayerMenu{frame: frame}, err
 }
 

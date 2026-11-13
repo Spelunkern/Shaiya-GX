@@ -211,7 +211,7 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	if a.sprites, err = render.NewSprites(8192); err != nil {
 		return nil, err
 	}
-	if a.font, err = ui.LoadFont(ui.DefaultFontPath(), 13); err != nil {
+	if a.font, err = ui.LoadFont(13); err != nil {
 		return nil, err
 	}
 	if a.tooltipFont, err = ui.LoadTooltipFont(); err != nil {
@@ -391,7 +391,7 @@ func (a *App) Interface(name string) (*render.Texture, error) {
 	if err != nil {
 		return nil, err
 	}
-	t, err := img.Decode(b)
+	t, err := img.DecodeResource("interface/"+name, b)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
