@@ -9,7 +9,7 @@ Open [GX releases](https://github.com/Spelunkern/Shaiya-GX/releases/latest). Dow
 - Windows: `gx-server-windows-amd64.zip` (Explorer → Extract All).
 - Linux: `gx-server-linux-amd64.tar.gz` (`tar -xzf gx-server-linux-amd64.tar.gz`).
 
-Choose a writable folder in your user directory, not Program Files or a protected system directory. Keep `build`, `data`, `docs` and the launchers together. No Go, Python, Docker or database server is needed for ordinary server use. Linux's GUI needs system graphics libraries; the headless binaries and console are alternatives.
+Choose a writable folder in your user directory, not Program Files or a protected system directory. Keep `build`, `data`, `docs` and the launchers together. No Go, Python, Docker or database server is needed for ordinary server use. Linux's prebuilt GUI needs glibc 2.38+ and system graphics libraries; see [runtime requirements](building.md#portable-runtime-requirements). The headless binaries and console are alternatives.
 
 ### Verify a download
 

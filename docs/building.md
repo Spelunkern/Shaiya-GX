@@ -13,6 +13,14 @@ sudo apt-get install build-essential pkg-config libgl1-mesa-dev xorg-dev libwayl
 
 The script vets, builds client utilities into `build/`, builds server programs into `server/build/`, and runs ordinary unit tests. On other distributions install equivalent packages. The client needs an OpenGL 4.5-capable GPU/driver. The Fyne micro app also needs desktop graphics. The portable headless server/console does not require these development packages.
 
+## Portable runtime requirements
+
+The published Linux amd64 micro app is built on the Ubuntu CI runner and requires **glibc 2.38 or newer** (for example Ubuntu 24.04), plus OpenGL, X11/Wayland and xkbcommon runtime libraries. It is not a universal static GUI binary for every Linux distribution. On an older distribution, use the CGO-free console/headless services, or build the GUI locally against that distribution's libraries.
+
+For the GUI, install your distribution's runtime packages providing `libGL.so.1`, `libX11.so.6`, `libXrandr.so.2`, `libXxf86vm.so.1`, `libXi.so.6`, `libXcursor.so.1`, `libXinerama.so.1`, Wayland client/cursor/EGL and `libxkbcommon.so.0`. Check missing libraries with `ldd build/gx_server` inside an extracted Linux server package. No Go toolchain or development headers are needed to run a prebuilt app. The client additionally needs a working OpenGL 4.5 driver and its audio runtime libraries.
+
+Windows archives use the system graphics/runtime DLLs; no Go toolchain or C compiler is needed to run them. Install the GPU vendor's OpenGL-capable driver for the graphical applications. Native CI covers the hosted Windows environment; a specific desktop/GPU still needs its own gameplay validation.
+
 ## Windows (native)
 
 Install the Go 1.27.3 amd64 toolchain and a 64-bit MinGW-w64 GCC (for example MSYS2 UCRT64's `mingw-w64-ucrt-x86_64-gcc`). Add Go and that GCC's `bin` directory to your PowerShell PATH, then confirm:
