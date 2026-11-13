@@ -184,6 +184,12 @@ Fullscreen uses the existing GLFW window and OpenGL context. Returning to `Windo
 
 Validation includes a virtual-monitor fullscreen/window round trip, real OpenGL window resizing with texture preservation, the rendered options popup, and two-client input checks. A real-monitor fullscreen transition and native Windows runtime have not been validated in this local patch.
 
+## Antialiasing
+
+The graphics page's former `Color Bit` slot is an **Antialias** dropdown, opened with an arrow like the resolution list: Off, FXAA and MSAA 2x/4x/8x/16x. MSAA levels above the driver's `GL_MAX_SAMPLES` are not listed; a saved level the GPU cannot provide falls back to the highest supported count. The choice previews immediately and is saved with **OK**.
+
+MSAA draws the 3D pass into a multisampled RGBA8 + 32-bit float depth target and resolves color and depth before glow and the interface, so name-label depth tests keep working; the water refraction copy uses a resolve blit while the scene is multisampled. FXAA is one full-screen pass over the finished 3D scene and also smooths alpha-tested foliage that MSAA does not cover. Neither filter touches the interface or text.
+
 ## Water and scene transparency
 
 **Water Surface Effect** changes reflection/refraction work, not the visibility

@@ -32,6 +32,8 @@ func (a *App) Close() {
 	if a.sceneGlow != nil {
 		a.sceneGlow.Delete()
 	}
+	a.msaaTarget.Delete()
+	a.fxaa.Delete()
 	a.scene3d.Delete()
 	if a.world != nil {
 		if err := a.world.Shutdown(10 * time.Second); err != nil {
