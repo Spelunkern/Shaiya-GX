@@ -1,5 +1,11 @@
 # Shaiya GX
 
+[![Login screen](gallery/2026-11-13-login.png)](gallery/2026-11-13-login.png)
+
+[![Character selection](gallery/2026-11-13-character-selection.png)](gallery/2026-11-13-character-selection.png)
+
+[![In-game exploration and inventory](gallery/2026-11-13-in-game.png)](gallery/2026-11-13-in-game.png)
+
 Shaiya GX is a native 64-bit Shaiya EP5.4 client **and its integrated GX Server**, written in Go for Linux and Windows. The former Rapture server now lives in `server/`; there is one repository, one Go module and one place to build, contribute and report issues.
 
 GX aims to build a functional foundation faithful to original Shaiya, rather than personal custom-server variants or unrelated graphical redesigns. Development is primarily on Linux; Go and OpenGL 4.5 remain the project's technical foundation, with Windows supported. Bug reports, refactors, missing original features, parity corrections, reverse engineering, measured optimizations and suggestions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes.
@@ -26,10 +32,6 @@ This is a development project. Linux and Windows amd64 are supported build targe
 The client implements login, character creation/selection, world rendering, movement, combat, skills, inventory/equipment, NPC shops, loot, chat, party/raid, quests, trade, guilds, storage, blacksmith services, portals and social interfaces. Graphics include fog, water, actor shadows, effects and original UI artwork read from the data directory. Remaining limitations include visual/service variants, collision/navigation and some options. See [interface status](docs/interface.md).
 
 GX Server retains Rapture's gameplay and protocol behavior. Its process names are now `gx_login`, `gx_world`, `gx_console` and `gx_server`; the advertised server name and micro app title are **GX Server**. Existing `RAPTURE_*` environment keys and `rapture.sqlite` filenames remain compatible to avoid changing operation or storage semantics.
-
-## Gallery
-
-See the [latest screenshots](gallery/README.md): login, character selection and in-game exploration.
 
 ## Guides
 
