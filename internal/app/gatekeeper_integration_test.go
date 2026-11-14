@@ -211,6 +211,13 @@ func TestGatekeeperCrossMapAgainstRapture(t *testing.T) {
 		t.Fatal("cross-map travel or payment differs from server")
 	}
 	if graphics {
+		// Map installation waits until its loading artwork has been presented.
+		// Exercise both application phases before asserting scene replacement.
+		for deadline := time.Now().Add(20 * time.Second); a.loading.active && time.Now().Before(deadline); {
+			a.Update(&platform.Input{}, 1024, 734, 1.0/60)
+			a.Draw(1024, 734)
+			time.Sleep(time.Millisecond)
+		}
 		// The application update, rather than the test, must replace the scene.
 		if a.wv == nil || a.wv.mapID != st.MapID || a.wv.world == nil || a.wv.world == oldWorld {
 			t.Fatal("destination scene was not installed")
