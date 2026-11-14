@@ -17,7 +17,7 @@ death still prevent movement.
 | Command | Result |
 |---|---|
 | `/char on` / `/char off` | Enable/disable GM invisibility (on by default). |
-| `/attack on` / `/attack off` | Enable/disable immunity to damage and all skill effects, including allied effects (on by default). |
+| `/attack on` / `/attack off` | Enable/disable immunity to damage and external skill effects, including allied effects; own positive skills remain usable (on by default). |
 | `/iclear` | Permanently deletes the issuing character's carried items (bags 1–5). Equipped items, mounts, other characters and account storage are preserved. |
 | `/turbo` | Toggles the issuing GM's turbo off/on for this session. |
 | `/getitem type id quantity` | Grants the complete quantity, respecting definition stack limits and free bag slots. `/getitem 25 1 200` grants 200 apples in one stack with the current 255 limit. |
