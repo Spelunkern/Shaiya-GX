@@ -65,6 +65,8 @@ GX Server retains Rapture's gameplay and protocol behavior. Its process names ar
 
 ## Guides
 
+- [GitHub Wiki: features, item effects, GM commands and configuration](https://github.com/Spelunkern/Shaiya-GX/wiki)
+
 - [First run on Windows and Linux](docs/quickstart.md)
 - [Build, test and package](docs/building.md)
 - [Server operation, LAN, backup and updates](docs/server.md)
