@@ -149,13 +149,14 @@ func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 		}
 	}
 	if e := a.state.Entities[a.shop.npcID]; e != nil && a.npcQuestUI != nil && (a.shop.questMode || e.NpcType != 1 && e.NpcType != 2 && e.NpcType != 3 && e.NpcType != 6 && e.NpcType != 11) {
+		a.npcQuestUI.Detail = a.npcQuest.selected != 0
 		x, y := a.npcQuestUI.Origin(w, h)
-		if start(&a.npcQuestUI.Position, x, y, ui.NPCQuestWidth, 512, 75, 145) {
-			return true
-		}
 		height := 391
 		if a.npcQuest.selected != 0 {
 			height = 512
+		}
+		if start(&a.npcQuestUI.Position, x, y, ui.NPCQuestWidth, height, 75, 145) {
+			return true
 		}
 		if pointInside(in, x, y, ui.NPCQuestWidth, height) {
 			return false

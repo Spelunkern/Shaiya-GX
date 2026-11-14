@@ -39,6 +39,7 @@ func TestEnchantAgainstRapture(t *testing.T) {
 		t.Fatal("blacksmith did not open")
 	}
 	a.worldControls(&platform.Input{}, 1024, 768)
+	a.blacksmithUI.Mode = ui.ForgeEnchant
 	ix, iy := a.inventoryUI.Origin(1024, 768)
 	bx, by := a.blacksmithUI.Origin(1024, 768)
 	click := func(x, y int) {
@@ -48,7 +49,7 @@ func TestEnchantAgainstRapture(t *testing.T) {
 	drag := func(key [2]uint8, slot int) {
 		a.inventory.bag = key[0]
 		sx, sy, _, _ := ui.InventoryCell(key[0], key[1])
-		dx, dy := ui.BlacksmithSlot(slot)
+		dx, dy := a.blacksmithUI.Slot(slot)
 		a.worldControls(&platform.Input{MouseX: ix + sx + 2, MouseY: iy + sy + 2, Pressed: true, MouseDown: true}, 1024, 768)
 		a.worldControls(&platform.Input{MouseX: bx + dx + 2, MouseY: by + dy + 2, Clicked: true}, 1024, 768)
 	}
@@ -59,18 +60,10 @@ func TestEnchantAgainstRapture(t *testing.T) {
 		drag(itemKey, 0)
 		drag(lapKey, 1)
 		drag(matKey, 2)
-		click(bx+435, by+326)
-		if !a.blacksmith.quantity {
-			t.Fatal("material quantity dialog missing")
+		click(bx+350, by+380)
+		if a.blacksmith.quantity || a.gemConfirm.Visible {
+			t.Fatal("enchant opened a quantity or confirmation dialog")
 		}
-		qx, qy := a.quantityUI.X, a.quantityUI.Y
-		click(qx+30, qy+40)
-		a.worldControls(&platform.Input{Chars: []rune{'1'}, Keys: []platform.Key{platform.KeyEnter}}, 1024, 768)
-		click(qx+30, qy+75)
-		if !a.gemConfirm.Visible || st.Inventory[itemKey] != item {
-			t.Fatal("enchantment confirmation or inventory authority")
-		}
-		a.worldControls(&platform.Input{Keys: []platform.Key{platform.KeyEnter}}, 1024, 768)
 		if !a.shop.pending || st.Inventory[itemKey] != item || st.Inventory[lapKey] != lap || st.Inventory[matKey] != mat {
 			t.Fatal("enchantment mutated inventory before acknowledgement")
 		}
@@ -100,22 +93,24 @@ func TestEnchantAgainstRapture(t *testing.T) {
 		t.Fatal("enchant level missing")
 	}
 	var broken [2]uint8
+	var originalQuality uint16
 	for slot := uint8(0); slot < 6; slot++ {
 		key := [2]uint8{2, slot}
+		originalQuality = st.Inventory[key].Quality
 		if !try(key, [2]uint8{1, 20}) {
 			broken = key
 			break
 		}
 	}
-	if broken == [2]uint8{} || st.Inventory[broken].Quality != 0 {
-		t.Fatal("risky failed enchant did not refresh broken quality")
+	if broken == [2]uint8{} || st.Inventory[broken].Quality != originalQuality {
+		t.Fatal("failed enchant changed equipment quality")
 	}
 	if err := world.Shutdown(10 * time.Second); err != nil {
 		t.Fatal(err)
 	}
 	next, _, _, _ := testworld.Enter(t)
-	if next.Inventory[itemKey].Craft != "00000000000000000001" || next.Inventory[broken].Quality != 0 {
+	if next.Inventory[itemKey].Craft != "00000000000000000001" || next.Inventory[broken].Quality != originalQuality {
 		t.Fatal("enchantment state did not persist")
 	}
-	t.Log("UI enchant success, risky failure and material consumption confirmed and persisted")
+	t.Log("UI enchant success, safe failure and single material consumption confirmed and persisted")
 }

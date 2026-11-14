@@ -32,7 +32,7 @@ func NewQuestLog(t Textures) (*QuestLog, error) {
 	q.objectiveScroll = newPanelScroll(scroll, 227, 320, 130)
 	q.descriptionScroll = newPanelScroll(scroll, 488, 52, 397)
 	q.close = nativeClose(ld.get("talk1_close_button.png"), 480, 7)
-	q.quit = Button{Tex: ld.get("quest_button.png"), OffX: 402, OffY: 453, DrawW: 128, DrawH: 32, HitW: 80, HitH: 26, UV: FourRowUV}
+	q.quit = Button{Tex: ld.get("quest_button.png"), OffX: 410, OffY: 456, DrawW: 128, DrawH: 32, HitW: 76, HitH: 26, UV: npcVerticalUV}
 	return q, ld.err
 }
 func (q *QuestLog) Origin(w, h int) (int, int) {
@@ -120,13 +120,13 @@ func (q *QuestLog) Draw(s *render.Sprites, f *Font, w, h int, names []string, of
 	q.textLines = len(lines)
 	q.textOffset = min(q.textOffset, max(0, len(lines)-18))
 	for i, line := range lines[q.textOffset:min(len(lines), q.textOffset+18)] {
-		f.Draw(s, line, x+279, y+105+i*18, white, 196)
+		f.Draw(s, line, x+279, y+112+i*18, white, 196)
 	}
 	objectives := wrapLines(f, strings.TrimSpace(objective), 188)
 	q.objectiveLines = len(objectives)
 	q.objectiveOffset = min(q.objectiveOffset, max(0, len(objectives)-6))
 	for i, line := range objectives[q.objectiveOffset:min(len(objectives), q.objectiveOffset+6)] {
-		f.Draw(s, line, x+24, y+331+i*18, white, 188)
+		f.Draw(s, line, x+18, y+326+i*18, white, 188)
 	}
 	q.listScroll.Draw(s, x, y, len(names), QuestRows, offset)
 	q.descriptionScroll.Draw(s, x, y, len(lines), 18, q.textOffset)

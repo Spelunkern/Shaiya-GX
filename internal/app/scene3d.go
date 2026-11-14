@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/itemstack"
 	"log"
 	"math"
 
@@ -129,6 +130,20 @@ func (a *App) itemsItem(typ, id uint8) *sdata.Item {
 		if b, err := a.arc.ReadFile("Item/Item.SData"); err == nil {
 			if it, err := sdata.ParseItems(b); err == nil {
 				a.items = it
+				// GX stackability follows the server definitions, rather than
+				// the legacy byte-sized client catalog.
+				if raw, err := a.arc.ReadFile("item-stack-limits.csv"); err == nil {
+					if limits, err := itemstack.ParseLimits(raw); err == nil {
+						for key, item := range a.items {
+							if n, ok := limits[uint32(key.Type)*1000+uint32(key.TypeID)]; ok {
+								item.Count = n
+							}
+						}
+					} else {
+						log.Printf("item-stack-limits.csv: %v", err)
+					}
+				}
+
 			} else {
 				log.Printf("Item.SData: %v", err)
 			}

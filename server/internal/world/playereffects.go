@@ -19,7 +19,19 @@ import (
 
 // addEffect starts (or replaces) an applied skill and sends 0x050D. The
 // same skill at a lower level does not replace a higher one.
-func (s *Session) addEffect(def *db.SkillDef, casterMob uint32) (ActiveBuff, bool) {
+func (s *Session) addEffect(def *db.SkillDef, casterMob uint32, sourceUser ...uint32) (ActiveBuff, bool) {
+	self := s.char != nil && len(sourceUser) == 1 && sourceUser[0] == s.char.ID && def.TypeEffect == typeEffectBuff
+	if s.invulnerable() && !self {
+		return ActiveBuff{}, false
+	}
+	// Preflight refusal before changing any existing effects.
+	for _, b := range s.buffs {
+		if b.SkillID == def.SkillID && def.SkillLevel <= 3 && def.SkillLevel < b.SkillLevel {
+			return ActiveBuff{}, false
+		}
+	}
+	s.equipment()
+	s.replaceAttackElement(def)
 	id := uint32(0)
 	kept := s.buffs[:0]
 	refused := false
@@ -48,7 +60,12 @@ func (s *Session) addEffect(def *db.SkillDef, casterMob uint32) (ActiveBuff, boo
 	before := s.speeds()
 	b := newBuff(id, def, time.Now().Add(time.Duration(def.KeepSeconds)*time.Second), s.log)
 	b.CasterMob = casterMob
+	if len(sourceUser) == 1 {
+		b.CasterUser = sourceUser[0]
+	}
 	s.buffs = append(s.buffs, b)
+	s.syncVisibility()
+	s.applyElement(b)
 	s.send(buildBuffAdd(id, def.SkillID, def.SkillLevel), "0x050D skill applied")
 	s.sendBuffStats("after applied skill")
 	if after := s.speeds(); after != before {
@@ -129,10 +146,10 @@ func (s *Session) broadcastSpeed(sp playerSpeeds) {
 func (s *Session) removeEffects(match func(*ActiveBuff) bool, why string) {
 	before := s.speeds()
 	kept := s.buffs[:0]
-	var removed []uint32
+	var removed []ActiveBuff
 	for i := range s.buffs {
 		if match(&s.buffs[i]) {
-			removed = append(removed, s.buffs[i].ID)
+			removed = append(removed, s.buffs[i])
 			continue
 		}
 		kept = append(kept, s.buffs[i])
@@ -141,11 +158,13 @@ func (s *Session) removeEffects(match func(*ActiveBuff) bool, why string) {
 	if len(removed) == 0 {
 		return
 	}
-	for _, id := range removed {
+	for _, b := range removed {
+		s.removeElement(b)
 		w := packet.New(packet.BuffRemove)
-		w.U32(id)
+		w.U32(b.ID)
 		s.send(w.MustFinish(), "0x050E applied skill removed "+why)
 	}
+	s.syncVisibility()
 	s.sendBuffStats(why)
 	if after := s.speeds(); after != before {
 		s.broadcastSpeed(after)
@@ -179,9 +198,13 @@ func playerTimeDamage(def *db.SkillDef, st *CharacterStats, elapsed time.Duratio
 // tickDebuffs runs the damage of applied debuffs: detail 61 every 3 s and
 // on expiry, detail 63 on expiry. Returns whether the player died.
 func (s *Session) tickDebuffs(now time.Time) bool {
+	if s.invulnerable() {
+		return false
+	}
 	ch := s.char
-	for i := range s.buffs {
-		b := &s.buffs[i]
+	effects := append([]ActiveBuff(nil), s.buffs...)
+	for i := range effects {
+		b := &effects[i]
 		if b.Effect != typeEffectDebuff || (b.Detail != detailTimeDamage && b.Detail != detailDeathSentence) {
 			continue
 		}
@@ -196,10 +219,19 @@ func (s *Session) tickDebuffs(now time.Time) bool {
 			st := s.stats()
 			damage = playerTimeDamage(def, &st, now.Sub(b.prevTick))
 			b.prevTick = now
+			for j := range s.buffs {
+				if s.buffs[j].ID == b.ID {
+					s.buffs[j].prevTick = now
+					break
+				}
+			}
 		case b.Detail == detailDeathSentence && expiring:
 			damage[0] = int32(min(s.stats().CurrentHP, 65535))
 		default:
 			continue
+		}
+		if damage[0] > 0 || damage[1] > 0 || damage[2] > 0 {
+			s.breakStealth()
 		}
 		hp := uint32(max(damage[0], 0))
 		var killed bool

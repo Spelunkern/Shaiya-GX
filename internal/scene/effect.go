@@ -529,3 +529,12 @@ func nativeEffectBasis(world render.M4) render.M4 {
 	u := f.Cross(r)
 	return render.M4{r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, -r[2], u[2], f[2], 0, 0, 0, 0, 1}
 }
+
+// MON attachments pass bone * creature world directly (native 0x431d29).
+// Existing particles stay in world space; only births and zero-life anchors
+// follow later pose updates. Skill/world placement basis conversion is separate.
+func (x *Effect) SetBoneTransform(m render.M4) {
+	x.Origin = render.V3{m[12], m[13], m[14]}
+	m[12], m[13], m[14] = 0, 0, 0
+	x.basis = m
+}

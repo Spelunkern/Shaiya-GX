@@ -30,3 +30,21 @@ func TestMallPointerDoesNotReachWorld(t *testing.T) {
 		t.Fatal("gift box right click leaked to world")
 	}
 }
+
+func TestMallOffersPurchaseWithoutCatalogHandshake(t *testing.T) {
+	a := inputApp()
+	a.mallUI, _ = ui.NewMall(inputTextures{}, nil)
+	a.mallConfirm, _ = ui.NewMessage(inputTextures{})
+	a.mall.open = true
+	a.mall.products[0] = []ui.MallProduct{{Code: "SKU", Name: "Product", Cost: 10}}
+	a.mallUI.Selected = 0
+	x, y := a.mallUI.Origin(1024, 768)
+	click := func() {
+		a.updateMall(&platform.Input{MouseX: x + 295, MouseY: y + 410, Pressed: true, MouseDown: true}, 1024, 768)
+		a.updateMall(&platform.Input{MouseX: x + 295, MouseY: y + 410, Clicked: true}, 1024, 768)
+	}
+	click()
+	if !a.mallConfirm.Visible {
+		t.Fatal("native catalog did not offer purchase")
+	}
+}

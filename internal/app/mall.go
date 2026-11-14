@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Spelunkern/Shaiya-GX/internal/data/cash"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 )
 
@@ -17,8 +18,6 @@ func (a *App) confirmedMall(packet []byte) {
 		a.mall.pending = 0
 	}
 	switch proto.Op(packet) {
-	case proto.CashPoint:
-		a.questMessage(fmt.Sprintf("Item Mall points: %d", s.Mall.Points))
 	case proto.PointBuy:
 		result := s.Mall.LastPurchase
 		messages := [...]string{"Item Mall purchase completed.", "Item Mall product not found.", "Not enough Item Mall points.", "Not enough inventory slots."}
@@ -85,14 +84,20 @@ func (a *App) mallCommand(text string) bool {
 				return true
 			}
 		}
+		visible := []cash.Product{}
+		for _, product := range a.mallCatalog {
+			if product.Bag != 0 {
+				visible = append(visible, product)
+			}
+		}
 		const pageSize = 5
-		pages := max(1, (len(a.mallCatalog)+pageSize-1)/pageSize)
+		pages := max(1, (len(visible)+pageSize-1)/pageSize)
 		if page > pages {
 			a.questMessage(fmt.Sprintf("Item Mall catalog has %d pages.", pages))
 			return true
 		}
 		a.questMessage(fmt.Sprintf("Item Mall catalog %d/%d:", page, pages))
-		for _, product := range a.mallCatalog[(page-1)*pageSize : min(page*pageSize, len(a.mallCatalog))] {
+		for _, product := range visible[(page-1)*pageSize : min(page*pageSize, len(visible))] {
 			a.questMessage(fmt.Sprintf("%s: %s (%d points)", product.Code, product.Name, product.Cost))
 		}
 		return true

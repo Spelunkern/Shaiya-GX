@@ -13,7 +13,7 @@ The interface is being reconstructed incrementally from original EP5 artwork and
 | Status | Allocation, EXP and current/max HP/MP/SP bars | Native graph and full attribute help |
 | Chat | Phoenix geometry, external Tahoma with Unicode fallbacks, channel colours, persistent grey histories, single input row, six-channel picker and original SysMsg messages | Remaining special notices and complete state comparison |
 | Effects | Independently draggable positive/negative strips; 32px icons, 6px gaps, native yellow duration bars and the original white debuff pulse | Full effect categories and all special states |
-| Maps | Native World Map with region previews, ring buttons, expanded-map name, original clock frame with date/seconds and native zone/hover labels, draggable minimap/full map, pan and zoom | Remaining map services and indicator variants |
+| Maps | Native World Map with region previews, ring buttons, expanded-map name, original clock frame with date/seconds and portrait-name text styling and native zone/hover labels, draggable minimap/full map, pan and zoom | Remaining map services and indicator variants |
 | Options | Menu and six subpages; classic glow/brightness/detail/distance sliders, cloak/helmet visibility, audio, mouse, chat and monitor resolution selection | Other service controls and shortcut editing |
 | Party/raid | Member frames, invitations, leader and selection flows | Complete badges, buffs and visual variants |
 | Player context | Original classic TipBox frame, SysMsg rows, hover, character/target/party picking, whisper focus and supported party/trade/duel/guild actions | Inspect, follow, personal shops and remaining social windows/services |
@@ -78,7 +78,7 @@ The login logo stays visible during server selection and disappears with the log
 
 Chat uses runtime `sysmsg-uni.txt` entries, including channel templates 353/354/355/370 and channel names 5086–5089/5377/5388. The formatter replaces native placeholders once; message bodies cannot introduce more placeholders. Normal messages use the native `name : message` format. Combat, experience, acquired gold/items, item use, learned skills, level changes, party invitations/membership, quest outcomes, trade and supported guild lifecycle notices use their original message IDs. Diagnostic commands retain explanatory fallback text where no native equivalent has been connected. Special service notices and speech bubbles are still incomplete.
 
-The chat presentation follows Phoenix `chat_hud.gd` and `ep4_chat.gd`, per the user's explicit preference. The native SysMsg formatter and gameplay message connections remain in place. Histories are 350px wide with a 4px gap, 112/144px default heights and six/eight fully visible 16px text rows. Their fixed background is RGBA `(0.114, 0.122, 0.141, 0.54)`. Text uses Open Sans at 12px with a single soft black shadow; the mode label uses 11px, or 10px for Whisper. The entry row combines a 64×22 mode button with a 286×22 nine-patch input built from `chat.tga`.
+The chat presentation follows Phoenix `chat_hud.gd` and `ep4_chat.gd`, per the user's explicit preference. The native SysMsg formatter and gameplay message connections remain in place. Histories are 350px wide with a 4px gap, 112/144px default heights and six/eight fully visible 16px text rows. Text capacity excludes the inner margins, and glyph quads are clipped to the content rectangle so neither history spills outside its frame. Their fixed background is RGBA `(0.114, 0.122, 0.141, 0.54)`. Text uses Open Sans at 12px with a single soft black shadow; the mode label uses 11px, or 10px for Whisper. The entry row combines a 64×22 mode button with a 286×22 nine-patch input built from `chat.tga`.
 
 Chat and its entry row stay visible by default. The User Option page offers **Auto-hide chat** in Name/Chat Setup (replacing the previously unsupported banned-words filter slot). When enabled, idle chat hides. A new line in either history shows both panes; they also stay up while typing, while the channel picker is open, while resizing or scrolling, and while the pointer is over a visible pane. After 10 seconds without activity they fade out over one second. With auto-hide enabled, the entry row is shown only while typing. Hidden panes and the hidden entry row do not capture pointer input, so world clicks pass through.
 
@@ -152,10 +152,21 @@ ranges glow0–2, brightness0–4, details0–2 and distance0–2. Glow uses nat
 neighbor/center weights (0/0,22/17,44/35). Brightness applies the windowed power
 curve and +10 black offset to the completed game frame, including UI, without
 changing desktop gamma. The original byte input divisor is256 (`0x541540`).
-Details select texture LOD bias2/1/0 without regenerating assets. Distance uses
+Details default to **2 (High)**, retaining the existing texture bias, subpixel
+static-object LOD, vegetation and half-size water reflections. Medium/Low keep
+texture biases 1/2 and additionally raise static-mesh screen-error limits to
+1.25/3 pixels, trim distant decorative grass/trees and thin grass beyond 25
+units to one-half/one-quarter density. Grass ranges are 120/60 units; ordinary
+tree ranges are 300/160 units (large landmark trees remain). Buildings, terrain,
+actors and collision data are retained. Water reflection dimensions become
+one-quarter/one-eighth of the main viewport, reducing reflection pixels by
+4x/16x relative to High. Preset changes clear LOD hysteresis so restoring High
+restores its previous image. These optional budgets are GX adaptations, not a
+claim of recovered native quality rules. Distance uses
 half/three-quarter/full view and fog ranges; this scaling is an implementation
 adaptation, not a claim that the entire native distance pipeline is recovered.
-Changes preview live, Cancel restores them, Reset restores defaults, and OK
+Checked Cape/Helmet boxes mean visible; the stored hide flags remain compatible
+with existing settings. Changes preview live, Cancel restores them, Reset restores defaults, and OK
 persists them. Opening Options remains nonmodal.
 
 Guild's side navigation now reaches the original Buddy, Block and Search Party
@@ -180,11 +191,19 @@ Friendly skill results are sent after the recipient applies the heal. Green numb
 
 ## Display selection
 
-Graphics options list `Window` and the resolutions advertised by the current monitor. The original resolution arrow opens a scrollable list; mouse, wheel and arrow keys select a pending mode. Enter closes the list and Escape dismisses it before closing the page. Press **OK** to apply and save; **Cancel** discards the selection. Keyboard navigation does not open chat or release movement already held.
+Graphics options list numeric resolutions only. The client always uses a
+resizable window; there are no Window/Fullscreen entries or mode suffixes.
+Common sizes, monitor-advertised sizes and the current custom size remain
+available. Common presets fit the logical work area; a native monitor-size
+choice preserves its requested client size and keeps the title bar reachable.
+Old saved fullscreen resolutions migrate to ordinary window sizes. Resolution
+changes apply on OK, Cancel discards them, and explicit `-w`/`-h` arguments retain
+their startup override. The existing OpenGL context is preserved.
 
-Fullscreen uses the existing GLFW window and OpenGL context. Returning to `Window` restores its previous size, position and maximized state. Normal window geometry is saved separately from the chosen display mode. Old settings default to a window; explicit `-w`/`-h` arguments override a saved fullscreen choice for that launch. Unsupported modes are refused and driver errors remain visible in the options page. The renderer stays at 32-bit colour. Wayland uses the primary monitor because it does not expose global window positions.
-
-Validation includes a virtual-monitor fullscreen/window round trip, real OpenGL window resizing with texture preservation, the rendered options popup, and two-client input checks. A real-monitor fullscreen transition and native Windows runtime have not been validated in this local patch.
+VSync retains the fixed startup behavior (enabled); there is no VSync setting.
+Help remains visible but disabled in the options menu.
+Validation covers window-only transitions, real GL resize/resource preservation
+and graphics settings save/restart with real AA rendering.
 
 ## Antialiasing
 
@@ -199,6 +218,8 @@ sampling, camera/depth reprojection, depth rejection and neighbourhood/variance
 clamping, with resets for scene/camera cuts, resize and mode changes. It restores
 stable colour/depth before annotations; HUD/text are not filtered. Visibility
 culling uses the jittered projection, while UI anchors and input rays stay stable.
+FXAA, TAA and supported MSAA have been verified to reload after saving with OK
+and activate their actual rendering resources on a fresh application instance.
 TAA currently has no per-object/skinned motion-vector buffer, so fast animation
 and translucent effects still need broader ghosting evaluation. At 1080p its
 three colour/depth surfaces use about 47.5 MiB; Off allocates no AA surfaces and
@@ -287,13 +308,13 @@ and wheel zoom retain their functions. The original clock plate is preserved unc
 The movable 94×54 potion bar uses original `QuickPotion.png`, 32px slots at
 `(11 + 40*i,13)`, left Z and right X, outlined stack counts, shared confirmed
 cooldowns and depleted-icon dimming. Drag a consumable from inventory to bind it,
-right click to clear, or drag between the two slots to swap. Bindings are local
+drag outside to clear, or drag between the two slots to swap. Clicks never remove bindings. Bindings are local
 per server/character and follow the item type when its bag position changes.
 X now activates the potion slot. Native server item-use requests and responses
 remain responsible for consuming items and starting reuse timers.
 
 NPC patrol smoothing uses `MoveDistance / MoveSpeed` (milliseconds per step)
-rather than the player packet interpolation interval, and display Y follows terrain only during an active patrol segment. Stationary
+rather than the player packet interpolation interval, and display Y follows terrain during an active patrol segment and for GM summons. Other stationary
 NPCs retain the server-supplied position, including elevated/floating placements. Group/area spells, including Prayer, use the existing native
 cast/release cues with a short per-caster deduplication window. The final social
 buttons map to `emoti009` (Provoke) and `emoti010` (Insult); Defeat uses `emoti007`.
@@ -334,3 +355,150 @@ W returns from a preview to the overview; M returns from the overview to the loc
 map. Right click follows the same back navigation. This never teleports or sends
 a map-change request. It shares the existing draggable full-map frame. Native
 translucency/help controls are not implemented by this revision.
+
+
+The expanded local map shows the character's current X/Z coordinates in its
+bottom border. Hovering the map image shows the pointed X/Z beside the cursor,
+using the same crop, zoom and pan as the displayed map. Coordinates are hidden
+outside the image and on the World Map overview.
+
+Targeted skills require a present, living combat target before a request or
+predicted animation begins. Corpse skills use their authored corpse requirement;
+self, party and caster-area skills retain their target rules. Queued approaches
+revalidate the target when arriving. The server remains authoritative.
+
+Monster skill identity, names, debuff icons and timers come from
+`Monster/NpcSkill.SData`, with wire level 100 selecting that namespace. Its visual
+selector is separate from its one-based skill ID. Model attack/death EFT and
+MON bone attachments are rendered independently, with a shared pose clock and
+bounded nearby effect preparation. The existing Skill Effects option controls
+these effects too.
+
+
+With no selected target, friendly healing/buff skills default to the caster
+(including Aura of Peace). Directed damage/debuff skills select the nearest
+known living enemy, using stable ID ordering for equal distances, and use the
+existing approach-to-range flow. NPCs, dead targets and ordinary friendly
+players are excluded. Explicit targets are preserved. Caster-area skills do
+not select a victim. Requests and predicted animations still require a valid
+resolved target.
+
+Quest minimap marks share available/ready eligibility with NPC indicators;
+unfinished kill objectives mark their known living target mobs. Markers of the
+same kind are deduplicated within an eight-pixel cell. Nearby NPC indicators use
+the four original Quest.EFT sequences; confirmed completion uses up.EFT sequence
+one and the original quest jingle. Their preparation is bounded and respects
+Skill Effects.
+
+Generic NPC dialogues have native Okay/Quest/service actions. Quest details use
+the original take/complete/cancel sheets, correct disabled/pressed states,
+separate story/reward regions and native scrollbars. Cancel closes the
+conversation; a service action returns to that NPC's service. List and detail
+windows retain their respective authored heights.
+
+Blacksmith operations have separate Link Lapis, Enhance and Recreate views with
+original rapis, rapisian and Remake3 frames. Their equipment, sockets, hammer,
+lapisia, material and rune positions follow those panels. Changing operation
+clears stale selections without sending requests. Repair actions and durability
+information are removed.
+
+
+Item Mall reads native `Cash.SData`; the server uses SQL ProductList. Purchases,
+gifts and claims use the original workflow without a catalog hash handshake.
+See [catalog format](cash-catalog.md).
+
+Action-bar bindings also require an explicit drag outside the bar to remove.
+Left clicks activate and right clicks preserve assignments. Inventory, bars and
+quantity dialogs support 255-item stacks using server-defined stackability.
+Item Mall point updates refresh the wallet interface without adding chat lines.
+
+Equipment ignores legacy character/item mode fields and tooltips omit mode requirements. Refused moves retain both slots and send a private System message explaining level, race, class, slot or equipment-combination restrictions. GM authority does not bypass those requirements.
+
+Lapis linking and extraction always preserve the equipment on failure. Lapis and linking hammer consumption still applies; gold follows the native ReqIg table. Lucky Charms are not consumed. Results use original SysMsgTxt 55/56 (linking) and 57/58 (extraction), with the equipment and lapis names. This safety rule does not change lapisia enhancement.
+
+
+Blacksmith selectors and action buttons use original EP5 sprites at the existing
+positions: `repair_button3`, `repair_button4`, `rapis_button2` and
+`Btn_Remodeling`. There are no blank button faces with replacement labels.
+Equipment, socketed/new lapis, hammers, lapisias, materials and recreation runes
+share inventory tooltips. Only the required enchantment material uses a muted icon/tooltip hint; lapisias
+are chosen by the player.
+
+A read-only server quote provides the current success rate and gold cost.
+Linking and extraction confirmations format original SysMsgTxt 10011/840;
+confirmation text keeps cost, probability and the question visible inside the original modal art.
+Enchantment quotes validate the selected material quantity without changing the rate. Recreation keeps
+its selected equipment and shows its inventory tooltip beside the panel,
+rebuilding the stats from confirmed inventory updates.
+
+NPC service windows omit NPC names and generic greeting/context text. Portraits,
+functional instructions, quest objectives/rewards and destination names remain.
+
+The [feature wiki](wiki/README.md) documents current forge rules. Placed equipment
+and surviving consumable stacks remain after success or failure, with visible
+stack counts and click-to-remove references. Incompatible lapis drops are
+rejected with native SysMsg 62/63/64. Percent/gold information appears only in
+operation confirmations. Recreation runs immediately without confirmation.
+
+
+## Continuous forge operations and inventory bag dragging
+
+Dragging a held inventory item over another native bag tab selects that bag
+without releasing its source, allowing authoritative cross-bag moves and swaps.
+Enchant now consumes exactly one material and lapisia per click, without quantity
+or confirmation dialogs; the server chance is displayed above its button.
+Native success/failure sounds and a 500ms additive Lensflare flash accompany
+confirmed forge outcomes. Recreatable equipment shows light-green Max OJ beneath
+the description and a text-sized icon before its enhancement material name.
+Targeted random/perfect recreation runes preserve all other stats and obey the
+original attribute pool/count/max restrictions; see the local wiki source.
+
+
+Elemental weapons/armor now carry a small original monster-element badge on
+their item icons across inventory/equipment, both action-bar orientations,
+forge, personal/guild storage, trade/duel offers, drags and merchandise/mall.
+The badge shares the tooltip's confirmed intrinsic/lapis calculation; neutral
+results have no badge; intrinsic or first elemental lapis sets the badge. See `docs/wiki/elements.md`.
+
+
+Elemental socket priority is intrinsic equipment first, otherwise the first
+valid elemental lapis among six sockets. Subsequent elemental lapis remain
+linked but gray/inactive in tooltip and blacksmith socket rows. Gray is actual
+shader desaturation and does not affect later unrelated sprites. Extracting the
+active lapis promotes the next; an intrinsic element keeps every elemental
+lapis inactive. The server uses the same selection for affinity and gem bonuses.
+
+## Confirmed equipment switching and HUD geometry
+
+Using a carried equipment item from either action bar submits the same native
+inventory-to-equipment swap as inventory equip. The shortcut remains bound to
+its carried bag/slot. The old equipped item returns to that slot and therefore
+becomes the next item on the shortcut. A refused swap leaves both items and the
+shortcut intact. Server class, level, compatibility and equipment restrictions
+still apply. Repeated input waits for the authoritative inventory reply.
+
+The player frame follows `Game.exe` `0x005097B0`: resource atlas rectangles start
+at root `(70,40)`, `(70,56)`, `(70,72)`, each 128 by 16 pixels, clipped by resource
+ratio with matching UVs. The atlas includes transparent leading padding; moving
+it to the visible colour edge would shift and shrink the fill a second time.
+Values are centred at root X 135, with native Y offsets 41, 58 and 73. Portraits
+use the original 64 by 64 mask at root `(16,26)`, preserving the recovered family,
+class and gender camera. The image is not rescaled into a substitute ellipse.
+
+Quest markers use stable paint order and remain individually present. They no
+longer compete for a changing 8-pixel clustering cell, which could make nearby
+markers jump or alternate between frames.
+
+Character, monster and NPC skin passes explicitly restore depth testing, depth
+writes and the current normal/reversed-depth convention before drawing. A prior
+UI, shadow or transparent emitter pass cannot make the next actor ignore terrain
+or leave its first material without depth writes. The regression includes the
+native Windtail Forest Wood Spirit model (ID 2025) and other Windtail creatures.
+
+## Map-wide quest availability
+
+Quest giver and ready turn-in markers cover the complete map independently of
+NPC visibility range. Their eligibility is cached and refreshed on quest,
+character, relevant inventory, catalog or minimum-time changes; moving the
+camera or player does not rescan every quest. Distant NPCs remain metadata, not
+3D entities. Party and nearby creature-objective positions stay live overlays.

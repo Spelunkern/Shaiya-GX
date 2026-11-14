@@ -83,7 +83,6 @@ func (m *Market) Draw(s *render.Sprites, f *Font, w, h, page, count int, busy bo
 	if portrait != nil {
 		s.Draw(portrait, float32(x+7), float32(y+7), 64, 64, 0, 0, 1, 1, white)
 	}
-	f.Draw(s, name, x+77, y+22, white, 145)
 	for i := range m.arrows {
 		m.arrows[i].Draw(s)
 	}

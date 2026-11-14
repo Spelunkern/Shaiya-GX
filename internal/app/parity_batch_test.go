@@ -189,3 +189,27 @@ func TestRealPrayerLabelsAndGestureSemantics(t *testing.T) {
 		}
 	}
 }
+
+func TestPotionBindingRequiresExplicitDragOutToRemove(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	a := inputApp()
+	a.state.SelfID = 78
+	a.ensureQuickPotions()
+	a.quickPotions.Position.Move(390, 220, 1024, 768, 94, 54)
+	a.quickPotions.bindings[0] = sdata.ItemKey{Type: 25, TypeID: 4}
+	x, y := ui.QuickPotionOrigin(a.quickPotions.Position, 1024, 768)
+	binding := a.quickPotions.bindings[0]
+	a.updateQuickPotions(&platform.Input{MouseX: x + 15, MouseY: y + 15, RightPressed: true}, 1024, 768)
+	a.updateQuickPotions(&platform.Input{MouseX: x + 15, MouseY: y + 15, Pressed: true, MouseDown: true}, 1024, 768)
+	a.updateQuickPotionDrop(&platform.Input{MouseX: x + 15, MouseY: y + 15, Clicked: true}, 1024, 768)
+	a.updateQuickPotions(&platform.Input{MouseX: x + 15, MouseY: y + 15, Clicked: true}, 1024, 768)
+	if a.quickPotions.bindings[0] != binding {
+		t.Fatal("click removed binding")
+	}
+	a.updateQuickPotions(&platform.Input{MouseX: x + 15, MouseY: y + 15, Pressed: true, MouseDown: true}, 1024, 768)
+	a.updateQuickPotionDrop(&platform.Input{MouseX: x + 150, MouseY: y + 150, MouseDown: true}, 1024, 768)
+	a.updateQuickPotionDrop(&platform.Input{MouseX: x + 150, MouseY: y + 150, Clicked: true}, 1024, 768)
+	if a.quickPotions.bindings[0] != (sdata.ItemKey{}) {
+		t.Fatal("explicit drag out did not remove binding")
+	}
+}

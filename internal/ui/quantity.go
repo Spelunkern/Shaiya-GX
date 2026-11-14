@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/itemstack"
 	"strconv"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/platform"
@@ -44,7 +45,7 @@ func NewQuantity(t Textures) (*Quantity, error) {
 }
 func (q *Quantity) Open(mx, my, w, h, limit int) {
 	q.X, q.Y = max(0, min(mx-82, w-QuantityWidth)), max(0, min(my-50, h-QuantityHeight))
-	q.limit = max(1, min(limit, 255))
+	q.limit = max(1, min(limit, itemstack.Max))
 	q.value, q.editing = q.limit, false
 	q.draft = strconv.Itoa(q.value)
 	for i := range q.buttons {

@@ -21,7 +21,7 @@ func TestDisplayDropdownChoosesPendingModeAndCancelRestores(t *testing.T) {
 	if !m.DisplayPopupOpen() {
 		t.Fatal("resolution arrow did not open")
 	}
-	click(80, 103+PlayerMenuTextInset+PlayerMenuRowHeight+5)
+	click(80, 103+PlayerMenuTextInset+5)
 	if m.DisplayPopupOpen() || m.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) {
 		t.Fatal("wrong pending display mode", m.Settings.DisplayMode)
 	}
@@ -31,7 +31,7 @@ func TestDisplayDropdownChoosesPendingModeAndCancelRestores(t *testing.T) {
 	}
 	m.Open(MenuGraphics)
 	click(145, 90)
-	m.Update(&platform.Input{Keys: []platform.Key{platform.KeyDown}}, 1024, 768)
+	m.Update(&platform.Input{Keys: []platform.Key{platform.KeyUp}}, 1024, 768)
 	if m.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) {
 		t.Fatal("keyboard selection failed")
 	}
@@ -63,7 +63,7 @@ func TestDisplayModeScrollbarDoesNotSelectUnderlyingRow(t *testing.T) {
 		t.Fatal("scrollbar selected a mode or dismissed popup")
 	}
 	click(80, 103+PlayerMenuTextInset+5)
-	if m.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) {
+	if m.Settings.DisplayMode != (platform.DisplayMode{Width: 832, Height: 616}) {
 		t.Fatal("scrolled row did not select the displayed mode")
 	}
 }

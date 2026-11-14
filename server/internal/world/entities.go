@@ -29,6 +29,7 @@ type NpcPatrolPoint struct {
 }
 
 type MapNpc struct {
+	Summoned         bool
 	ID               uint32
 	Type             uint8
 	TypeID           uint16
@@ -54,6 +55,7 @@ func (a MobArea) contains(x, z float32) bool {
 }
 
 type MapMob struct {
+	elementRestored    bool // RemApplySkillDebuff68 restores base even with another68 active.
 	ID                 uint32
 	MobID              uint16
 	Level              uint16
@@ -74,7 +76,6 @@ type MapMob struct {
 	lastAttackAt       time.Time
 	nextAttackAt       time.Time        // CMob m_dwNextAttackTime
 	noTargetUntil      time.Time        // CMob::Init: no target search for 5 s
-	recoverAt          time.Time        // CMob::UpdateRecover, every 5 s
 	aggro              map[uint32]int64 // CDamage ledger: damage and skill aggro
 	slotReadyAt        [3]time.Time     // per attack slot (AttackAI)
 	returningHome      bool
@@ -165,8 +166,10 @@ type MapEntities struct {
 }
 
 type mapShard struct {
-	mu       sync.Mutex
-	entities MapEntities
+	npcRevision atomic.Uint64
+	questNPCs   questNPCCatalogCache
+	mu          sync.Mutex
+	entities    MapEntities
 }
 
 type mapGrid struct {
@@ -407,6 +410,7 @@ type PlayerCombatSnapshot struct {
 	Faction     uint8
 	Cell        cell
 	HP          uint32
+	Invisible   bool
 }
 
 type MobAttackAction struct {
@@ -733,7 +737,6 @@ const (
 	mobLeash        = 45.0 // target farther than this from home or from the mob
 	mobHomeDone     = 10.0 // ReturnHome completes within 10 units of home
 	mobChaseReached = 1.5  // Chase: within Size + range + 1.5 no step
-	mobRecoverEvery = 5 * time.Second
 )
 
 // TickMobCombat advances targeting, attacks, chasing and walking home.
@@ -757,13 +760,10 @@ func TickMobCombat(players []PlayerCombatSnapshot, maxPerMap int) MobCombatTick 
 				m.AggroTarget, m.returningHome, m.aggro = 0, false, nil
 				continue
 			}
-			if r := m.recover(now); r != nil {
-				tick.Restores = append(tick.Restores, mapPacket{mapID, m.PosX, m.PosZ, r})
-			}
 			mods := m.mods()
 			if mods.VisionFix != 0 {
 				for _, p := range mapPlayers {
-					if p.CharacterID == mods.VisionFix && p.Alive {
+					if p.CharacterID == mods.VisionFix && p.Alive && !p.Invisible {
 						m.AggroTarget, m.returningHome = mods.VisionFix, false
 					}
 				}
@@ -773,7 +773,12 @@ func TickMobCombat(players []PlayerCombatSnapshot, maxPerMap int) MobCombatTick 
 			}
 			target := m.liveTarget(mapPlayers)
 			if m.AggroTarget != 0 && target == nil {
-				m.AggroTarget = 0 // gone, dead or on another map: back to idle
+				m.AggroTarget = 0
+				m.retargetByAggro(mapPlayers)
+				target = m.liveTarget(mapPlayers)
+				if target == nil {
+					m.dropTarget(true)
+				}
 			}
 			if target != nil && mods.VisionFix == 0 {
 				switch {
@@ -836,7 +841,7 @@ func (m *MapMob) liveTarget(players []PlayerCombatSnapshot) *PlayerCombatSnapsho
 		return nil
 	}
 	for k := range players {
-		if players[k].CharacterID == m.AggroTarget && players[k].Alive {
+		if players[k].CharacterID == m.AggroTarget && players[k].Alive && !players[k].Invisible {
 			return &players[k]
 		}
 	}
@@ -861,7 +866,7 @@ func (m *MapMob) findTarget(now time.Time, players []PlayerCombatSnapshot) *Play
 			c := cell{m.cell.x + dx, m.cell.z + dz}
 			for k := range players {
 				p := &players[k]
-				if p.Cell != c || !p.Alive || (m.def.Country < 2 && p.Faction == m.def.Country) {
+				if p.Cell != c || !p.Alive || p.Invisible || (m.def.Country < 2 && p.Faction == m.def.Country) {
 					continue
 				}
 				if DistanceXZ(p.PosX, p.PosZ, m.PosX, m.PosZ) <= m.ChaseRange {
@@ -879,7 +884,7 @@ func (m *MapMob) targetWeakest(players []PlayerCombatSnapshot) bool {
 	var best *PlayerCombatSnapshot
 	for k := range players {
 		p := &players[k]
-		if _, hit := m.aggro[p.CharacterID]; !hit || !p.Alive || (m.def.Country < 2 && p.Faction == m.def.Country) {
+		if _, hit := m.aggro[p.CharacterID]; !hit || !p.Alive || p.Invisible || (m.def.Country < 2 && p.Faction == m.def.Country) {
 			continue
 		}
 		if best == nil || p.HP < best.HP {
@@ -900,7 +905,7 @@ func (m *MapMob) retargetByAggro(players []PlayerCombatSnapshot) {
 	var top int64 = -1
 	for k := range players {
 		p := &players[k]
-		if v, ok := m.aggro[p.CharacterID]; ok && p.Alive && v > top {
+		if v, ok := m.aggro[p.CharacterID]; ok && p.Alive && !p.Invisible && v > top {
 			best, top = p.CharacterID, v
 		}
 	}
@@ -980,22 +985,14 @@ func (m *MapMob) stepHome(now time.Time, mapID uint16, mods *mobMods, tick *MobC
 	return true
 }
 
-// recover is CMob::UpdateRecover: every 5 s a wounded mob regains its
-// RecoverValue (0x0610 to 60 units).
-func (m *MapMob) recover(now time.Time) []byte {
-	if m.def == nil || m.def.RecoverValue <= 0 || m.CurrentHP >= m.MaxHP || now.Before(m.recoverAt) {
-		return nil
-	}
-	m.recoverAt = now.Add(mobRecoverEvery)
-	m.CurrentHP = min(m.CurrentHP+uint32(m.def.RecoverValue), m.MaxHP)
-	return buildMobCurrentHP(m.ID, m.CurrentHP)
-}
-
 func AddEntities(mapID uint16, e MapEntities) {
 	s := shard(mapID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.entities.NPCs = append(s.entities.NPCs, e.NPCs...)
+	if len(e.NPCs) > 0 {
+		s.npcRevision.Add(1)
+	}
 	s.entities.Mobs = append(s.entities.Mobs, e.Mobs...)
 	s.entities.Portals = append(s.entities.Portals, e.Portals...)
 	s.entities.SpawnAreas = append(s.entities.SpawnAreas, e.SpawnAreas...)
@@ -1257,6 +1254,9 @@ func buildNpcEnter(n *MapNpc) []byte {
 	w.F32(n.PosY)
 	w.F32(n.PosZ)
 	w.U16(n.Angle)
+	if n.Summoned {
+		w.Bool(true)
+	}
 	return w.MustFinish()
 }
 

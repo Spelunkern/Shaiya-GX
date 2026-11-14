@@ -4,14 +4,15 @@ import "fmt"
 
 // GemAddResult follows the 16-byte Rapture 0x0801 response.
 type GemAddResult struct {
-	Result, GemBag, GemSlot, GemCount  uint8
+	Result, GemBag, GemSlot            uint8
+	GemCount                           uint16
 	ItemBag, ItemSlot, Position, GemID uint8
 	Money                              uint32
 }
 
 func DecodeGemAddResult(p []byte) (GemAddResult, error) {
 	r := NewReader(p)
-	v := GemAddResult{Result: r.U8(), GemBag: r.U8(), GemSlot: r.U8(), GemCount: r.U8(), ItemBag: r.U8(), ItemSlot: r.U8(), Position: r.U8(), GemID: r.U8()}
+	v := GemAddResult{Result: r.U8(), GemBag: r.U8(), GemSlot: r.U8(), GemCount: r.Count(), ItemBag: r.U8(), ItemSlot: r.U8(), Position: r.U8(), GemID: r.U8()}
 	r.U32()
 	v.Money = r.U32()
 	if err := r.Err(); err != nil {
@@ -77,5 +78,13 @@ func GemRemovePacket(itemBag, itemSlot uint8) []byte {
 func GemAddHammerPacket(gemBag, gemSlot, itemBag, itemSlot, hammerBag, hammerSlot uint8) []byte {
 	w := NewWriter(GemAdd)
 	w.Raw([]byte{gemBag, gemSlot, itemBag, itemSlot, hammerBag, hammerSlot})
+	return w.Bytes()
+}
+
+// GemRemoveHammerPacket extracts one socket and consumes one hammer unit.
+// The legacy four-byte all-socket request remains readable by the server.
+func GemRemoveHammerPacket(item, hammer [2]uint8, socket uint8) []byte {
+	w := NewWriter(GemRemove)
+	w.Raw([]byte{item[0], item[1], hammer[0], hammer[1], socket, 0})
 	return w.Bytes()
 }

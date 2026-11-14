@@ -12,7 +12,9 @@ import (
 func TestBuffTimersFollowSnapshotsRefreshAndServerRemoval(t *testing.T) {
 	a := inputApp()
 	a.clock = 100
-	a.skillDefs[sdata.SkillKey{ID: 31, Level: 1}] = sdata.Skill{KeepTime: 2, FixRange: 1, Effect: 4}
+	a.npcSkillDefs = map[sdata.SkillKey]sdata.Skill{}
+	a.npcSkillDefs[sdata.SkillKey{ID: 31, Level: 1}] = sdata.Skill{KeepTime: 2, FixRange: 1, Effect: 4}
+	a.skillDefs = map[sdata.SkillKey]sdata.Skill{{ID: 31, Level: 1}: {KeepTime: 2, FixRange: 1, Effect: 4}}
 	apply := func(w *proto.Writer) {
 		t.Helper()
 		ev, err := a.state.Apply(w.Bytes())

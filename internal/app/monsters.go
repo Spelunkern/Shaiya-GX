@@ -23,6 +23,7 @@ type mobActor struct {
 }
 
 func (a *App) prepareMonsters() {
+	effectBudget := 2
 	v := a.wv
 	if v.mobs == nil {
 		v.mobs = map[uint32]*mobActor{}
@@ -101,6 +102,7 @@ func (a *App) prepareMonsters() {
 			a.assets.Missing[err.Error()] = true
 		}
 		cached.actor.Update(float32(a.frameDT))
+		cached.actor.PrepareEffects(a.wv.eye, float32(a.frameDT), a.clientSettings().SkillEffects, !e.Dead, &effectBudget)
 	}
 }
 
@@ -113,6 +115,9 @@ func (a *App) drawMonsters() {
 		if cached := a.wv.mobs[id]; cached != nil && cached.actor != nil {
 			if cached.actor.Visible(frustum, a.scene3d.ClipPlane) {
 				cached.actor.Draw(a.skinner, a.scene3d)
+				if a.clientSettings().SkillEffects {
+					cached.actor.DrawEffects(a.scene3d)
+				}
 			}
 		}
 	}

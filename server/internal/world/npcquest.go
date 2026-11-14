@@ -33,12 +33,13 @@ type npcGate struct {
 }
 
 type npcDef struct {
-	Type      uint8
-	TypeID    uint16
-	Country   uint8 // 0 light, 1 fury, 2 both
-	Name      string
-	ShopType  uint8
-	ShopItems [][2]uint8
+	Type                   uint8
+	TypeID                 uint16
+	Country                uint8 // 0 light, 1 fury, 2 both
+	Name                   string
+	ShopType               uint8
+	ShopItems              [][2]uint8
+	StartQuests, EndQuests []uint16
 	// stNpcInfo +0x08 / +0x0C: patrol step and step interval (ms).
 	MoveDistance, MoveSpeed int32
 	Gates                   [3]npcGate
@@ -140,8 +141,8 @@ func loadNpcQuest(log *logx.Logger) (err error) {
 				}
 				gates++
 			}
-			r.words() // start quests
-			r.words() // end quests
+			n.StartQuests = r.wordList()
+			n.EndQuests = r.wordList()
 		}
 		npcDefs[group] = list
 	}
@@ -198,9 +199,10 @@ func npcOnMap(mapID uint16, id uint32) (MapNpc, bool) {
 	return MapNpc{}, false
 }
 
-func buildShopBuyResult(result, bag, slot, itemType, typeID, count uint8, money uint32) []byte {
+func buildShopBuyResult(result, bag, slot, itemType, typeID uint8, count uint16, money uint32) []byte {
 	w := packet.New(packet.ShopBuy)
-	w.Bytes([]byte{result, bag, slot, itemType, typeID, count})
+	w.Bytes([]byte{result, bag, slot, itemType, typeID})
+	w.Count(count)
 	w.U32(money)
 	return w.MustFinish()
 }
@@ -213,8 +215,11 @@ func (s *Session) handleShopBuy(p []byte) {
 		return
 	}
 	ch := s.char
-	npcID, _ := packet.U32(p[2:])
-	index, count := p[6], p[7]
+	r := packet.NewReader(p)
+	npcID, index, count := r.U32(), r.U8(), r.Count()
+	if r.Err() != nil {
+		return
+	}
 	npc, ok := npcOnMap(ch.MapID, npcID)
 	if !ok || npc.Type != npcTypeShop {
 		return
@@ -255,7 +260,7 @@ func (s *Session) handleShopBuy(p []byte) {
 			s.send(buildShopBuyResult(2, 0, 0, item.Type, item.TypeID, 0, 0), "0x0702 shop buy (no room)")
 			return
 		}
-		n := uint8(1)
+		n := uint16(1)
 		if item.MaxStack() > 1 {
 			n = count
 		}

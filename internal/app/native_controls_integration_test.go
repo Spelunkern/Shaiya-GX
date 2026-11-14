@@ -310,9 +310,10 @@ func TestNativeControlsAgainstRapture(t *testing.T) {
 	a.updateCharacters(&platform.Input{}, 1024, 734, .01)
 	// Mode selection is pending until OK; dropdown navigation must not open chat.
 	a.gameMenu.SetDisplayModes([]platform.DisplayMode{{Width: 800, Height: 600}, {Width: 1024, Height: 768}})
+	a.gameMenu.SetCurrentDisplayMode(platform.DisplayMode{Width: 1024, Height: 768})
 	a.gameMenu.Open(ui.MenuGraphics)
 	mx, my := a.gameMenu.Origin(1024, 734)
-	for _, in := range []platform.Input{{MouseX: mx + 145, MouseY: my + 90, Pressed: true, MouseDown: true}, {MouseX: mx + 145, MouseY: my + 90, Clicked: true}, {Keys: []platform.Key{platform.KeyDown}}, {Keys: []platform.Key{platform.KeyEnter}}} {
+	for _, in := range []platform.Input{{MouseX: mx + 145, MouseY: my + 90, Pressed: true, MouseDown: true}, {MouseX: mx + 145, MouseY: my + 90, Clicked: true}, {Keys: []platform.Key{platform.KeyUp}}, {Keys: []platform.Key{platform.KeyEnter}}} {
 		a.updateCharacters(&in, 1024, 734, .01)
 	}
 	if a.chatOpen || a.gameMenu.DisplayPopupOpen() || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) {
@@ -321,7 +322,7 @@ func TestNativeControlsAgainstRapture(t *testing.T) {
 	for _, in := range []platform.Input{{MouseX: mx + 230, MouseY: my + 500, Pressed: true, MouseDown: true}, {MouseX: mx + 230, MouseY: my + 500, Clicked: true}} {
 		a.updateCharacters(&in, 1024, 734, .01)
 	}
-	if a.gameMenu.Page != ui.MenuMain || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{}) {
+	if a.gameMenu.Page != ui.MenuMain || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{Width: 1024, Height: 768}) {
 		t.Fatal("display selection did not cancel")
 	}
 	x, y = a.gameMenu.Origin(1024, 734)

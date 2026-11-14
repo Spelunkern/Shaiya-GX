@@ -91,8 +91,9 @@ func (v *Warehouse) Draw(s *render.Sprites, f *Font, w, h, page int, name, welco
 	if portrait != nil {
 		s.Draw(portrait, float32(x+7), float32(y+7), 64, 64, 0, 0, 1, 1, white)
 	}
-	f.Draw(s, name, x+90, y+22, white, 210)
-	f.Draw(s, welcome, x+90, y+46, white, 210)
+	for i, line := range wrapLines(f, "Drag items between inventory and storage.", 210) {
+		f.Draw(s, line, x+90, y+46+i*15, white, 210)
+	}
 	for i := 0; i < 6; i++ {
 		sheet, dy, gx, gu := 1, 120, 16, float32(.5)
 		if i == page {

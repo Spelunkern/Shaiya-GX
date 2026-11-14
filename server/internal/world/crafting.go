@@ -2,7 +2,6 @@ package world
 
 import (
 	"fmt"
-	"math"
 	"math/rand/v2"
 	"strings"
 
@@ -15,7 +14,6 @@ import (
 
 const (
 	lapisiaItemType      = 95
-	enchantMaxLevel      = 20
 	maxGemSlots          = 6
 	composeResultSuccess = 0
 	composeResultFailure = 1
@@ -35,9 +33,13 @@ func craftPairs(c CraftStats) [10]uint32 {
 
 // --- enchant (0x0805) ---
 
-func buildEnchantResult(result, lBag, lSlot, lCount, mBag, mSlot, mCount, iBag, iSlot uint8, money uint32, craft string) []byte {
+func buildEnchantResult(result, lBag, lSlot uint8, lCount uint16, mBag, mSlot uint8, mCount uint16, iBag, iSlot uint8, money uint32, craft string) []byte {
 	w := packet.New(packet.EnchantAdd)
-	w.Bytes([]byte{result, lBag, lSlot, lCount, mBag, mSlot, mCount, iBag, iSlot})
+	w.Bytes([]byte{result, lBag, lSlot})
+	w.Count(lCount)
+	w.Bytes([]byte{mBag, mSlot})
+	w.Count(mCount)
+	w.Bytes([]byte{iBag, iSlot})
 	w.U32(money)
 	w.FixedString(craft, 21)
 	return w.MustFinish()
@@ -80,17 +82,23 @@ func lapisiaFits(lap *db.ItemDef, rt uint8) bool {
 
 // handleEnchantAdd (0x0805) is CUser::ItemLapisianAdd (0x0045fb20):
 // lapisia bag/slot, material bag/slot, material count, item bag/slot.
-// The item (count 1, Server set) needs its ReqLuc as material; below step
-// 20 the lapisia's GetGemMoneyByGrade is paid and SRandom(1,000,000) plus
-// the material count must fall under ItemEnchant.ini's rate. Either way
-// the lapisia and the material count are used up; a failed lapisia with
-// ReqVg set breaks the item (quality 0).
+// The item (count 1, Server set) needs its ReqLuc as material; below
+// the compiled cap, ReqIg selects the gold cost and the compiled rate
+// determines success independently of material quantity. Either way
+// the lapisia and the material count are used up; equipment is preserved.
 func (s *Session) handleEnchantAdd(p []byte) {
 	if len(p) < 9 || s.char == nil {
 		return
 	}
 	ch := s.char
-	lBag, lSlot, mBag, mSlot, count, iBag, iSlot := p[2], p[3], p[4], p[5], min(p[6], 100), p[7], p[8]
+	r := packet.NewReader(p)
+	lBag, lSlot, mBag, mSlot := r.U8(), r.U8(), r.U8(), r.U8()
+	requestedCount := r.Count()
+	count := uint16(1)
+	iBag, iSlot := r.U8(), r.U8()
+	if r.Err() != nil {
+		return
+	}
 	if !isValidItemPosition(lBag, lSlot) || !isValidItemPosition(mBag, mSlot) || !isValidItemPosition(iBag, iSlot) {
 		return
 	}
@@ -106,10 +114,13 @@ func (s *Session) handleEnchantAdd(p []byte) {
 	defs := db.MustDefs()
 	lapDef, def := defs.Item(lap.Type, lap.TypeID), defs.Item(item.Type, item.TypeID)
 	switch {
+	case li == mi || li == ii || mi == ii || lBag == 0 || mBag == 0:
+		fail("distinct carried consumables required")
+		return
 	case lapDef == nil || def == nil || lap.Type != lapisiaItemType || item.Count != 1:
 		fail("not a lapisia or not a single item")
 		return
-	case count == 0 || mat.Count < count:
+	case requestedCount == 0 || mat.Count < count:
 		fail("material count")
 		return
 	case def.Server == 0 || def.ReqLuc == 0 || mat.ItemID() != def.ReqLuc:
@@ -125,11 +136,11 @@ func (s *Session) handleEnchantAdd(p []byte) {
 	if step > 50 {
 		step -= 50
 	}
-	if step >= enchantMaxLevel {
+	if step >= enchantConfig.MaxLevel {
 		fail("already at max level")
 		return
 	}
-	cost := lapisiaMoney(lapDef.ReqIg)
+	cost := forgeCost(lapisiaMoney(lapDef.ReqIg))
 	if ch.Money < cost {
 		fail("not enough gold")
 		return
@@ -139,24 +150,12 @@ func (s *Session) handleEnchantAdd(p []byte) {
 	uidI := item.UID
 	s.adjustCount(lap.UID, lapLeft)
 	s.adjustCount(mat.UID, matLeft)
-	rate := enchantConfig.DefenseRate[step]
-	if weapon {
-		rate = enchantConfig.WeaponRate[step]
-	}
-	if rand.Uint32N(1_000_000)+uint32(count) >= rate {
+	rate, _ := enchantRate(item, count)
+	if rand.Uint32N(1_000_000) >= rate {
 		name := item.CraftName
-		if lapDef.ReqVg != 0 {
-			if i := findItemByUID(s.items, uidI); i >= 0 {
-				s.items[i].Quality = 0
-				db.SaveCharacterItem(ch.ID, &s.items[i])
-			}
-		}
 		s.persist()
-		s.log.Printf("GX Server World enchant failed item=%d/%d step=%d broke=%t", item.Type, item.TypeID, step, lapDef.ReqVg != 0)
+		s.log.Printf("GX Server World enchant failed item=%d/%d step=%d", item.Type, item.TypeID, step)
 		s.send(buildEnchantResult(0, lBag, lSlot, lapLeft, mBag, mSlot, matLeft, iBag, iSlot, ch.Money, name), "0x0805 enchant add result")
-		if lapDef.ReqVg != 0 && iBag == 0 {
-			s.equipmentChanged([]uint8{iSlot})
-		}
 		return
 	}
 	pairs := craftPairs(craft)
@@ -179,7 +178,7 @@ func (s *Session) handleEnchantAdd(p []byte) {
 }
 
 // adjustCount sets an item's count by UID (deleting at zero) and persists.
-func (s *Session) adjustCount(uid int64, count uint8) {
+func (s *Session) adjustCount(uid int64, count uint16) {
 	i := findItemByUID(s.items, uid)
 	if i < 0 {
 		return
@@ -195,9 +194,11 @@ func (s *Session) adjustCount(uid int64, count uint8) {
 
 // --- gems (0x0801 / 0x0802) ---
 
-func buildGemAddResult(result, gBag, gSlot, gCount, iBag, iSlot, pos, gemID uint8, money uint32) []byte {
+func buildGemAddResult(result, gBag, gSlot uint8, gCount uint16, iBag, iSlot, pos, gemID uint8, money uint32) []byte {
 	w := packet.New(packet.GemAdd)
-	w.Bytes([]byte{result, gBag, gSlot, gCount, iBag, iSlot, pos, gemID})
+	w.Bytes([]byte{result, gBag, gSlot})
+	w.Count(gCount)
+	w.Bytes([]byte{iBag, iSlot, pos, gemID})
 	w.U32(0) // four unused bytes (client reader 0x0801: 12 bytes + money)
 	w.U32(money)
 	return w.MustFinish()
@@ -256,17 +257,18 @@ func (s *Session) findSpecialItem(special uint8) int {
 }
 
 const (
-	specialGemSuccessUp = 36 // '$' Linking Hammer: ReqVg percent on the chance
-	specialGemProtect   = 57 // '9' Lucky Charm: keeps the item on a failure
+	specialGemSuccessUp = 36 // additive percentage-point bonus
+	specialGemExtract   = 58 // direct extraction success percentage
+	specialGemProtect   = 57 // legacy Lucky Charm ID; no longer needed/consumed
 )
 
 // handleGemAdd (0x0801) is CUser::ItemGemAdd (0x00461310): gem bag/slot,
 // item bag/slot, optional hammer bag/slot. The item (count 1) must take
 // the gem (the lapisia-style target fields and EnableGem's capacity); the
-// gem's GetGemMoneyByGrade is paid; the chance is level x 0.05 + 289 -
-// 8 x ReqIg (at least 1), times the hammer's ReqVg %, capped at 50.
-// The gem is always used up; a failed gem with ReqVg set destroys the
-// item unless a Lucky Charm is carried (and used instead).
+// gem's GetGemMoneyByGrade is paid; base chance is 289 - 8 x ReqIg
+// plus blessing (at least 1), plus hammer ReqVg percentage points, up to 100%.
+// The gem is always used up. GX preserves the equipment on every failure;
+// legacy ReqVg destruction flags and Lucky Charms do not affect linking.
 func (s *Session) handleGemAdd(p []byte) {
 	if len(p) < 6 || s.char == nil {
 		return
@@ -310,47 +312,39 @@ func (s *Session) handleGemAdd(p []byte) {
 		fail("no free socket")
 		return
 	}
-	// ItemGemAdd: (int)((float)GetGemMoneyByGrade - (float)Vg / 10).
-	cost := uint32(max(math.Trunc(float64(float32(lapisiaMoney(gemDef.ReqIg)))-float64(float32(ch.Vg))/float64(float32(10))), 0))
+	var hammer *db.ItemDef
+	var hammerUID int64
+	if len(p) >= 8 {
+		hi := findItem(s.items, hBag, hSlot)
+		if !isValidItemPosition(hBag, hSlot) || hBag == 0 || hi < 0 || s.items[hi].Count == 0 || s.items[hi].UID == item.UID || s.items[hi].UID == gem.UID {
+			fail("invalid hammer slot")
+			return
+		}
+		hammer = defs.Item(s.items[hi].Type, s.items[hi].TypeID)
+		if !validForgeHammer(hammer, specialGemSuccessUp) {
+			fail("not a linking hammer")
+			return
+		}
+		hammerUID = s.items[hi].UID
+	}
+	cost := gemCost(ch, gemDef)
 	if ch.Money < cost {
 		fail("not enough gold")
 		return
 	}
+	chance := gemChance(ch, s.faction, gemDef, hammer)
 	ch.Money -= cost
-	// trunc((float)(289 - 8 ReqIg) + (float)KC type 24 + level x 0.05).
-	chance := int(math.Trunc(float64(float32(289-8*int(gemDef.ReqIg))) + float64(float32(kcWorldType(s.faction, 24))) +
-		float64(float32(ch.Level))*float64(float32(0.05))))
-	chance = max(chance, 1)
-	if hBag != 0 && isValidItemPosition(hBag, hSlot) {
-		if hi := findItem(s.items, hBag, hSlot); hi >= 0 {
-			if hd := defs.Item(s.items[hi].Type, s.items[hi].TypeID); hd != nil && realType(hd.Type) == 26 && hd.Special == specialGemSuccessUp {
-				chance = int(math.RoundToEven(float64(hd.ReqVg) / 100 * float64(chance)))
-				s.adjustCount(s.items[hi].UID, s.items[hi].Count-1)
-			}
-		}
+	if hammerUID != 0 {
+		hi := findItemByUID(s.items, hammerUID)
+		s.adjustCount(hammerUID, s.items[hi].Count-1)
 	}
-	chance = min(max(chance, 1), 50)
 	before := s.maxPools()
 	uidI := item.UID
 	s.adjustCount(gem.UID, gem.Count-1)
 	if rand.IntN(100) >= chance {
-		broke := false
-		if gemDef.ReqVg != 0 {
-			if ci := s.findSpecialItem(specialGemProtect); ci >= 0 {
-				s.adjustCount(s.items[ci].UID, s.items[ci].Count-1)
-			} else if i := findItemByUID(s.items, uidI); i >= 0 {
-				broke = true
-				s.adjustCount(uidI, 0)
-				s.send(buildRemoveItem(&item, true), "0x0206 item destroyed by a failed gem")
-			}
-		}
 		s.persist()
-		s.log.Printf("GX Server World gem add failed gem=%d chance=%d item_destroyed=%t", gem.TypeID, chance, broke)
+		s.log.Printf("GX Server World gem add failed gem=%d chance=%d", gem.TypeID, chance)
 		s.send(buildGemAddResult(0, gBag, gSlot, gem.Count-1, iBag, iSlot, 0, 0, ch.Money), "0x0801 gem add result")
-		if broke && iBag == 0 {
-			s.equipmentChanged([]uint8{iSlot})
-			s.sendChangedPools(before, "gem add")
-		}
 		if s.player != nil {
 			s.player.UpdateItems(s.items)
 		}
@@ -371,7 +365,8 @@ func (s *Session) handleGemAdd(p []byte) {
 	}
 }
 
-// handleGemRemove: item bag, slot (the client sends 4- and 8-byte forms).
+// handleGemRemove extracts one selected socket with an extraction hammer.
+// Obsolete requests without a hammer are rejected without consuming anything.
 func (s *Session) handleGemRemove(p []byte) {
 	if len(p) < 4 || s.char == nil {
 		return
@@ -385,32 +380,8 @@ func (s *Session) handleGemRemove(p []byte) {
 	if ii < 0 {
 		return
 	}
-	uid := s.items[ii].UID
-	before := s.maxPools()
-	var removed, ids, bags, slots [maxGemSlots]uint8
-	var adds [][]byte
-	extracted := false
-	// CUser::ItemGemRemoveAll (0x00461fc0): the item (count 1, not real
-	// type 24) pays every gem's GetGemMoneyByGrade; the chance is the first
-	// gem's (level x 0.05 + 289 - 8 x ReqIg, 1-50). A failure loses all the
-	// gems, and the item too when one of them had ReqVg set.
 	item := s.items[ii]
-	defs := db.MustDefs()
-	var cost uint32
-	count, risky, first := 0, false, (*db.ItemDef)(nil)
-	for _, g := range item.Gems {
-		if d := defs.Item(gemItemType, g); g != 0 && d != nil {
-			// ItemGemRemoveAll: GetGemMoneyByGrade - Vg / 10, when positive.
-			if c := int64(lapisiaMoney(d.ReqIg)) - int64(ch.Vg/10); c > 0 {
-				cost += uint32(c)
-			}
-			count++
-			risky = risky || d.ReqVg != 0
-			if first == nil {
-				first = d
-			}
-		}
-	}
+	var removed, ids, bags, slots [maxGemSlots]uint8
 	result := func(ok bool) {
 		w := packet.New(packet.GemRemove)
 		w.Bool(ok)
@@ -423,66 +394,78 @@ func (s *Session) handleGemRemove(p []byte) {
 		w.U32(ch.Money)
 		s.send(w.MustFinish(), "0x0802 gem remove result")
 	}
-	if count == 0 || item.Count != 1 || realType(item.Type) == 24 || ch.Money < cost || len(freeInventorySlots(s.items)) < count {
-		s.log.Printf("GX Server World rejected gem remove: gems=%d cost=%d money=%d", count, cost, ch.Money)
+	defs := db.MustDefs()
+	positions := []int{}
+	toolUID := int64(0)
+	rate := -1
+	var cost uint32
+	if len(p) == 8 {
+		hi := findItem(s.items, p[4], p[5])
+		pos := int(p[6])
+		if hi < 0 || p[4] == 0 || !isValidItemPosition(p[4], p[5]) || pos >= maxGemSlots || p[7] != 0 || s.items[hi].UID == item.UID {
+			result(false)
+			return
+		}
+		tool := s.items[hi]
+		hd := defs.Item(tool.Type, tool.TypeID)
+		if tool.Count == 0 || !validForgeHammer(hd, specialGemExtract) || item.Gems[pos] == 0 {
+			result(false)
+			return
+		}
+		rate = extractionChance(hd)
+		toolUID = tool.UID
+		positions = append(positions, pos)
+	} else {
 		result(false)
 		return
 	}
+	for _, pos := range positions {
+		d := defs.Item(gemItemType, item.Gems[pos])
+		if d == nil {
+			result(false)
+			return
+		}
+		cost += gemCost(ch, d)
+	}
+	if len(positions) == 0 || item.Count != 1 || realType(item.Type) == 24 || ch.Money < cost || len(freeInventorySlots(s.items)) < len(positions) {
+		result(false)
+		return
+	}
+	before := s.maxPools()
 	ch.Money -= cost
-	chance := min(max(int(math.Trunc(float64(float32(289-8*int(first.ReqIg)))+float64(float32(kcWorldType(s.faction, 24)))+
-		float64(float32(ch.Level))*float64(float32(0.05)))), 1), 50)
-	if rand.IntN(100) >= chance {
-		i := findItemByUID(s.items, uid)
-		s.items[i].Gems = [maxGemSlots]uint8{}
-		if risky {
-			s.adjustCount(uid, 0)
-			s.send(buildRemoveItem(&item, true), "0x0206 item destroyed by a failed gem removal")
-		} else {
-			db.SaveCharacterItem(ch.ID, &s.items[i])
+	if toolUID != 0 {
+		hi := findItemByUID(s.items, toolUID)
+		s.adjustCount(toolUID, s.items[hi].Count-1)
+	}
+	extracted := false
+	for _, pos := range positions {
+		id := item.Gems[pos]
+		chance := rate
+		if chance < 0 {
+			chance = gemChance(ch, s.faction, defs.Item(gemItemType, id), nil)
 		}
-		s.persist()
-		s.log.Printf("GX Server World gem remove failed chance=%d item_destroyed=%t", chance, risky)
-		result(false)
-		if iBag == 0 {
-			if risky {
-				s.equipmentChanged([]uint8{iSlot})
+		i := findItemByUID(s.items, item.UID)
+		if rand.IntN(100) < chance {
+			free := freeInventorySlots(s.items)
+			g := db.Item{Bag: free[0][0], Slot: free[0][1], Type: gemItemType, TypeID: id, Count: 1}
+			if err := db.AddCharacterItem(ch.ID, &g); err != nil {
+				s.log.Printf("gem extraction insert: %v", err)
+				continue
 			}
-			s.sendChangedPools(before, "gem remove")
+			s.items = append(s.items, g)
+			s.send(buildAddItem(&g), "0x0205 extracted lapis")
+			removed[pos], ids[pos], bags[pos], slots[pos] = 1, id, g.Bag, g.Slot
+			extracted = true
 		}
-		if s.player != nil {
-			s.player.UpdateItems(s.items)
-		}
-		return
-	}
-	s.persist()
-	for pos := range maxGemSlots {
-		i := findItemByUID(s.items, uid)
-		gemID := s.items[i].Gems[pos]
-		if gemID == 0 || db.MustDefs().Item(gemItemType, gemID) == nil {
-			continue
-		}
-		free := freeInventorySlots(s.items)
-		if len(free) == 0 {
-			continue
-		}
-		g := db.Item{Bag: free[0][0], Slot: free[0][1], Type: gemItemType, TypeID: gemID, Count: 1}
-		if err := db.AddCharacterItem(ch.ID, &g); err != nil {
-			s.log.Printf("GX Server World gem remove failed: %v", err)
-			continue
-		}
+		// A failed roll destroys only this lapis; other sockets stay untouched.
 		s.items[i].Gems[pos] = 0
-		db.SaveCharacterItem(ch.ID, &s.items[i])
-		s.items = append(s.items, g)
-		adds = append(adds, buildAddItem(&g))
-		removed[pos], ids[pos], bags[pos], slots[pos] = 1, gemID, g.Bag, g.Slot
-		extracted = true
 	}
-	for _, a := range adds {
-		s.send(a, "0x0205 gem remove add item")
-	}
+	i := findItemByUID(s.items, item.UID)
+	db.SaveCharacterItem(ch.ID, &s.items[i])
+	s.persist()
 	result(extracted)
-	if extracted && iBag == 0 {
-		s.sendChangedPools(before, "gem remove")
+	if iBag == 0 {
+		s.sendChangedPools(before, "gem extraction")
 	}
 	if s.player != nil {
 		s.player.UpdateItems(s.items)
@@ -548,6 +531,9 @@ func (s *Session) handleItemCompose(p []byte) {
 	defs := db.MustDefs()
 	runeDef, itemDef := defs.Item(rune.Type, rune.TypeID), defs.Item(item.Type, item.TypeID)
 	switch {
+	case rBag == 0 || ri == ii || item.Count != 1:
+		fail("distinct carried rune and single equipment required")
+		return
 	case rune.Count == 0 || runeDef == nil || runeDef.Special != specialRecreationRune:
 		fail("not a recreation rune")
 		return
@@ -555,8 +541,12 @@ func (s *Session) handleItemCompose(p []byte) {
 		fail("item not recreatable")
 		return
 	}
+	name, err := recreateWithRune(runeDef, itemDef, item)
+	if err != nil {
+		fail(err.Error())
+		return
+	}
 	before := s.maxPools()
-	name := rollCraftName(min(itemDef.Server, 9), uint8(min(itemDef.ReqWis, 99)), rollsStatsOnly(item.Type), item.CraftName)
 	s.items[ii].CraftName = name
 	db.SaveCharacterItem(ch.ID, &s.items[ii])
 	s.adjustCount(rune.UID, rune.Count-1)

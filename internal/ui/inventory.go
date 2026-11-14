@@ -65,10 +65,7 @@ func (v *Inventory) Update(in *platform.Input, w, h int, bag uint8) (uint8, bool
 	x, y := v.Origin(w, h)
 	v.close.OriginX, v.close.OriginY = x, y
 	closed := v.close.Update(in)
-	v.hover = -1
-	if in.MouseY >= y+251 && in.MouseY < y+279 && in.MouseX >= x+11 && in.MouseX < x+246 {
-		v.hover = (in.MouseX - x - 11) / 47
-	}
+	v.hover = InventoryBagTab(in.MouseX-x, in.MouseY-y)
 	if in.Pressed {
 		v.held = v.hover
 	}
@@ -108,4 +105,12 @@ func (v *Inventory) Origin(w, h int) (int, int) {
 		return x, y
 	}
 	return v.Position.Origin(w, h, InventoryWidth, InventoryHeight, x, y)
+}
+
+// InventoryBagTab identifies native bag tabs for clicks and held-item drags.
+func InventoryBagTab(x, y int) int {
+	if y >= 251 && y < 279 && x >= 11 && x < 246 {
+		return (x - 11) / 47
+	}
+	return -1
 }

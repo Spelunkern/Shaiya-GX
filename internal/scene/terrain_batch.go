@@ -19,8 +19,9 @@ func (s *fieldStream) rebuildTerrainBatches(dirty map[terrainBatchKey]bool) {
 					continue
 				}
 				material = p.terrain
-				p.rangeInBatch = render.TerrainRange{First: uint32(len(s.terrainIndices)), Count: uint32(p.nx * p.nz * 6)}
+				first := uint32(len(s.terrainIndices))
 				s.terrainVertices, s.terrainIndices = appendTerrain(s.terrainVertices, s.terrainIndices, s.world, p.x, p.z, p.nx, p.nz, p.sx, p.sz)
+				p.rangeInBatch = render.TerrainRange{First: first, Count: uint32(len(s.terrainIndices)) - first}
 			}
 		}
 		if old := s.terrainBatches[group]; old != nil {

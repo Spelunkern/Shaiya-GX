@@ -53,7 +53,7 @@ func (s *Session) userSkillCenter(def *db.SkillDef, target uint32) (*ConnectedPl
 func (s *Session) hostileUsersWithin(x, z, r float32) []*ConnectedPlayer {
 	var out []*ConnectedPlayer
 	for _, p := range PlayersOnMap(s.char.MapID) {
-		if p == s.player || !p.IsAlive() || s.isTeam(p) {
+		if p == s.player || !p.IsAlive() || p.immune.Load() || s.isTeam(p) {
 			continue
 		}
 		px, pz := p.PositionXZ()
@@ -91,6 +91,7 @@ func (s *Session) userSkillAttack(k db.CharacterSkill, def *db.SkillDef, target 
 		}
 	}
 	sp, mp := s.skillCosts(def, &stats)
+	s.breakStealth()
 	s.startCooldown(k, def)
 	s.spendDelta(mp, sp)
 	s.persist()
@@ -187,9 +188,6 @@ func (s *Session) applyUserSkillHit(h pendingUserHit, stats CharacterStats) bool
 	closeRanged := DistanceXZ(h.X, h.Z, ch.PosX, ch.PosZ) <= closeRangeDistance
 	mirrored := s.reflects(kind, nil)
 	damage, crit := userSkillDamage(&h.Stats, &stats, sk, h.Caster, closeRanged)
-	if crit && attacker != nil {
-		attacker.QueueWeaponWear()
-	}
 	words := func(d [3]int32) [3]uint16 {
 		var out [3]uint16
 		for i, v := range d {
@@ -248,6 +246,12 @@ func (s *Session) applyUserSkillHit(h pendingUserHit, stats CharacterStats) bool
 
 // takeUserSkillDamage is CUser::Damage with SP and MP damage too.
 func (s *Session) takeUserSkillDamage(attackerID uint32, d [3]uint32) bool {
+	if s.invulnerable() {
+		return false
+	}
+	if d[0] > 0 || d[1] > 0 || d[2] > 0 {
+		s.breakStealth()
+	}
 	if d[1] > 0 || d[2] > 0 {
 		s.spendDelta(d[2], d[1])
 	}

@@ -65,8 +65,8 @@ func (a *App) updateTradeQuantity(in *platform.Input) {
 		return
 	}
 	if q.buy {
-		a.buyItem(q.index, uint8(count))
+		a.buyItem(q.index, uint16(count))
 	} else {
-		a.sellItem(q.source, uint8(count))
+		a.sellItem(q.source, uint16(count))
 	}
 }

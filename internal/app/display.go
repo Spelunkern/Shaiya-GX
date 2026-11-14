@@ -11,7 +11,8 @@ func (a *App) applyDisplaySettings() bool {
 	if a.gameMenu == nil {
 		return true
 	}
-	mode := a.gameMenu.Settings.DisplayMode
+	mode := platform.WindowMode(a.gameMenu.Settings.DisplayMode)
+	a.gameMenu.Settings.DisplayMode = mode
 	if a.displayConfigured && mode == a.appliedDisplay {
 		return true
 	}

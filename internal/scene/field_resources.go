@@ -109,6 +109,10 @@ func (s *fieldStream) trim() {
 			}
 		}
 	}
+	for _, p := range s.world.dg {
+		keep(p.tex)
+		keep(p.lightmap)
+	}
 	for _, sec := range s.materials {
 		keep(sec.Lightmap)
 		for _, l := range sec.Layers {
@@ -225,6 +229,13 @@ func (s *fieldStream) draw(r *render.Scene3D) {
 }
 
 func (s *fieldStream) drawWithClipCulling(r *render.Scene3D, clipCulling bool) {
+	if s.detailBias != r.DetailBias {
+		// Do not carry a reduced-quality LOD hysteresis choice back to default.
+		for i := range s.objects {
+			s.objects[i].drawLOD = 0
+		}
+		s.detailBias = r.DetailBias
+	}
 	frustum := render.ViewFrustum(r.View, r.VisibilityProjection())
 	for _, batch := range s.terrainBatches {
 		batch.ranges = batch.ranges[:0]
@@ -248,7 +259,7 @@ func (s *fieldStream) drawWithClipCulling(r *render.Scene3D, clipCulling bool) {
 		drawTerrainBatch(r, batch)
 	}
 
-	s.lodInstances, s.submittedTriangles = 0, 0
+	s.lodInstances, s.submittedTriangles, s.detailCulled = 0, 0, 0
 	for _, batch := range s.modelBatches {
 		batch.worlds = batch.worlds[:0]
 		for i := range batch.lodWorlds {
@@ -274,6 +285,10 @@ func (s *fieldStream) drawWithClipCulling(r *render.Scene3D, clipCulling bool) {
 			center = transformPoint(entry.batch.model.center, transform)
 		}
 		if clipCulling && !render.ClipSphereVisible(r.ClipPlane, center, radius) || !frustum.SphereVisible(center, radius) || r.OccludedSphere(center, radius) {
+			continue
+		}
+		if !entry.detailVisible(r, center, radius) {
+			s.detailCulled++
 			continue
 		}
 		if entry.vani != nil {

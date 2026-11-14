@@ -40,6 +40,11 @@ func (a *App) queueSkillTooltip(key sdata.SkillKey) {
 			rows = append(rows, itemDetailLine{fmt.Sprintf("Range: %d m", d.AttackRange), white})
 		}
 	}
+	if d.Attribute >= 1 && d.Attribute <= 8 {
+		rows = append(rows, itemDetailLine{elementName(d.Attribute, a.msg), skillElementColor(d.Attribute)})
+	} else if d.Detail == 94 || d.Detail == 95 {
+		rows = append(rows, itemDetailLine{elementName(0, a.msg), white})
+	}
 	if _, learned := a.learnedSkill(key.ID); !learned {
 		rows = append(rows, itemDetailLine{fmt.Sprintf("Required level: %d", d.RequiredLevel), gray}, itemDetailLine{fmt.Sprintf("Skill points: %d", d.Points), gray})
 	}
@@ -126,7 +131,9 @@ func tooltipGlyphs(text string, color [4]float32) []tooltipGlyph {
 	}
 	return out
 }
-func (a *App) drawSharedTooltip(w, h int) {
+func (a *App) drawSharedTooltip(w, h int) { a.drawSharedTooltipAt(w, h, nil) }
+
+func (a *App) drawSharedTooltipAt(w, h int, position *[2]int) {
 	for _, dialog := range []*ui.Message{a.accountMessage, a.partyMessage, a.guildMessage, a.guildConfirm, a.guildDuelMessage, a.duelMessage, a.gemConfirm, a.gateConfirm, a.questConfirm, a.exchangeInvite} {
 		if dialog != nil && dialog.Visible {
 			return
@@ -143,9 +150,13 @@ func (a *App) drawSharedTooltip(w, h int) {
 	if f == nil {
 		f = a.font
 	}
-	layout := layoutTooltip(f, a.tooltip, a.tooltipItem, a.tooltipDescription, len(a.tooltipSockets))
+	layout := layoutTooltip(f, a.tooltip, a.tooltipItem, a.tooltipDescription, len(a.tooltipSockets), a.tooltipExtra)
 	scale := min(float32(1), min(float32(w)/208, float32(h)/float32(max(1, layout.height))))
 	left, top := ui.TooltipOriginFor(a.lastMouseX, a.lastMouseY, 208, layout.height, w, h, a.tooltipItem, scale)
+	if position != nil {
+		left = max(0, min(position[0], w-int(208*scale)))
+		top = max(0, min(position[1], h-int(float32(layout.height)*scale)))
+	}
 	rect := func(x, y, width, height int, color [4]float32) {
 		a.sprites.Draw(a.white, float32(left)+float32(x)*scale, float32(top)+float32(y)*scale, float32(width)*scale, float32(height)*scale, 0, 0, 1, 1, color)
 	}
@@ -156,10 +167,21 @@ func (a *App) drawSharedTooltip(w, h int) {
 	rect(1, 1, 1, layout.height-2, border)
 	rect(206, 1, 1, layout.height-2, border)
 	for _, run := range layout.runs {
+		if a.tooltipMuted {
+			run.color = [4]float32{.6, .6, .6, 1}
+		}
 		if run.shadow {
 			f.DrawScaled(a.sprites, run.text, float32(left)+float32(run.x+1)*scale, float32(top)+float32(run.y+1)*scale, scale, [4]float32{0, 0, 0, 1}, 185)
 		}
 		f.DrawScaled(a.sprites, run.text, float32(left)+float32(run.x)*scale, float32(top)+float32(run.y)*scale, scale, run.color, 185)
+	}
+	if a.tooltipItem && a.tooltipExtra.material != nil {
+		d := a.tooltipExtra.material
+		if file, uv, ok := ui.ItemIcon(d.Type, d.Icon); ok {
+			if tex := a.assets.Texture("interface/" + file); tex != nil {
+				a.sprites.Draw(tex, float32(left)+float32(layout.materialX)*scale, float32(top)+float32(layout.materialY)*scale, 14*scale, 14*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
+			}
+		}
 	}
 	for i, socket := range a.tooltipSockets {
 		x, y := 10+i*20, layout.socketY
@@ -170,7 +192,11 @@ func (a *App) drawSharedTooltip(w, h int) {
 		d := socket.definition
 		if file, uv, ok := ui.ItemIcon(d.Type, d.Icon); ok {
 			if tex := a.assets.Texture("interface/" + file); tex != nil {
-				a.sprites.Draw(tex, float32(left)+float32(x)*scale, float32(top)+float32(y)*scale, 16*scale, 16*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
+				if socket.inactive {
+					a.sprites.DrawGrayscale(tex, float32(left)+float32(x)*scale, float32(top)+float32(y)*scale, 16*scale, 16*scale, uv.U0, uv.V0, uv.U1, uv.V1, [4]float32{.7, .7, .7, 1})
+				} else {
+					a.sprites.Draw(tex, float32(left)+float32(x)*scale, float32(top)+float32(y)*scale, 16*scale, 16*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
+				}
 			}
 		}
 	}

@@ -48,6 +48,8 @@ func TestPlayerHeightsRemainServerConfirmedGL(t *testing.T) {
 	a.state.Entities[2] = remote
 	for _, y := range []float32{a.wv.pos[1] + 15, -1.5, -8} {
 		remote.Y = y
+		// Model an authoritative teleport; normal snapshots interpolate by serial.
+		remote.PositionResetSerial++
 		a.drawWorldView(256, 256)
 		actor := a.wv.actors[2]
 		if actor == nil || actor.character == nil || actor.character.World[13] != y {

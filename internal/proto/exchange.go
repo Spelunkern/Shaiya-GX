@@ -5,12 +5,16 @@ import "fmt"
 const ExchangeSlots = 8
 
 type ExchangeItem struct {
-	Type, TypeID, Count uint8
-	Quality             uint16
-	Gems                [6]uint8
-	Craft               string
+	Type, TypeID uint8
+	Count        uint16
+	Quality      uint16
+	Gems         [6]uint8
+	Craft        string
 }
-type ExchangeOwnItem struct{ Bag, Slot, Count, Destination uint8 }
+type ExchangeOwnItem struct {
+	Bag, Slot, Destination uint8
+	Count                  uint16
+}
 type ExchangeUpdate struct{ Kind, Value uint8 }
 type ExchangeMoneyUpdate struct {
 	Kind  uint8
@@ -37,7 +41,7 @@ func DecodeExchangeMoney(p []byte) (m ExchangeMoneyUpdate, err error) {
 }
 func DecodeExchangeOwnItem(p []byte) (item ExchangeOwnItem, err error) {
 	r := NewReader(p)
-	item = ExchangeOwnItem{r.U8(), r.U8(), r.U8(), r.U8()}
+	item = ExchangeOwnItem{Bag: r.U8(), Slot: r.U8(), Count: r.Count(), Destination: r.U8()}
 	if err = r.Err(); err == nil && item.Destination >= ExchangeSlots {
 		err = fmt.Errorf("exchange: invalid slot %d", item.Destination)
 	}
@@ -46,7 +50,7 @@ func DecodeExchangeOwnItem(p []byte) (item ExchangeOwnItem, err error) {
 func DecodeExchangePartnerItem(p []byte) (slot uint8, item ExchangeItem, err error) {
 	r := NewReader(p)
 	slot = r.U8()
-	item.Type, item.TypeID, item.Count = r.U8(), r.U8(), r.U8()
+	item.Type, item.TypeID, item.Count = r.U8(), r.U8(), r.Count()
 	item.Quality = r.U16()
 	for i := range item.Gems {
 		item.Gems[i] = r.U8()
@@ -76,9 +80,11 @@ func ExchangeReadyPacket(value uint8) []byte {
 	w.U8(value)
 	return w.Bytes()
 }
-func ExchangeAddPacket(bag, slot, count, dest uint8) []byte {
+func ExchangeAddPacket(bag, slot uint8, count uint16, dest uint8) []byte {
 	w := NewWriter(ExchangeAdd)
-	w.Raw([]byte{bag, slot, count, dest})
+	w.Raw([]byte{bag, slot})
+	w.Count(count)
+	w.U8(dest)
 	return w.Bytes()
 }
 func ExchangeRemovePacket(slot uint8) []byte {

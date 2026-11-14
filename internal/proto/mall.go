@@ -2,7 +2,10 @@ package proto
 
 import "fmt"
 
-type MallItem struct{ Bag, Slot, Type, TypeID, Count uint8 }
+type MallItem struct {
+	Bag, Slot, Type, TypeID uint8
+	Count                   uint16
+}
 type MallPurchase struct {
 	Result          uint8
 	HasDetails      bool
@@ -19,7 +22,10 @@ type MallGiftResult struct {
 	Code            string
 	Timestamp, Cost uint32
 }
-type MallStoredItem struct{ Slot, Type, TypeID, Count uint8 }
+type MallStoredItem struct {
+	Slot, Type, TypeID uint8
+	Count              uint16
+}
 type MallClaim struct{ Slot, Bag, InventorySlot uint8 }
 
 // EP5 readers 0x597160/0x596b90 read only the result byte on errors;
@@ -43,7 +49,7 @@ func DecodeMallPurchase(p []byte) (MallPurchase, error) {
 	}
 	result.Items = make([]MallItem, n)
 	for i := range result.Items {
-		result.Items[i] = MallItem{r.U8(), r.U8(), r.U8(), r.U8(), r.U8()}
+		result.Items[i] = MallItem{r.U8(), r.U8(), r.U8(), r.U8(), r.Count()}
 	}
 	result.HasDetails = true
 	return result, r.Err()
@@ -76,7 +82,7 @@ func DecodeMallStored(p []byte) ([]MallStoredItem, error) {
 	items := make([]MallStoredItem, n)
 	var seen [240]bool
 	for i := range items {
-		it := MallStoredItem{r.U8(), r.U8(), r.U8(), r.U8()}
+		it := MallStoredItem{r.U8(), r.U8(), r.U8(), r.Count()}
 		if it.Slot >= 240 || it.Type == 0 || it.Count == 0 || seen[it.Slot] {
 			return nil, fmt.Errorf("mall: invalid stored item %d", it.Slot)
 		}

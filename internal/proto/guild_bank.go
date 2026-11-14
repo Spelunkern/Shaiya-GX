@@ -15,7 +15,7 @@ func readGuildBankItem(r *Reader) InventoryItem {
 	for i := range m.Gems {
 		m.Gems[i] = r.U8()
 	}
-	m.Count, m.Craft = r.U8(), r.Fixed(21)
+	m.Count, m.Craft = r.Count(), r.Fixed(21)
 	return m
 }
 

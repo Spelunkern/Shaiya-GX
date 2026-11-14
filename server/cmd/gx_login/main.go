@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/itemstack"
 	"net"
 	"os"
 	"sync/atomic"
@@ -101,9 +102,9 @@ func serverList() []byte {
 	return w.MustFinish()
 }
 
-func selectServerReply() []byte {
+func selectServerReply(status uint8) []byte {
 	w := packet.New(packet.SelectServer)
-	w.U8(0)
+	w.U8(status)
 	ip := net.ParseIP(config.PublicIP()).To4()
 	if ip == nil {
 		ip = net.IPv4(127, 0, 0, 1).To4()
@@ -221,7 +222,11 @@ func (c *client) frame(frame []byte, remote string) error {
 		}
 		version, _ := packet.U32(payload[3:7])
 		c.log.Printf("GX Server Login select server world_id=%d client_version=%d", payload[2], version)
-		return c.write(selectServerReply(), "0xA202 select server")
+		status := uint8(0)
+		if version != itemstack.ClientVersion {
+			status = 1
+		}
+		return c.write(selectServerReply(status), "0xA202 select server")
 	}
 	return nil
 }

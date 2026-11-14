@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
@@ -29,8 +30,12 @@ func (a *App) loadMallCatalog() error {
 	if err != nil {
 		return err
 	}
-	a.mallCatalog, err = sdata.ParseCash(b)
-	return err
+	catalog, err := sdata.ParseCash(b)
+	if err != nil {
+		return err
+	}
+	a.mallCatalog = catalog
+	return nil
 }
 
 func (a *App) openMall() {
@@ -46,6 +51,7 @@ func (a *App) openMall() {
 		return
 	}
 	if err := a.prepareMall(); err != nil {
+		log.Printf("Item Mall catalog: %v", err)
 		a.questMessage("Item Mall catalog unavailable.")
 		return
 	}
@@ -67,9 +73,38 @@ func (a *App) prepareMall() error {
 		category := min(int(p.Bag)-1, 3)
 		product := ui.MallProduct{Name: p.Name, Code: p.Code, Description: p.Description, Cost: p.Cost}
 		if a.assets != nil {
+			if p.Icon == 0 {
+				for _, entry := range p.Items {
+					if entry.ItemID == 0 {
+						continue
+					}
+					typ, id := uint8(entry.ItemID/1000), uint8(entry.ItemID%1000)
+					if item := a.itemsItem(typ, id); item != nil {
+						if file, uv, ok := ui.ItemIcon(typ, item.Icon); ok {
+							product.Icon = a.assets.Texture("interface/" + file)
+							product.UV = uv
+						}
+					}
+					break
+				}
+			}
 			if file, uv, ok := ui.MallIcon(p.Icon); ok {
 				product.Icon = a.assets.Texture("interface/" + file)
 				product.UV = uv
+			}
+		}
+		// A product containing several different items has no one affinity.
+		if a.assets != nil {
+			entries := 0
+			var definition *sdata.Item
+			for _, entry := range p.Items {
+				if entry.ItemID != 0 {
+					entries++
+					definition = a.itemsItem(uint8(entry.ItemID/1000), uint8(entry.ItemID%1000))
+				}
+			}
+			if entries == 1 {
+				product.Badge = a.itemBadge(definition, nil)
 			}
 		}
 		a.mall.products[category] = append(a.mall.products[category], product)
@@ -185,7 +220,7 @@ func (a *App) drawMall(w, h int) {
 				return nil, ui.UV{}, false
 			}
 			return a.assets.Texture("interface/" + file), uv, true
-		})
+		}, func(it proto.MallStoredItem) ui.ItemBadge { return a.itemBadge(a.itemsItem(it.Type, it.TypeID), nil) })
 	} else {
 		products := a.mall.products[a.mallUI.Category]
 		if index := a.mallUI.ProductAt(w, h, a.lastMouseX, a.lastMouseY, len(products)); index >= 0 {

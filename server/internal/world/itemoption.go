@@ -30,11 +30,7 @@ var gemArmourOrder = [6]uint8{6, 0, 1, 3, 2, 4}
 func gemSkillsOf(it *db.Item) []*db.SkillDef {
 	defs := db.MustDefs()
 	var out []*db.SkillDef
-	for _, g := range it.Gems {
-		if g == 0 {
-			continue
-		}
-		d := defs.Item(gemItemType, g)
+	for _, d := range activeLapis(it, defs.Item(it.Type, it.TypeID)) {
 		if d == nil || d.Special == 0 || d.Special > maxGemSkillSpc {
 			continue
 		}
@@ -75,6 +71,9 @@ func gemCharSkill(sk *db.SkillDef) db.CharacterSkill {
 func (s *Session) gemCastsOnUser(p *ConnectedPlayer, skills []*db.SkillDef) {
 	if p == nil || !p.IsAlive() || s.char == nil || s.char.CurrentHP == 0 {
 		return
+	}
+	if len(skills) > 0 {
+		s.breakStealth()
 	}
 	stats := s.stats()
 	caster := [3]uint32{stats.CurrentHP, stats.CurrentSP, stats.CurrentMP}

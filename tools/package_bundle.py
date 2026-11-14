@@ -51,6 +51,13 @@ def merge(source, destination):
         shutil.copy2(path, target)
 
 
+def verify_cash_copies(client_data, server_data):
+    if not (client_data / 'Cash.SData').is_file():
+        raise ValueError('client Cash.SData catalog is missing')
+    if not (server_data / 'rapture.sqlite').is_file():
+        raise ValueError('server ProductList database is missing')
+
+
 def prepare(archives, data, output, tag):
     if output.exists():
         raise ValueError('output already exists; choose a new folder')
@@ -99,6 +106,7 @@ def prepare(archives, data, output, tag):
             shutil.copy2(manifest, server / 'manifests' / (platform + '.json'))
             manifest.unlink()
             merge(source, server)
+        verify_cash_copies(client / 'data', server / 'data')
         files = {p.relative_to(server).as_posix(): digest(p) for p in sorted(server.rglob('*')) if p.is_file()}
         (server / 'package.manifest.json').write_text(json.dumps({'platform': 'linux-amd64+windows-amd64', 'files': files}, indent=2) + '\n')
         (stage / 'README.txt').write_text(f'''Shaiya GX {tag} — Windows and Linux

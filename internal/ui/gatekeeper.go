@@ -70,8 +70,7 @@ func (v *Gatekeeper) Draw(s *render.Sprites, f *Font, w, h int, name, welcome st
 	if portrait != nil {
 		s.Draw(portrait, float32(x+7), float32(y+7), 64, 64, 0, 0, 1, 1, white)
 	}
-	f.Draw(s, name, x+74+(164-min(164, f.Width(name)))/2, y+22, white, 164)
-	lines := wrapLines(f, welcome, 193)
+	lines := wrapLines(f, "Select a destination to travel.", 193)
 	v.textLines = len(lines)
 	v.textOffset = min(v.textOffset, max(0, len(lines)-10))
 	for i, line := range lines[v.textOffset:min(len(lines), v.textOffset+10)] {

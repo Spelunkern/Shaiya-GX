@@ -136,6 +136,9 @@ func (a *App) updateGameMenu(in *platform.Input, w, h int) {
 	action := a.gameMenu.Update(in, w, h)
 	if previousPage != a.gameMenu.Page && a.gameMenu.Page == ui.MenuGraphics && a.cfg.DisplayModes != nil {
 		a.gameMenu.SetDisplayModes(a.cfg.DisplayModes())
+		if a.cfg.CurrentDisplayMode != nil {
+			a.gameMenu.SetCurrentDisplayMode(a.cfg.CurrentDisplayMode())
+		}
 	}
 	switch action {
 	case ui.MenuClose:
@@ -224,6 +227,7 @@ func (a *App) loadClientSettings() {
 		log.Print("load settings: invalid values")
 		return
 	}
+	value.DisplayMode = platform.WindowMode(value.DisplayMode)
 	if a.cfg.OverrideDisplay {
 		value.DisplayMode = platform.DisplayMode{}
 	}

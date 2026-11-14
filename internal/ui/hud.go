@@ -71,27 +71,27 @@ func (h *HUD) Draw(s *render.Sprites, f *Font, state HUDState) {
 	s.DrawImage(h.status, float32(x), float32(y))
 	for i, pool := range []Resource{state.HP, state.MP, state.SP} {
 		n := progress(pool.Current, 0, pool.Max)
-		s.Draw(h.bars, float32(x+82), float32(y+41+16*i), 114*n, 12, 0, float32(i)*.25, n, float32(i)*.25+12.0/64, white)
+		// Native 0x5097b0: the 128px atlas includes its own leading padding.
+		s.Draw(h.bars, float32(x+70), float32(y+40+16*i), 128*n, 16, 0, float32(i)*.25, n, float32(i+1)*.25, white)
 	}
 	s.DrawImage(h.circle, float32(x), float32(y))
 	if state.Portrait != nil {
-		s.DrawPortrait(state.Portrait, float32(x+17), float32(y+26), 55, 53)
+		s.DrawMasked(state.Portrait, h.portraitMask, float32(x+16), float32(y+26))
 	}
-	tint := [4]float32{.933, .894, .808, 1}
-	shadow := [4]float32{0, 0, 0, 1}
 	label := func(text string, left, top, width, height int, center bool) {
 		if center {
 			left += (width - f.Width(text)) / 2
 		}
 		top += (height - f.Height) / 2
-		f.Draw(s, text, left+1, top+1, shadow, width)
-		f.Draw(s, text, left, top, tint, width)
+		drawStatusText(s, f, text, float32(left), float32(top), 1, width)
 	}
 	// Centered over the bars (x+82, 114 wide), not left-aligned in the plate.
 	label(state.Name, x+82, y+18, 114, 16, true) // +4: middle of the dark name plate
 	label(fmt.Sprint(state.Level), x+62, y+15, 22, 20, true)
 	for i, pool := range []Resource{state.HP, state.MP, state.SP} {
-		label(fmt.Sprintf("%d/%d", pool.Current, pool.Max), x+81, y+36+16*i, 116, 20, true)
+		text := fmt.Sprintf("%d/%d", pool.Current, pool.Max)
+		top := []int{41, 58, 73}[i]
+		drawStatusText(s, f, text, float32(x+135-f.Width(text)/2), float32(y+top), 1, 128)
 	}
 
 	if state.TargetName != "" {
@@ -101,9 +101,8 @@ func (h *HUD) Draw(s *render.Sprites, f *Font, state HUDState) {
 			tint = white
 		}
 		f.Draw(s, state.TargetName, tx+102-f.Width(state.TargetName)/2, ty+26, tint, 170)
-		if state.TargetElement >= 1 {
-			u := float32((state.TargetElement-1)%4) / 4
-			s.Draw(h.elemental, float32(tx), float32(ty+14), 32, 32, u, 0, u+.25, 1, white)
+		if uv, ok := ElementUV(state.TargetElement); ok {
+			s.Draw(h.elemental, float32(tx), float32(ty+14), 32, 32, uv.U0, uv.V0, uv.U1, uv.V1, white)
 		}
 		if state.TargetKnown {
 			n := progress(state.TargetHP.Current, 0, state.TargetHP.Max)

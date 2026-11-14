@@ -121,6 +121,7 @@ func (s *Session) autoAttackSwing(target uint32) bool {
 	if stats.Disabled[kind] > 0 {
 		return true // the category is disabled (abilities 32-34); wait it out
 	}
+	s.breakStealth()
 	s.lastAutoAttackAt, s.lastCombatAt = time.Now(), time.Now()
 	SetMobAggro(ch.MapID, target, ch.ID)
 	// CUser::AttackSuccess, then CUser::AttackDamage; 0x0503 result is
@@ -130,7 +131,6 @@ func (s *Session) autoAttackSwing(target uint32) bool {
 			buildCharacterMobAttack(ch.ID, mob.ID, attackResultMiss, 0), "0x0503 character mob auto attack (miss)")
 		return true
 	}
-	s.wearWeapon()
 	closeRanged := DistanceXZ(ch.PosX, ch.PosZ, mob.PosX, mob.PosZ) <= closeRangeDistance
 	damage, crit := playerDamage(&stats, &mc, kind, stats.AttackAttr, closeRanged)
 	result, ok := DamageMob(ch.MapID, target, uint32(damage))
@@ -175,6 +175,9 @@ func (s *Session) resolveMobDamage(r *MobDamageResult) bool {
 // killed. Slot attacks with a skill (Attacktype = a level-100 Skills row)
 // go through CMob::AttackUser(skill); others are CMob::Attack.
 func (s *Session) applyIncomingMobDamage(d pendingDamage) bool {
+	if s.invulnerable() || (s.player != nil && d.First && s.player.noMobTarget.Load()) {
+		return false
+	}
 	ch := s.char
 	if ch == nil {
 		return false
@@ -265,6 +268,9 @@ func (s *Session) applyMobSkill(d pendingDamage, md *db.MobDef, mc *mobCombat, s
 				result = attackResultCritical
 			}
 		}
+		if damage[0] > 0 || damage[1] > 0 || damage[2] > 0 {
+			s.breakStealth()
+		}
 		hp := uint32(max(damage[0], 0))
 		killed = s.takeMobDamage(d, hp, stats)
 		words := [3]uint16{uint16(min(hp, 65535)), uint16(min(max(damage[1], 0), 65535)), uint16(min(max(damage[2], 0), 65535))}
@@ -342,13 +348,16 @@ func buildMobSkillPacket(op packet.Opcode, result uint8, mobID, target uint32, s
 
 // takeMobDamage lowers the character's HP; true when it died.
 func (s *Session) takeMobDamage(d pendingDamage, damage uint32, stats *CharacterStats) bool {
+	if s.invulnerable() {
+		return false
+	}
 	ch := s.char
 	cur := s.stats()
 	if cur.CurrentHP == 0 || damage == 0 {
 		return false
 	}
-	s.wearArmour()
 	s.cancelMove() // CMob::Attack -> StatusCastingStop -> CancleMove
+	s.breakStealth()
 	s.addDamage(damageByMob, d.MobGlobalID, damage)
 	newEffective := satSub(cur.CurrentHP, damage)
 	ch.CurrentHP = satSub(ch.CurrentHP, cur.CurrentHP-newEffective)

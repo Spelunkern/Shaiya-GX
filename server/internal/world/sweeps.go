@@ -37,7 +37,7 @@ func StartSweeps(log *logx.Logger) {
 		for _, p := range players {
 			x, z := p.PositionXZ()
 			c, _ := p.viewCell()
-			snaps = append(snaps, PlayerCombatSnapshot{p.CharacterID, p.MapID(), x, z, p.IsAlive(), p.Faction(), c, p.Snapshot().CurrentHP})
+			snaps = append(snaps, PlayerCombatSnapshot{p.CharacterID, p.MapID(), x, z, p.IsAlive(), p.Faction(), c, p.Snapshot().CurrentHP, p.noMobTarget.Load()})
 		}
 		tick := TickMobCombat(snaps, 256)
 		for _, a := range tick.Attacks {
@@ -55,7 +55,7 @@ func StartSweeps(log *logx.Logger) {
 // player within ApplyRange.
 func queueMobAttack(a MobAttackAction) {
 	target := FindPlayerByID(a.TargetCharacterID)
-	if target == nil {
+	if target == nil || target.noMobTarget.Load() || target.immune.Load() {
 		return
 	}
 	first := pendingDamage{a.MobGlobalID, a.MobID, a.Attack, a.Slot, true}
@@ -74,7 +74,7 @@ func queueMobAttack(a MobAttackAction) {
 		x, z = target.PositionXZ()
 	}
 	for _, p := range PlayersNear(target.MapID(), x, z, float32(sk.ApplyRange)) {
-		if p.IsAlive() {
+		if p.IsAlive() && !p.immune.Load() {
 			p.QueueDamage(pendingDamage{a.MobGlobalID, a.MobID, a.Attack, a.Slot, false})
 		}
 	}

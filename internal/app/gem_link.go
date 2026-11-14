@@ -7,8 +7,7 @@ import (
 
 type gemLinkView struct {
 	gem, item                    [2]uint8
-	gemCount                     uint8
-	protect                      [][2]uint8
+	itemName, gemName            string
 	pending, success, refreshing bool
 	hammer                       [2]uint8
 	withHammer                   bool
@@ -16,7 +15,7 @@ type gemLinkView struct {
 }
 
 // sendGemLink reserves the inventory until the result and any necessary
-// protection refresh have been acknowledged. No item is changed locally.
+// hammer refresh have been acknowledged. No item is changed locally.
 func (a *App) sendGemLink(gemKey, itemKey [2]uint8, hammer ...[2]uint8) bool {
 	if a.state == nil || a.world == nil || a.state.Self.Dead || a.shop.pending || a.inventory.pending ||
 		a.state.Exchange.Active || a.state.Duel.Phase != game.DuelNone || gemKey == itemKey {
@@ -34,12 +33,18 @@ func (a *App) sendGemLink(gemKey, itemKey [2]uint8, hammer ...[2]uint8) bool {
 	if len(hammer) == 1 {
 		hammerKey = hammer[0]
 		h, ok := a.state.Inventory[hammerKey]
-		if !ok || hammerKey[0] == 0 || hammerKey == gemKey || hammerKey == itemKey || h.Count == 0 || (h.Type != 25 && h.Type != 44 && h.Type != 100) {
+		if !ok || hammerKey[0] == 0 || hammerKey == gemKey || hammerKey == itemKey || h.Count == 0 || !a.isForgeHammer(h, 36) {
 			return false
 		}
 	}
 	v := &a.gemLink
-	*v = gemLinkView{gem: gemKey, item: itemKey, gemCount: gem.Count, protect: gemProtectionSlots(a.state.Inventory), pending: true, hammer: hammerKey, withHammer: len(hammer) == 1}
+	*v = gemLinkView{gem: gemKey, item: itemKey, pending: true, hammer: hammerKey, withHammer: len(hammer) == 1}
+	if d := a.gemItemName(item.Type, item.TypeID); d != "" {
+		v.itemName = d
+	}
+	if d := a.gemItemName(gem.Type, gem.TypeID); d != "" {
+		v.gemName = d
+	}
 	a.shop.pending, a.shop.deadline = true, a.clock+10
 	packet := proto.GemAddPacket(gemKey[0], gemKey[1], itemKey[0], itemKey[1])
 	if len(hammer) == 1 {
@@ -70,11 +75,6 @@ func (a *App) confirmedGemLink(p []byte) {
 		if v.withHammer {
 			slots = append(slots, v.hammer)
 		}
-		if result.Result == 0 && result.GemCount < v.gemCount {
-			// Include possible protection items received while the request was in flight.
-			slots = append(slots, v.protect...)
-			slots = append(slots, gemProtectionSlots(a.state.Inventory)...)
-		}
 		v.success, v.refreshing = result.Result == 1, true
 		v.refresh.start(slots)
 		for key := range v.refresh.pending {
@@ -96,12 +96,23 @@ func (a *App) confirmedGemLink(p []byte) {
 }
 
 func (a *App) finishGemLink(success bool) {
+	a.forgeResult(success)
 	a.gemLink.pending = false
-	a.blacksmith.selected = [4]bool{}
+	a.syncBlacksmithItems()
 	a.shop.pending = false
+	id := 56
 	if success {
-		a.questMessage("Lapis linked.")
-	} else {
-		a.questMessage("Lapis link failed or was refused.")
+		id = 55
 	}
+	a.systemMessage(3, id, map[string]string{"i": a.gemLink.itemName, "r": a.gemLink.gemName})
+}
+
+func (a *App) gemItemName(typ, id uint8) string {
+	if a.items == nil && a.arc == nil {
+		return ""
+	}
+	if d := a.itemsItem(typ, id); d != nil {
+		return d.Name
+	}
+	return ""
 }

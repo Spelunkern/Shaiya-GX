@@ -10,6 +10,10 @@ import (
 
 // CreatureActor shares the character skinning path, with clips from MON.
 type CreatureActor struct {
+	boneEffects      []creatureBoneEffect
+	boneEffectsReady bool
+	attackEffects    []*Effect
+	pendingEffects   []string
 	*Character
 	Name       string
 	Level      uint16
@@ -117,6 +121,9 @@ func (m *CreatureActor) SetAction(action int) error {
 		return err
 	}
 	m.clip, m.Time, m.action = clip, 0, action
+	if action == 5 {
+		m.queueModelEffect(action)
+	}
 	return nil
 }
 
@@ -144,6 +151,9 @@ func (m *CreatureActor) PlayOnce(action int) {
 		return
 	}
 	m.Time = 0
+	if action != 5 {
+		m.queueModelEffect(action)
+	}
 	if m.clip != nil {
 		m.cueTime = m.clip.Duration()
 	}

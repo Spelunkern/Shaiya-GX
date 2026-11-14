@@ -38,6 +38,21 @@ func TestMallAgainstRapture(t *testing.T) {
 	if err := a2.prepareMall(); err != nil {
 		t.Fatal(err)
 	}
+	// Older catalogs may keep the probe SKU hidden.
+	price := uint32(0)
+	skuVisible := false
+	for _, product := range a1.mallCatalog {
+		if product.Code == "AP_1" {
+			price = product.Cost
+			if product.Bag != 0 {
+				skuVisible = true
+			}
+			break
+		}
+	}
+	if !skuVisible {
+		a1.mall.products[0] = append(a1.mall.products[0], ui.MallProduct{Code: "AP_1", Name: "Test AP", Cost: price})
+	}
 	click := func(a *App, dx, dy int) {
 		t.Helper()
 		x, y := a.mallUI.Origin(1024, 768)
@@ -86,8 +101,9 @@ func TestMallAgainstRapture(t *testing.T) {
 	wait(a2, func() bool { return s2.Mall.StoredReady })
 	a1.mallCommand("/mall points")
 	wait(a1, func() bool { return s1.Mall.PointsReady })
-	if s1.Mall.Points != 1000 {
-		t.Fatalf("fixture points %d", s1.Mall.Points)
+	initialPoints := s1.Mall.Points
+	if uint64(initialPoints) < uint64(price)*2 {
+		t.Fatal("fixture needs enough points for buy and gift")
 	}
 	before := len(s1.Inventory)
 	selectProduct("AP_1")
@@ -96,11 +112,11 @@ func TestMallAgainstRapture(t *testing.T) {
 		t.Fatal("buy dialog missing")
 	}
 	a1.updateMallConfirm(&platform.Input{Keys: []platform.Key{platform.KeyEnter}}, 1024, 768)
-	if len(s1.Inventory) != before || s1.Mall.Points != 1000 {
+	if len(s1.Inventory) != before || s1.Mall.Points != initialPoints {
 		t.Fatal("purchase mutated before confirmation")
 	}
 	wait(a1, func() bool { return s1.Mall.PurchaseSerial == 1 })
-	if s1.Mall.LastPurchase.Result != 0 || s1.Mall.Points != 990 || len(s1.Mall.LastPurchase.Items) != 1 {
+	if s1.Mall.LastPurchase.Result != 0 || s1.Mall.Points != initialPoints-price || len(s1.Mall.LastPurchase.Items) != 1 {
 		t.Fatal("purchase result", s1.Mall.LastPurchase)
 	}
 	bought := s1.Mall.LastPurchase.Items[0]
@@ -109,7 +125,7 @@ func TestMallAgainstRapture(t *testing.T) {
 	}
 	a1.mallCommand("/mall buy INVALID_CODE")
 	wait(a1, func() bool { return s1.Mall.PurchaseSerial == 2 })
-	if s1.Mall.LastPurchase.Result != 1 || s1.Mall.Points != 990 {
+	if s1.Mall.LastPurchase.Result != 1 || s1.Mall.Points != initialPoints-price {
 		t.Fatal("invalid product", s1.Mall.LastPurchase)
 	}
 	click(a1, 395, 410)
@@ -119,7 +135,7 @@ func TestMallAgainstRapture(t *testing.T) {
 	a1.updateMallConfirm(&platform.Input{Chars: []rune(s2.Slots[0].Name)}, 1024, 768)
 	a1.updateMallConfirm(&platform.Input{Keys: []platform.Key{platform.KeyEnter}}, 1024, 768)
 	wait(a1, func() bool { return s1.Mall.GiftSerial == 1 })
-	if s1.Mall.LastGift.Result != 0 || s1.Mall.Points != 980 {
+	if s1.Mall.LastGift.Result != 0 || s1.Mall.Points != initialPoints-2*price {
 		t.Fatal("gift result", s1.Mall.LastGift)
 	}
 	wait(a2, func() bool { return len(s2.Mall.Stored) > 0 })

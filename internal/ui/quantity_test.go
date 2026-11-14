@@ -28,7 +28,7 @@ func TestQuantityLimitsEditingAndCancellation(t *testing.T) {
 		t.Fatal("decrement should wrap 1 to maximum")
 	}
 	click(30, 40)
-	q.Update(&platform.Input{Chars: []rune("a999"), Keys: []platform.Key{platform.KeyEnter}})
+	q.Update(&platform.Input{Chars: []rune("a255"), Keys: []platform.Key{platform.KeyEnter}})
 	if q.value != 20 {
 		t.Fatal("numeric input exceeded limit")
 	}
@@ -37,7 +37,10 @@ func TestQuantityLimitsEditingAndCancellation(t *testing.T) {
 	if got := click(30, 70); got != 1 {
 		t.Fatal("zero should confirm as 1", got)
 	}
-	q.Open(1024, 768, 1024, 768, 255)
+	q.Open(1024, 768, 1024, 768, 999)
+	if q.value != 255 {
+		t.Fatal("quantity did not clamp to 255")
+	}
 	if q.X != 1024-QuantityWidth || q.Y != 768-QuantityHeight {
 		t.Fatal("dialog escaped screen")
 	}

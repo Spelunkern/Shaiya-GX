@@ -187,6 +187,7 @@ func (a *App) npcQuestEntries(e *game.Entity) []npcQuestEntry {
 }
 func (a *App) updateNPCQuest(in *platform.Input, w, h int, e *game.Entity) bool {
 	v := &a.npcQuest
+	a.npcQuestUI.Detail = v.selected != 0
 	if v.npc != e.ID {
 		*v = npcQuestView{npc: e.ID}
 		a.npcQuestUI.ResetDescriptionScroll()
@@ -195,9 +196,13 @@ func (a *App) updateNPCQuest(in *platform.Input, w, h int, e *game.Entity) bool 
 		}
 	}
 	entries := a.npcQuestEntries(e)
-	if a.shop.questMode && v.selected == 0 {
+	if a.shop.questMode {
+		footer := 336
+		if v.selected != 0 {
+			footer = 466
+		}
 		x, y := a.npcQuestUI.Origin(w, h)
-		if a.npcQuestUI.ServiceButton(in, x+145, y+336, true) {
+		if a.npcQuestUI.ServiceButton(in, x+145, y+footer, true) {
 			a.shop.questMode = false
 			return true
 		}
@@ -218,9 +223,11 @@ func (a *App) updateNPCQuest(in *platform.Input, w, h int, e *game.Entity) bool 
 	if v.result == nil && v.selected != 0 && a.state.QuestChoosing && a.state.QuestChoice == v.selected && int(v.selected) <= len(a.questDefs) {
 		choices = min(int(a.questDefs[v.selected-1].UserSelect), 3)
 	}
+	a.npcQuestUI.HasService = a.shop.questMode
+	a.npcQuestUI.ActionDisabled = v.ending && v.result == nil && v.selected > 0 && int(v.selected) <= len(a.questDefs) && !questMapReady(a.questDefs[v.selected-1], a.state.Quests[v.selected], a.state)
 	action := a.npcQuestUI.Update(in, w, h, len(entries), v.offset, v.selected != 0, v.ending, choices)
 	v.offset = action.Offset
-	if action.Close || in.HasKey(platform.KeyEscape) {
+	if action.Close || action.Back || in.HasKey(platform.KeyEscape) {
 		if err := a.world.Send(proto.NpcTalkPacket(0)); err != nil {
 			a.backToLogin("Unable to close NPC conversation.")
 		} else {
@@ -237,11 +244,6 @@ func (a *App) updateNPCQuest(in *platform.Input, w, h int, e *game.Entity) bool 
 	if action.Row >= 0 {
 		entry := entries[action.Row]
 		v.selected, v.ending = entry.id, entry.ending
-		a.npcQuestUI.ResetDescriptionScroll()
-	}
-	if action.Back {
-		v.selected = 0
-		v.result = nil
 		a.npcQuestUI.ResetDescriptionScroll()
 	}
 	if action.Accept && v.result != nil {
@@ -268,18 +270,16 @@ func (a *App) updateNPCQuest(in *platform.Input, w, h int, e *game.Entity) bool 
 }
 func (a *App) drawNPCQuest(w, h int, e *game.Entity) {
 	v := &a.npcQuest
+	a.npcQuestUI.Detail = v.selected != 0
 	def := a.npcDefs[sdata.NPCKey{Type: e.NpcType, ID: e.TypeID}]
 	entries := a.npcQuestEntries(e)
 	names := make([]string, len(entries))
 	for i, entry := range entries {
-		prefix := "! "
-		if entry.ending {
-			prefix = "? "
-		}
-		names[i] = prefix + a.questName(entry.id)
+		names[i] = a.questName(entry.id)
 	}
 	title, description := "", ""
 	var choices []string
+	a.npcQuestUI.RewardText = ""
 	if v.selected > 0 && int(v.selected) <= len(a.questDefs) {
 		q := a.questDefs[v.selected-1]
 		title = q.Name
@@ -288,7 +288,6 @@ func (a *App) drawNPCQuest(w, h int, e *game.Entity) {
 			if text := questText(q.Descriptions[0]); text != "" {
 				description = text
 			}
-			description = fmt.Sprintf("Level %d-%d. %s", q.MinLevel, q.MaxLevel, description)
 		}
 		if v.result != nil {
 			description = a.questResultText(q, v.result)
@@ -303,6 +302,9 @@ func (a *App) drawNPCQuest(w, h int, e *game.Entity) {
 			}
 			description += "\n\n" + a.questObjective(q, active)
 		}
+		if v.result == nil && v.ending {
+			a.npcQuestUI.RewardText = "Reward\n" + a.questRewardLabel(q, 0)
+		}
 		if a.state.QuestChoosing && a.state.QuestChoice == v.selected {
 			for i := 0; i < min(int(q.UserSelect), 3); i++ {
 				choices = append(choices, a.questRewardLabel(q, i))
@@ -310,12 +312,16 @@ func (a *App) drawNPCQuest(w, h int, e *game.Entity) {
 		}
 	}
 	a.npcQuestUI.Draw(a.sprites, a.font, w, h, def.Name, questText(def.Welcome), a.npcPortrait(def), names, v.offset, v.selected != 0, v.ending, title, description, choices)
-	if a.shop.questMode && v.selected == 0 {
+	if a.shop.questMode {
+		footer := 336
+		if v.selected != 0 {
+			footer = 466
+		}
 		x, y := a.npcQuestUI.Origin(w, h)
 		label := "Shop"
 		if e.NpcType == 6 {
 			label = "Bank"
 		}
-		a.npcQuestUI.DrawServiceButton(a.sprites, a.font, x+145, y+336, true, label)
+		a.npcQuestUI.DrawServiceButton(a.sprites, a.font, x+145, y+footer, true, label)
 	}
 }

@@ -287,12 +287,18 @@ func (s *Session) refreshView() {
 		}
 		oc, ok := o.viewCell()
 		if ok && isNeighborCell(c, oc) {
-			if p.know(viewUser, o.CharacterID) {
+			if !p.canSee(o) {
+				viewLeave(p, viewUser, o.CharacterID, buildUserLeave(o.CharacterID), "hidden user")
+			}
+			if !o.canSee(p) {
+				viewLeave(o, viewUser, ch.ID, buildUserLeave(ch.ID), "hidden user")
+			}
+			if p.canSee(o) && p.know(viewUser, o.CharacterID) {
 				for _, f := range o.enterFrames() {
 					p.Send(f, "other character enter")
 				}
 			}
-			if o.know(viewUser, ch.ID) {
+			if o.canSee(p) && o.know(viewUser, ch.ID) {
 				for _, f := range mine {
 					o.Send(f, "character enter (other's view)")
 				}
@@ -310,7 +316,7 @@ func (s *Session) refreshView() {
 
 // enterFrames is what CCell::SendCellInfoEnter shows of a user.
 func (p *ConnectedPlayer) enterFrames() [][]byte {
-	frames := [][]byte{p.EnteredMapPacket(), p.ShapePacket(), p.MovePacket()}
+	frames := [][]byte{p.EnteredMapPacket(), p.ShapePacket(), p.MovePacket(), p.visibilityPacket()}
 	if shape := p.mountShape(); shape != 0 {
 		w := packet.New(packet.CharacterMountShape)
 		w.U32(p.CharacterID)
@@ -371,7 +377,7 @@ func (s *Session) sendToViewers(frame []byte, label string) {
 		return
 	}
 	for _, o := range PlayersOnMap(p.MapID()) {
-		if o != p && o.knows(viewUser, p.CharacterID) {
+		if o != p && o.canSee(p) && o.knows(viewUser, p.CharacterID) {
 			o.Send(frame, label)
 		}
 	}

@@ -52,8 +52,14 @@ func (p *ConnectedPlayer) TakeFriendly() []pendingFriendly {
 
 // teamUsable is IsTeamUsable (guild duels not yet).
 func (s *Session) teamUsable(p *ConnectedPlayer) bool {
+	if p == nil {
+		return false
+	}
 	if p == s.player {
 		return true
+	}
+	if p.immune.Load() || !s.player.canSee(p) {
+		return false
 	}
 	if (s.player != nil && inActiveDuel(s.player)) || inActiveDuel(p) {
 		return false // nobody in a fighting duel is team-usable
@@ -173,14 +179,14 @@ func (s *Session) friendlySkill(k db.CharacterSkill, def *db.SkillDef, target ui
 
 // applyFriendly is HealUser / BuffUser on this user.
 func (s *Session) applyFriendly(f pendingFriendly) {
-	if s.char == nil || s.dead {
+	if s.char == nil || s.dead || (s.invulnerable() && f.Source != s.char.ID) {
 		return
 	}
 	var hp, mp, sp uint32
 	switch {
 	case f.IsBuff:
 		if def := db.MustDefs().Skill(f.SkillID, f.Level); def != nil {
-			s.addEffect(def, 0)
+			s.addEffect(def, 0, f.Source)
 		}
 	case f.Cure:
 		s.removeEffects(func(b *ActiveBuff) bool { return b.Effect == typeEffectDebuff }, "cure")

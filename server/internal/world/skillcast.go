@@ -50,21 +50,11 @@ type buffAbility struct {
 	Value int32
 }
 
-// addBuffs applies each active buff's abilities, as CUser::AddApplySkillBuff
-// does: detail 82 adds all three, detail 91 negates the first, 94 and 95
-// set the attack and defence element; mob debuffs 62/67 subtract them and
-// 68 clears the armour element.
+// addBuffs accumulates numeric abilities. Elemental application/removal is
+// event-driven in elementstate.go; replaying the remaining list is not native.
 func addBuffs(e EquipmentStats, buffs []ActiveBuff) EquipmentStats {
 	for _, b := range buffs {
 		debuff := b.Effect == typeEffectDebuff
-		switch {
-		case !debuff && b.Detail == 94: // attack element
-			e.AttackAttr = b.Attr
-		case !debuff && b.Detail == 95: // defence element
-			e.DefenseAttr = b.Attr
-		case debuff && b.Detail == detailNoElement2:
-			e.DefenseAttr = 0
-		}
 		for i, a := range b.Abilities {
 			v := a.Value
 			if (b.Detail == 91 && i == 0) || debuff {
@@ -226,6 +216,9 @@ func (s *Session) handleUseSkill(op packet.Opcode, p []byte) {
 			return
 		}
 		pos = &[2]float32{mob.PosX, mob.PosZ}
+	}
+	if def.TypeEffect == typeEffectAttack || def.TypeEffect == typeEffectDebuff {
+		s.breakStealth()
 	}
 	s.send(packet.New(packet.AutoAttackStop).MustFinish(), "0x0212 auto attack stop (casting)")
 	w := packet.New(packet.SkillCastStarted)

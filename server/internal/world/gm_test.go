@@ -38,7 +38,7 @@ func gmWireSession(t *testing.T, ch db.Character, admin bool) (*Session, <-chan 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { logger.Close() })
-	s := &Session{log: logger.Tagged("gm"), logger: logger, char: &ch, isAdmin: admin, gmTurbo: admin, expanded: true, out: &connWriter{conn: a}, aesSend: crypto.NewAESCTR([16]byte{}, [16]byte{})}
+	s := &Session{log: logger.Tagged("gm"), logger: logger, char: &ch, isAdmin: admin, gmTurbo: false, expanded: true, out: &connWriter{conn: a}, aesSend: crypto.NewAESCTR([16]byte{}, [16]byte{})}
 	return s, packets
 }
 
@@ -121,17 +121,17 @@ func TestGMGrantAndClearPersistOnlyOwnInventory(t *testing.T) {
 	})
 	s.handleGMCommand("/getitem 25 1 200")
 	reply := gmResponse(t, packets)
-	if len(s.items) != 20 {
-		t.Fatalf("200 apples should occupy 20 stacks, got %d: %+v", len(s.items), reply)
+	if len(s.items) != 1 {
+		t.Fatalf("200 apples should occupy one stack, got %d: %+v", len(s.items), reply)
 	}
 	stored, err := db.CharacterItems(id)
-	if err != nil || len(stored) != 20 {
+	if err != nil || len(stored) != 1 {
 		t.Fatal("grant persistence", len(stored), err)
 	}
 	sum := 0
 	for _, it := range stored {
 		sum += int(it.Count)
-		if it.Count > 10 {
+		if it.Count > 255 {
 			t.Fatal("stack overflow")
 		}
 	}
@@ -139,10 +139,10 @@ func TestGMGrantAndClearPersistOnlyOwnInventory(t *testing.T) {
 		t.Fatal("wrong quantity", sum)
 	}
 	// A request that cannot fit must leave the existing stacks and DB intact.
-	s.handleGMCommand("/getitem 25 1 30000")
+	s.handleGMCommand("/getitem 25 1 119880")
 	gmResponse(t, packets)
 	stored, err = db.CharacterItems(id)
-	if err != nil || len(stored) != 20 {
+	if err != nil || len(stored) != 1 {
 		t.Fatal("partial failed grant")
 	}
 	other := db.Item{Bag: 1, Slot: 23, Type: 25, TypeID: 1, Count: 1}
@@ -158,8 +158,34 @@ func TestGMGrantAndClearPersistOnlyOwnInventory(t *testing.T) {
 	s.handleGMCommand("/iclear")
 	gmResponse(t, packets)
 	stored, err = db.CharacterItems(id)
-	if err != nil || len(stored) != 0 || len(s.items) != 0 || s.mounted {
+	if err != nil || len(stored) != 1 || len(s.items) != 1 || stored[0].UID != equipped.UID || !s.mounted {
 		t.Fatal("clear failed", err)
+	}
+
+	// A fresh carried weapon can still be equipped after clearing the bags.
+	var weapon *db.ItemDef
+	for _, def := range defs.Items {
+		if canEquip(s.char, def, 5, s.items) {
+			weapon = def
+			break
+		}
+	}
+	if weapon == nil {
+		t.Fatal("missing equippable weapon fixture")
+	}
+	if err = s.gmGiveItem(weapon.Type, weapon.TypeID, 1); err != nil {
+		t.Fatal(err)
+	}
+	gmResponse(t, packets)
+	wi := findItem(s.items, 1, 0)
+	if wi < 0 {
+		t.Fatal("fresh weapon not granted")
+	}
+	uid := s.items[wi].UID
+	s.handleItemBagToBag(proto.ItemMovePacket(1, 0, 0, 5))
+	wi = findItem(s.items, 0, 5)
+	if wi < 0 || s.items[wi].UID != uid {
+		t.Fatal("cannot equip after iclear")
 	}
 	remaining, err := db.CharacterItems(id + 1000000)
 	if err != nil || len(remaining) != 1 {
@@ -233,7 +259,7 @@ func TestGMSpawnsAreSeparatedAndVisibleImmediately(t *testing.T) {
 		}
 	}
 	n := entities.NPCs[0]
-	if n.Type != 1 || n.TypeID != 1 || n.PosY != 77 || !s.player.knows(viewNpc, n.ID) {
+	if n.Type != 1 || n.TypeID != 1 || n.PosY != 77 || !n.Summoned || !s.player.knows(viewNpc, n.ID) {
 		t.Fatal("NPC not at server height or missing view")
 	}
 }
@@ -282,7 +308,7 @@ func TestGMMoveUsesRelativeSafeDestinationAndNormalTeleport(t *testing.T) {
 				t.Fatal(err)
 			}
 			if proto.Op(p) == proto.GXGMState {
-				if state.MapID != target || state.Self.X != 175 || !state.Self.IsGM || !state.GMTurbo {
+				if state.MapID != target || state.Self.X != 175 || !state.Self.IsGM || state.GMTurbo {
 					t.Fatal("teleport did not reach client state")
 				}
 				if err := s.gmMove(974); err == nil || s.char.MapID != target {

@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from package_bundle import merge
+from package_bundle import merge, verify_cash_copies
 
 
 class NativeBundleMergeTests(unittest.TestCase):
@@ -28,3 +28,16 @@ class NativeBundleMergeTests(unittest.TestCase):
             (destination/'seed.sqlite').write_bytes(b'SQLite\0two')
             with self.assertRaises(ValueError):
                 merge(source, destination)
+
+
+class CashCatalogBundleTests(unittest.TestCase):
+    def test_independent_native_catalogs_are_required(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            client, server = root / 'client', root / 'server'
+            client.mkdir(); server.mkdir()
+            with self.assertRaises(ValueError): verify_cash_copies(client, server)
+            (client / 'Cash.SData').write_bytes(b'native table')
+            with self.assertRaises(ValueError): verify_cash_copies(client, server)
+            (server / 'rapture.sqlite').write_bytes(b'database')
+            verify_cash_copies(client, server)

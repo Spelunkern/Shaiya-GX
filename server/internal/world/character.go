@@ -1,6 +1,8 @@
 package world
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/element"
+	"github.com/Spelunkern/Shaiya-GX/internal/itemtype"
 	"github.com/Spelunkern/Shaiya-GX/server/internal/db"
 	"github.com/Spelunkern/Shaiya-GX/server/internal/packet"
 )
@@ -107,28 +109,48 @@ type EquipmentStats struct {
 // CategoryMods are SetSkillAbility's per-category additions.
 type CategoryMods struct{ Accuracy, Attack, Defense, Evasion int32 }
 
-// itemElement is CUser::SetAttrAtk / SetAttrDef: the item's element, or
-// its gems' when it has none; two different elements cancel to 0.
+// itemElement applies GX precedence: intrinsic element, otherwise the first
+// elemental lapis in socket order. Later elemental lapis do not add an affinity.
 func itemElement(it *db.Item, d *db.ItemDef) uint8 {
-	value := uint8(0)
-	if d != nil && d.Attrib <= 8 {
-		value = d.Attrib
+	base := uint8(0)
+	if d != nil {
+		base = d.Attrib
 	}
 	defs := db.MustDefs()
-	for _, gem := range it.Gems {
-		if gem == 0 {
-			continue
+	var gems []uint8
+	for _, id := range it.Gems {
+		if id != 0 {
+			if g := defs.Item(gemItemType, id); g != nil {
+				gems = append(gems, g.Attrib)
+			}
 		}
-		g := defs.Item(gemItemType, gem)
-		if g == nil || g.Attrib == 0 || g.Attrib == value || g.Attrib > 8 {
-			continue
-		}
-		if value != 0 {
-			return 0
-		}
-		value = g.Attrib
 	}
-	return value
+	return element.Merge(base, gems)
+}
+
+// activeLapis keeps all non-elemental lapis but excludes every inactive
+// elemental lapis from stats, recovery, speed and triggered-item effects.
+func activeLapis(it *db.Item, definition *db.ItemDef) [6]*db.ItemDef {
+	var out [6]*db.ItemDef
+	defs := db.MustDefs()
+	claimed := definition != nil && element.Normalize(definition.Attrib) != 0
+	for i, id := range it.Gems {
+		if id == 0 {
+			continue
+		}
+		gem := defs.Item(gemItemType, id)
+		if gem == nil {
+			continue
+		}
+		if element.Normalize(gem.Attrib) != 0 {
+			if claimed {
+				continue
+			}
+			claimed = true
+		}
+		out[i] = gem
+	}
+	return out
 }
 
 const gemItemType = 30
@@ -143,9 +165,6 @@ func IsWeaponItemType(t uint8) bool { return (t >= 1 && t <= 15) || (t >= 45 && 
 func IsArmorItemType(t uint8) bool {
 	return (t >= 16 && t <= 21) || (t >= 31 && t <= 36) || (t >= 66 && t <= 92)
 }
-
-var weaponEnchantAttackBonus = [21]uint32{0, 7, 14, 21, 31, 41, 51, 64, 77, 90, 106, 122, 138, 157, 176, 195, 217, 239, 261, 286, 311}
-var armorEnchantAbsorption = [21]uint32{0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100}
 
 // CraftStats is the decoded 20-digit Craftname: str dex rec int wis luc
 // hp/100 mp/100 sp/100 enchant, two digits each.
@@ -176,18 +195,14 @@ func pos16(v int16) uint32 { return uint32(max(v, 0)) }
 
 func isAccessoryType(t uint8) bool { return t == 22 || t == 23 || t == 40 }
 
-// addItemDef adds an item's effects at its quality level
-// (ItemEquipmentAttackAddQ: accessories and gems always use level 0).
-func (e *EquipmentStats) addItemDef(itemType uint8, d *db.ItemDef, level uint8) {
+// addItemDef adds full item effects; legacy stored quality never reduces stats.
+func (e *EquipmentStats) addItemDef(itemType uint8, d *db.ItemDef) {
 	weapon := IsWeaponItemType(itemType)
-	if isAccessoryType(itemType) || itemType == gemItemType {
-		level = 0
-	}
 	if weapon || isAccessoryType(itemType) || itemType == gemItemType {
-		e.ItemAttack, e.Variance = satAdd(e.ItemAttack, effectAtLevel(d.Effect1, level)), satAdd(e.Variance, effectAtLevel(d.Effect2, level))
+		e.ItemAttack, e.Variance = satAdd(e.ItemAttack, pos16(d.Effect1)), satAdd(e.Variance, pos16(d.Effect2))
 	}
 	if !weapon {
-		e.Defense, e.Resistance = satAdd(e.Defense, effectAtLevel(d.Effect3, level)), satAdd(e.Resistance, effectAtLevel(d.Effect4, level))
+		e.Defense, e.Resistance = satAdd(e.Defense, pos16(d.Effect3)), satAdd(e.Resistance, pos16(d.Effect4))
 	}
 	e.MaxHP, e.MaxSP, e.MaxMP = satAdd(e.MaxHP, pos16(d.ConstHP)), satAdd(e.MaxSP, pos16(d.ConstSP)), satAdd(e.MaxMP, pos16(d.ConstMP))
 	e.Str, e.Dex, e.Rec = satAdd(e.Str, pos16(d.ConstStr)), satAdd(e.Dex, pos16(d.ConstDex)), satAdd(e.Rec, pos16(d.ConstRec))
@@ -195,20 +210,7 @@ func (e *EquipmentStats) addItemDef(itemType uint8, d *db.ItemDef, level uint8) 
 }
 
 // realType is GetItemRType (0x004bdad0): item types grouped by family.
-func realType(t uint8) uint8 {
-	groups := [][]uint8{{1, 45}, {2, 46}, {3, 47}, {4, 48}, {5, 49, 50}, {6, 51, 52}, {7, 53, 54}, {8, 55, 56}, {9, 57},
-		{10, 58}, {11, 59}, {12, 60, 61}, {13, 62, 63}, {14, 64}, {15, 65}, {16, 31, 66, 72, 81, 87},
-		{17, 32, 67, 73, 82, 88}, {18, 33, 68, 74, 83, 89}, {19, 34, 69, 75, 84, 90}, {20, 35, 70, 76, 85, 91},
-		{21, 36, 71, 77, 86, 92}, {22, 37}, {23, 38}, {24, 39}, {40, 41}, {25, 44, 100}, {27, 28, 29}}
-	for i, g := range groups {
-		for _, v := range g {
-			if v == t {
-				return uint8(i + 1)
-			}
-		}
-	}
-	return 0
-}
+func realType(t uint8) uint8 { return itemtype.Real(t) }
 
 // GetEquipmentStats sums every bag-0 item, its gems and craft bonuses.
 func GetEquipmentStats(items []db.Item) EquipmentStats {
@@ -221,29 +223,28 @@ func GetEquipmentStats(items []db.Item) EquipmentStats {
 		}
 		d := defs.Item(it.Type, it.TypeID)
 		if d != nil {
-			e.addItemDef(it.Type, d, itemQualityLevel(it, d))
+			e.addItemDef(it.Type, d)
 		}
-		for _, gem := range it.Gems {
-			if gem == 0 {
+		for _, g := range activeLapis(it, d) {
+			if g == nil {
 				continue
 			}
-			if g := defs.Item(gemItemType, gem); g != nil {
-				if g.Special == specialRecoverGem {
-					// GemEquipmentAdd: Special 16 turns the gem's HP/SP/MP
-					// into sitting and standing recovery.
-					rg := *g
-					rg.ConstHP, rg.ConstSP, rg.ConstMP = 0, 0, 0
-					e.GemRecover[0] = satAdd(e.GemRecover[0], pos16(g.ConstHP))
-					e.GemRecover[1] = satAdd(e.GemRecover[1], pos16(g.ConstSP))
-					e.GemRecover[2] = satAdd(e.GemRecover[2], pos16(g.ConstMP))
-					g = &rg
-				}
-				e.addItemDef(gemItemType, g, 0)
-				// CUser::GemEquipmentAdd: gems also add reach and speed.
-				e.Range += int32(g.Range)
-				e.AttackSpeed += int32(g.AttackTime)
+			if g.Special == specialRecoverGem {
+				// GemEquipmentAdd: Special 16 turns the gem's HP/SP/MP
+				// into sitting and standing recovery.
+				rg := *g
+				rg.ConstHP, rg.ConstSP, rg.ConstMP = 0, 0, 0
+				e.GemRecover[0] = satAdd(e.GemRecover[0], pos16(g.ConstHP))
+				e.GemRecover[1] = satAdd(e.GemRecover[1], pos16(g.ConstSP))
+				e.GemRecover[2] = satAdd(e.GemRecover[2], pos16(g.ConstMP))
+				g = &rg
 			}
+			e.addItemDef(gemItemType, g)
+			// CUser::GemEquipmentAdd: gems also add reach and speed.
+			e.Range += int32(g.Range)
+			e.AttackSpeed += int32(g.AttackTime)
 		}
+
 		if it.Slot == weaponSlot && IsWeaponItemType(it.Type) {
 			e.AttackAttr = itemElement(it, d)
 			rt := realType(it.Type)

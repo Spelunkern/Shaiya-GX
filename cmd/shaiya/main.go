@@ -83,6 +83,7 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 	}
 	cfg.RememberLayout = shot == "" && autoUser == ""
 	cfg.DisplayModes, cfg.ApplyDisplayMode = win.DisplayModes, win.ApplyDisplayMode
+	cfg.CurrentDisplayMode = win.CurrentDisplayMode
 	cfg.OverrideDisplay = !restoreSize
 	a, err := app.New(cfg, arc)
 	if err != nil {

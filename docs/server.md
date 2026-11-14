@@ -70,3 +70,34 @@ Starting a newly extracted package without copying a runtime creates a new world
 ## Renaming and migration
 
 Rapture's source is now `server/` in the GX module. Commands and binaries use `gx_*`; the small app and advertised server name use GX Server. Protocol opcodes, gameplay rules, schema and database API behavior are unchanged by integration. The legacy `Rapture_LoginLog` table and `rapture.sqlite` filenames intentionally remain, preserving compatibility. Existing clients still use the same login/world endpoints.
+
+
+## Equipment condition
+
+GX equipment has no durability: attacks never wear items, legacy stored quality
+never reduces equipment statistics, and repair requests are ignored without
+charging gold. Enhancement failure does not create a broken/zero-quality item.
+Legacy database and wire quality fields remain compatible; authored quality
+metadata still has unrelated uses such as quest-item drop probabilities. No
+personal database migration is required. Source changes take effect after the
+world server is rebuilt and restarted.
+
+
+The static Item Mall catalog loads from SQL `PS_GameDefs_ProductList`. The
+client presents native `Cash.SData`; keep both catalogs aligned. See
+[cash catalog](cash-catalog.md). Balances, transactions and gifts use SQL.
+
+
+Blacksmith previews use the read-only GX forge quote (`0x7F03`), with request
+serial, live inventory slot references and material count. Replies supply the
+success rate per million, gold cost and compatible enchantment hints; no gold or
+items change during preview. Actual attempts still validate inventory and use
+the same rate/cost functions. The client discards stale quotes and requests a
+fresh quote before opening a link/extract confirmation. Enchant attempts execute
+immediately; their success percentage is displayed above the action button.
+
+Forge costs use the native ReqIg table without Vg/level discounts or the old
+free-cost environment override. Enchant rates, cap (default20) and bonuses are
+compiled in `server/internal/world/enchant_rules.go`; ItemEnchant.ini is no
+longer read or required. See the [feature wiki](wiki/README.md) for exact rules,
+item content fields, extraction, recreation and drop persistence.

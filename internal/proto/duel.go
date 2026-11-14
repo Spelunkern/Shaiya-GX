@@ -50,9 +50,11 @@ func DuelAnswerPacket(accept bool) []byte {
 }
 func DuelGiveUpPacket() []byte       { return NewWriter(DuelEnd).Bytes() }
 func DuelReadyPacket(v uint8) []byte { w := NewWriter(DuelReady); w.U8(v); return w.Bytes() }
-func DuelAddPacket(bag, slot, count, dest uint8) []byte {
+func DuelAddPacket(bag, slot uint8, count uint16, dest uint8) []byte {
 	w := NewWriter(DuelAdd)
-	w.Raw([]byte{bag, slot, count, dest})
+	w.Raw([]byte{bag, slot})
+	w.Count(count)
+	w.U8(dest)
 	return w.Bytes()
 }
 func DuelRemovePacket(slot uint8) []byte  { w := NewWriter(DuelRemove); w.U8(slot); return w.Bytes() }

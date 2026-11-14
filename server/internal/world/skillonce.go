@@ -58,11 +58,16 @@ func (p *ConnectedPlayer) TakeSoulKill() bool {
 	return k
 }
 
-// equipmentDefenseAttr is the user's armour element (CUser +0x1284).
+// equipmentDefenseAttr reads CUser +0x1284: live authoritative defense
+// element, including application/removal events; equipment-only before entry.
 func (p *ConnectedPlayer) equipmentDefenseAttr() uint8 {
 	p.mu.Lock()
 	items := append([]db.Item(nil), p.items...)
+	known, attr := p.elementKnown, p.defenseElement
 	p.mu.Unlock()
+	if known {
+		return attr
+	}
 	return GetEquipmentStats(items).DefenseAttr
 }
 
@@ -82,7 +87,7 @@ func (s *Session) userSkillTarget(def *db.SkillDef, target uint32) (*ConnectedPl
 		return s.player, s.player != nil
 	}
 	p := FindPlayerByID(target)
-	if p == nil || p.MapID() != s.char.MapID {
+	if p == nil || p.MapID() != s.char.MapID || !s.player.canSee(p) || p.immune.Load() {
 		return nil, false
 	}
 	return p, true
@@ -195,10 +200,10 @@ func (s *Session) tickSkillOnce() {
 	if p == nil {
 		return
 	}
-	if l := p.TakeLifeSkill(); l != nil && s.dead {
+	if l := p.TakeLifeSkill(); l != nil && s.dead && !s.invulnerable() {
 		s.lifeSkill(l)
 	}
-	if p.TakeSoulKill() && s.dead {
+	if p.TakeSoulKill() && s.dead && !s.invulnerable() {
 		s.killSoul()
 	}
 }

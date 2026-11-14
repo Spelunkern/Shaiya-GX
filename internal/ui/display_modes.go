@@ -118,3 +118,11 @@ func (m *GameMenu) drawDisplayModes(s *render.Sprites, f *Font, solid *render.Te
 		m.displayScroll.Draw(s, x+68, y+103, len(m.DisplayModes), m.displayRows(), m.displayOffset)
 	}
 }
+
+func (m *GameMenu) SetCurrentDisplayMode(mode platform.DisplayMode) {
+	mode = platform.WindowMode(mode)
+	if mode.Width == 0 {
+		return
+	}
+	m.Settings.DisplayMode, m.original.DisplayMode = mode, mode
+}

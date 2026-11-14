@@ -18,8 +18,7 @@ import (
 //   - CUser::AttackUser 0x00456870: the category is ranged for weapon
 //     types 11, 13 and 14 and does nothing while disabled; a miss sends
 //     0x0502 result 3; a hit runs ChkMirror on the target, AttackDamage,
-//     wears the weapon only on a critical (QualityByAttack is behind the
-//     crit flag), then CUser::Damage on the target, or, when mirrored,
+//     then CUser::Damage on the target, or, when mirrored,
 //     0x0502 with no damage followed by Damage on the attacker and 0x0515.
 //   - CUser::AttackSuccess 0x00456b10 and AttackDamage 0x00457030 (user
 //     target) differ from the mob versions: the hit chance clamps to 1..99,
@@ -93,7 +92,7 @@ func (s *Session) hostileUser(id uint32) *ConnectedPlayer {
 		return nil
 	}
 	p := FindPlayerByID(id)
-	if p == nil || p.MapID() != s.char.MapID || !p.IsAlive() || s.isTeam(p) {
+	if p == nil || p.MapID() != s.char.MapID || !p.IsAlive() || !s.player.canSee(p) || p.immune.Load() || s.isTeam(p) {
 		return nil
 	}
 	return p
@@ -134,10 +133,7 @@ func userWeaponDamage(att, def *CharacterStats, kind int, damage *[3]int32, elem
 		}
 		return int32(rand.Uint32N(att.Luc)) + 1
 	}
-	factor := float32(1)
-	if element < 9 && defElement < 9 {
-		factor = attackElement[element][defElement]
-	}
+	factor := elementMultiplier(element, defElement)
 	critChance := func() bool {
 		c := clampInt(truncInt(f32(att.Critical)/100*100-f32(int32(def.Luc))*float64(float32(pvpCritReduction))), 1, 99)
 		return rand.Int32N(100) < c
@@ -313,6 +309,7 @@ func (s *Session) userAttackSwing(target uint32) bool {
 	if stats.Disabled[kind] > 0 {
 		return true
 	}
+	s.breakStealth()
 	s.lastAutoAttackAt, s.lastCombatAt = time.Now(), time.Now()
 	p.QueueUserHit(pendingUserHit{AttackerID: ch.ID, Stats: stats, Kind: kind, X: ch.PosX, Z: ch.PosZ})
 	return true
@@ -338,6 +335,9 @@ func (s *Session) tickUserHits() {
 // applyUserHit is the target side of CUser::AttackUser; true when this
 // character died.
 func (s *Session) applyUserHit(h pendingUserHit) bool {
+	if s.invulnerable() {
+		return false
+	}
 	ch := s.char
 	if ch == nil {
 		return false
@@ -381,9 +381,6 @@ func (s *Session) applyUserHit(h pendingUserHit) bool {
 	closeRanged := DistanceXZ(h.X, h.Z, ch.PosX, ch.PosZ) <= closeRangeDistance
 	mirrored := s.reflects(h.Kind, nil)
 	value, crit := userDamage(&h.Stats, &stats, h.Kind, closeRanged)
-	if crit && attacker != nil {
-		attacker.QueueWeaponWear()
-	}
 	damage := uint32(max(value, 0))
 	if stats.Absorption > 0 {
 		damage = max(satSub(damage, stats.Absorption), 1)
@@ -414,12 +411,15 @@ func (s *Session) applyUserHit(h pendingUserHit) bool {
 
 // takeUserDamage is CUser::Damage's HP part; true when it killed.
 func (s *Session) takeUserDamage(attackerID, damage uint32) bool {
+	if s.invulnerable() {
+		return false
+	}
 	ch := s.char
 	cur := s.stats()
 	if cur.CurrentHP == 0 || damage == 0 {
 		return false
 	}
-	s.wearArmour()
+	s.breakStealth()
 	s.addDamage(damageByUser, attackerID, damage) // CDamage::Add in CUser::Damage
 	after := satSub(cur.CurrentHP, damage)
 	ch.CurrentHP = satSub(ch.CurrentHP, cur.CurrentHP-after)
@@ -462,19 +462,4 @@ func buildCharacterUserAttack(attackerID, targetID uint32, result uint8, damage 
 	w.U16(0)
 	w.U16(0)
 	return w.MustFinish()
-}
-
-// QueueWeaponWear asks the owner's session for one QualityByAttack.
-func (p *ConnectedPlayer) QueueWeaponWear() {
-	p.mailMu.Lock()
-	p.weaponWear++
-	p.mailMu.Unlock()
-}
-
-func (p *ConnectedPlayer) TakeWeaponWear() int {
-	p.mailMu.Lock()
-	defer p.mailMu.Unlock()
-	n := p.weaponWear
-	p.weaponWear = 0
-	return n
 }

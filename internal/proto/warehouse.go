@@ -31,7 +31,7 @@ func DecodeWarehouse(p []byte) (list WarehouseList, err error) {
 		for j := range m.Gems {
 			m.Gems[j] = r.U8()
 		}
-		m.Count, m.Craft = r.U8(), r.Fixed(21)
+		m.Count, m.Craft = r.Count(), r.Fixed(21)
 		if int(m.Slot) >= WarehouseSlots || seen[m.Slot] {
 			return list, fmt.Errorf("warehouse: invalid/duplicate slot %d", m.Slot)
 		}

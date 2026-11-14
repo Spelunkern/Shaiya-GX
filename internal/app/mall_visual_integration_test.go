@@ -3,9 +3,11 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/archive"
@@ -45,12 +47,28 @@ func TestMallOriginalAssetsGL(t *testing.T) {
 	a.state.SelfID = 1
 	a.state.Slots[0] = proto.CharacterSlot{ID: 1, Name: "Interloper", Level: 60}
 	a.state.Mall.Points, a.state.Mall.PointsReady = 1000, true
+
+	if a.itemsItem(25, 1).Count != 255 || a.itemsItem(1, 1).Count != 1 {
+		t.Fatal("client stack definitions differ from server")
+	}
 	if err := a.prepareMall(); err != nil {
 		t.Fatal(err)
 	}
 	if len(a.mall.products[0]) == 0 || len(a.mall.products[3]) == 0 {
 		t.Fatal("original product categories empty")
 	}
+	testingIcons := 0
+	for _, products := range a.mall.products {
+		for _, p := range products {
+			if strings.HasPrefix(p.Code, "T_") {
+				testingIcons++
+				if p.Icon == nil {
+					t.Fatalf("testing product has no native item icon: %s", p.Code)
+				}
+			}
+		}
+	}
+	t.Logf("%d testing product icons resolved", testingIcons)
 	gl.Viewport(0, 0, 1024, 768)
 	gl.ClearColor(.06, .06, .06, 1)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -61,6 +79,19 @@ func TestMallOriginalAssetsGL(t *testing.T) {
 		if err := render.SavePNG(filepath.Join(dir, "mall-preview.png"), 1024, 768); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if dir := os.Getenv("SHAIYA_TEST_ARTIFACTS"); dir != "" {
+		for _, category := range []int{1, 2} {
+			a.mallUI.Category = category
+			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+			a.sprites.Begin(1024, 768)
+			a.drawMall(1024, 768)
+			a.sprites.End()
+			if err := render.SavePNG(filepath.Join(dir, fmt.Sprintf("mall-section-%d.png", category+1)), 1024, 768); err != nil {
+				t.Fatal(err)
+			}
+		}
+		a.mallUI.Category = 0
 	}
 	x, y := a.mallUI.Origin(1024, 768)
 	click := func(dx, dy int) {

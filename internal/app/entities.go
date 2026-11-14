@@ -197,7 +197,9 @@ func (a *App) drawRemotePlayers() {
 		if cached == nil || cached.character == nil {
 			continue
 		}
+		cached.character.Concealed = e.Concealed
 		if e.Mounted && cached.mount != nil {
+			cached.mount.Concealed = e.Concealed
 			if cached.mount.Visible(frustum, a.scene3d.ClipPlane) {
 				cached.mount.Draw(a.skinner, a.scene3d)
 			}
@@ -444,6 +446,9 @@ func (a *App) drawPlayerNames(w, h int) {
 				}
 			}
 		}
+	}
+	for _, item := range a.state.GroundItems {
+		label(a.groundItemName(item), groundItemLabelPosition(v.world, item), white, 0)
 	}
 	a.sprites.NameDepth(-1)
 }

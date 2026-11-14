@@ -75,6 +75,7 @@ func (s *Session) skillAttack(k db.CharacterSkill, def *db.SkillDef, target uint
 		center = &mob
 	}
 	sp, mp := s.skillCosts(def, &stats)
+	s.breakStealth()
 	s.startCooldown(k, def)
 	s.spendDelta(mp, sp)
 	s.persist()
@@ -132,6 +133,10 @@ func (s *Session) skillStrike(target uint32, def *db.SkillDef, k db.CharacterSki
 
 // sacrifice is detail 23's CUser::Damage of the caster's whole HP.
 func (s *Session) sacrifice() {
+	if s.invulnerable() {
+		return
+	}
+	s.breakStealth()
 	ch := s.char
 	st := s.stats()
 	if st.CurrentHP == 0 {
@@ -179,6 +184,7 @@ func (s *Session) skillHit(target uint32, def *db.SkillDef, k db.CharacterSkill,
 	if md == nil {
 		return false
 	}
+	s.breakStealth()
 	stats := s.stats()
 	mc, _ := MobCombatByID(ch.MapID, target)
 	drain := first && def.TypeDetail == detailDrain
@@ -199,7 +205,6 @@ func (s *Session) skillHit(target uint32, def *db.SkillDef, k db.CharacterSkill,
 		sendNear(ch.MapID, mob.PosX, mob.PosZ, CombatRadius, frame, "skill use (miss)")
 		return true
 	}
-	s.wearWeapon()
 	t := skillTarget{MaxHP: mob.MaxHP, HP: mob.CurrentHP, MaxMP: md.MaxMP, MaxSP: md.MaxSP, MP: md.MaxMP, SP: md.MaxSP}
 	caster := [3]uint32{stats.CurrentHP, stats.CurrentSP, stats.CurrentMP}
 	close := DistanceXZ(ch.PosX, ch.PosZ, mob.PosX, mob.PosZ) <= closeRangeDistance
@@ -315,6 +320,7 @@ func (s *Session) clearBuffsOnDeath() {
 		removed = append(removed, b.ID)
 	}
 	s.buffs = kept
+	s.syncVisibility()
 	for _, id := range removed {
 		w := packet.New(packet.BuffRemove)
 		w.U32(id)

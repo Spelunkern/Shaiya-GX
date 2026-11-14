@@ -204,14 +204,20 @@ func (a *App) updateShortcutDrag(in *platform.Input, w, h int) bool {
 		return false
 	}
 	if in.Clicked || !in.MouseDown {
-		if in.Clicked && !a.barCovered(in, w, h) {
+		if in.Clicked {
 			if index := a.actionBar.SlotAt(in.MouseX, in.MouseY, w, h); index >= 0 {
+				if a.barCovered(in, w, h) {
+					*d = shortcutDrag{}
+					return true
+				}
 				var source *proto.QuickSlot
 				if d.local == 0 {
 					cp := d.reference
 					source = &cp
 				}
 				a.saveShortcut(index, source, d.local, d.from)
+			} else if d.from >= 0 {
+				a.saveShortcut(d.from, nil, 0, -1)
 			}
 		}
 		*d = shortcutDrag{}
@@ -237,7 +243,7 @@ func (a *App) drawShortcutDrag() {
 	} else {
 		it := a.state.Inventory[[2]uint8{d.reference.Bag, uint8(d.reference.Number)}]
 		if def := a.itemsItem(it.Type, it.TypeID); def != nil {
-			a.drawItemIcon(def, a.lastMouseX-16, a.lastMouseY-16, 32, white)
+			a.drawItemIcon(def, a.lastMouseX-16, a.lastMouseY-16, 32, white, &it)
 		}
 	}
 }

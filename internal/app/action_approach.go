@@ -133,7 +133,8 @@ func (a *App) updateActionApproach(in *platform.Input) bool {
 	if len(v.approachSkill) > 0 {
 		packet := v.approachSkill
 		v.approachSkill = nil
-		if !a.skillResourcesAvailable(a.skillDefs[sdata.SkillKey{ID: v.approachLearned.ID, Level: v.approachLearned.Level}]) {
+		def := a.skillDefs[sdata.SkillKey{ID: v.approachLearned.ID, Level: v.approachLearned.Level}]
+		if !a.validSkillTarget(def, id) || !a.skillResourcesAvailable(def) {
 			return true
 		}
 		if !a.faceRequestedTarget(id) {

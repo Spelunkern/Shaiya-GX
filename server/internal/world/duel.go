@@ -62,8 +62,9 @@ const (
 )
 
 type duelPick struct {
-	Bag, Slot, Count uint8
-	Item             db.Item
+	Bag, Slot uint8
+	Count     uint16
+	Item      db.Item
 }
 
 // duelState is a user's CExchangePvP and PvP fields (guarded by duelMu).
@@ -266,7 +267,11 @@ func (s *Session) handleDuel(op packet.Opcode, p []byte) {
 		}
 	case 0x240A:
 		if len(p) >= 6 {
-			s.duelAddItem(p[2], p[3], p[4], p[5])
+			r := packet.NewReader(p)
+			bag, slot, count, dest := r.U8(), r.U8(), r.Count(), r.U8()
+			if r.Err() == nil {
+				s.duelAddItem(bag, slot, count, dest)
+			}
 		}
 	case 0x240B:
 		if len(p) >= 3 {
@@ -283,6 +288,9 @@ func (s *Session) handleDuel(op packet.Opcode, p []byte) {
 func (s *Session) duelRequest(target uint32) {
 	me, ch := s.player, s.char
 	t := FindPlayerByID(target)
+	if t != nil && (!me.canSee(t) || t.immune.Load()) {
+		return
+	}
 	duelMu.Lock()
 	defer duelMu.Unlock()
 	if me.duel.state != duelNone || me.guildDuelState() != 0 {
@@ -407,7 +415,7 @@ func (s *Session) duelReady(action uint8) {
 	}
 }
 
-func (s *Session) duelAddItem(bag, slot, count, wslot uint8) {
+func (s *Session) duelAddItem(bag, slot uint8, count uint16, wslot uint8) {
 	me := s.player
 	duelMu.Lock()
 	defer duelMu.Unlock()
@@ -431,7 +439,7 @@ func (s *Session) duelAddItem(bag, slot, count, wslot uint8) {
 	}
 	cancelReadyLocked(me, o)
 	me.duel.picks[wslot] = &duelPick{Bag: bag, Slot: slot, Count: count, Item: it}
-	s.send(duelPacket(0x240A, func(w *packet.Writer) { w.U8(bag); w.U8(slot); w.U8(count); w.U8(wslot) }), "0x240A duel wager item")
+	s.send(duelPacket(0x240A, func(w *packet.Writer) { w.U8(bag); w.U8(slot); w.Count(count); w.U8(wslot) }), "0x240A duel wager item")
 	o.Send(duelPacket(0x240D, func(w *packet.Writer) {
 		w.U8(wslot)
 		writeOffered(w, &offeredItem{Item: it, Count: count})

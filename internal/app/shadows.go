@@ -9,7 +9,7 @@ import (
 // Only the local character casts a dynamic shadow. NPCs, mobs, remote players
 // and scene objects are outside the current shadow scope.
 func (a *App) drawSelfShadow() {
-	if !a.clientSettings().Shadows {
+	if !a.clientSettings().Shadows || a.state.Self.Concealed {
 		return
 	}
 	v := a.wv

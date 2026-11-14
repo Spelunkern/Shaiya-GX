@@ -13,6 +13,7 @@ const MallWidth, MallHeight = 580, 446
 const GiftBoxWidth, GiftBoxHeight = 333, 315
 
 type MallProduct struct {
+	Badge                   ItemBadge
 	Name, Code, Description string
 	Cost                    uint32
 	Icon                    *render.Texture
@@ -215,6 +216,7 @@ func (m *Mall) Draw(s *render.Sprites, f *Font, w, h int, products []MallProduct
 		}
 		if p.Icon != nil {
 			s.Draw(p.Icon, float32(x+dx+4), float32(y+dy+6), 32, 32, p.UV.U0, p.UV.V0, p.UV.U1, p.UV.V1, white)
+			p.Badge.Draw(s, x+dx+4, y+dy+6, 32, white)
 		}
 		f.Draw(s, p.Name, x+dx+43, y+dy+5, white, 207)
 		f.Draw(s, fmt.Sprintf("%d points", p.Cost), x+dx+43, y+dy+24, [4]float32{.95, .8, .45, 1}, 190)
@@ -287,7 +289,7 @@ func (m *Mall) UpdateGifts(in *platform.Input, w, h int, stored map[uint8]proto.
 	inside := in.MouseX >= x && in.MouseX < x+GiftBoxWidth && in.MouseY >= y && in.MouseY < y+GiftBoxHeight
 	return claim, MallNone, inside && (in.Pressed || in.Clicked || in.MouseDown || in.RightPressed || in.RightDown || in.Wheel != 0)
 }
-func (m *Mall) DrawGifts(s *render.Sprites, f *Font, w, h int, stored map[uint8]proto.MallStoredItem, icon func(proto.MallStoredItem) (*render.Texture, UV, bool)) {
+func (m *Mall) DrawGifts(s *render.Sprites, f *Font, w, h int, stored map[uint8]proto.MallStoredItem, icon func(proto.MallStoredItem) (*render.Texture, UV, bool), badges ...func(proto.MallStoredItem) ItemBadge) {
 	x, y := m.GiftOrigin(w, h)
 	s.Draw(m.giftFrame, float32(x), float32(y), GiftBoxWidth, GiftBoxHeight, 0, 0, float32(GiftBoxWidth)/512, float32(GiftBoxHeight)/512, white)
 	if m.blank != nil {
@@ -305,6 +307,9 @@ func (m *Mall) DrawGifts(s *render.Sprites, f *Font, w, h int, stored map[uint8]
 		}
 		if tex, uv, ok := icon(it); ok && tex != nil {
 			s.Draw(tex, float32(x+dx), float32(y+dy), 32, 32, uv.U0, uv.V0, uv.U1, uv.V1, white)
+			if len(badges) > 0 {
+				badges[0](it).Draw(s, x+dx, y+dy, 32, white)
+			}
 		}
 		if it.Count > 1 {
 			f.Draw(s, fmt.Sprint(it.Count), x+dx+12, y+dy+19, white, 20)

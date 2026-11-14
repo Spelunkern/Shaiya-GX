@@ -80,7 +80,7 @@ func TestChatPanesScrollIndependentlyAndKeepNewMessages(t *testing.T) {
 	in.Wheel, in.Pressed, in.MouseDown = 0, true, true
 	in.MouseX, in.MouseY = 8, 734-228+20
 	c.Update(&in, 734)
-	if c.panes[1].offset != 12 {
+	if c.panes[1].offset != 13 {
 		t.Fatal("scroll track did not reach oldest messages", c.panes[1].offset)
 	}
 	in.MouseY += 96
@@ -114,14 +114,14 @@ func TestPhoenixChatRetainsSystemMarkupAndLiteralPlayerText(t *testing.T) {
 
 func TestPhoenixChatGeometryAndZeroRows(t *testing.T) {
 	c := &ChatPanel{Rows: [2]int{5, 5}}
-	for i, want := range [][3]int{{420, 112, 7}, {540, 144, 9}} {
+	for i, want := range [][3]int{{420, 112, 6}, {540, 144, 8}} {
 		y, height, capacity := c.paneGeometry(768, i)
 		if [3]int{y, height, capacity} != want {
 			t.Fatal(i, y, height, capacity)
 		}
 	}
 	c.Rows = [2]int{0, 0}
-	for i, want := range [][3]int{{580, 32, 2}, {620, 64, 4}} {
+	for i, want := range [][3]int{{580, 32, 1}, {620, 64, 3}} {
 		y, height, capacity := c.paneGeometry(768, i)
 		if [3]int{y, height, capacity} != want {
 			t.Fatal("collapsed history", i, y, height, capacity)

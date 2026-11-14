@@ -28,7 +28,7 @@ func (a *App) requestedSkillPresentation(packet []byte) {
 	}
 	key := sdata.SkillKey{ID: k.ID, Level: k.Level}
 	d, ok := a.skillDefs[key]
-	if !ok {
+	if !ok || !a.validSkillTarget(d, target) {
 		return
 	}
 	actor := a.wv.self

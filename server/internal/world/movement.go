@@ -47,7 +47,6 @@ func (s *Session) savePosition() {
 	}
 	s.positionDirty = false
 	s.lastPositionSave = time.Now()
-	s.saveWornItems()
 }
 
 func (s *Session) syncPlayer() {

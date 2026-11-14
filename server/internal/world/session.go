@@ -26,12 +26,16 @@ const (
 // Session is one client connection. Only its own goroutine touches its
 // fields; other sessions reach it through its ConnectedPlayer.
 type Session struct {
-	gmTurbo       bool
-	socialChecked time.Time
-	conn          net.Conn
-	out           *connWriter
-	log           *logx.Tag
-	logger        *logx.Logger
+	questNPCCatalog questNPCCatalogState
+	gmTurbo         bool
+	gmVulnerable    bool
+	gmRevealed      bool
+	elements        elementRuntime
+	socialChecked   time.Time
+	conn            net.Conn
+	out             *connWriter
+	log             *logx.Tag
+	logger          *logx.Logger
 
 	aesRecv, aesSend *crypto.AESCTR
 	expanded         bool
@@ -79,10 +83,8 @@ type Session struct {
 	finishedQuests   []db.FinishedQuest
 	regenMode        int // CUser +0x1274: 0 sitting, 1 standing, 2 in combat (next tick's recovery)
 	lastCombatAt     time.Time
-	shoutReadyAt     time.Time      // 0x1107 cooldown (CUser +0x5848)
-	wornItems        map[int64]bool // item UIDs whose quality changed
-	armourWearNext   int            // QualityByDefense rotation (CUser +0x144c)
-	returnAt         time.Time      // 0x0556 pending move (CUser +0x581c, type 0)
+	shoutReadyAt     time.Time // 0x1107 cooldown (CUser +0x5848)
+	returnAt         time.Time // 0x0556 pending move (CUser +0x581c, type 0)
 }
 
 var (
@@ -189,9 +191,14 @@ func (s *Session) send(frame []byte, label string) {
 
 func (s *Session) equipment() EquipmentStats {
 	e := GetEquipmentStats(s.items)
+	s.syncElements(e)
 	applyPassives(&e, s.skills)
 	e = addBuffs(e, s.buffs)
 	applyKCStatus(&e, s.faction)
+	e.AttackAttr, e.DefenseAttr = s.elements.attack, s.elements.defense
+	if s.player != nil {
+		s.player.UpdateElements(e.AttackAttr, e.DefenseAttr)
+	}
 	return e
 }
 func (s *Session) stats() CharacterStats { return StatsFor(s.char, s.equipment()) }
@@ -263,11 +270,6 @@ func (s *Session) tick(idle bool) {
 	}
 	s.tickGuildDuel()
 	s.applyDuelWins()
-	if s.player != nil {
-		for n := s.player.TakeWeaponWear(); n > 0; n-- {
-			s.wearWeapon()
-		}
-	}
 	s.tickReturnToTown()
 	s.takeGuildFee()
 	s.tickRebirth(time.Now())
@@ -275,6 +277,7 @@ func (s *Session) tick(idle bool) {
 		return
 	}
 	s.recoveryTick()
+	s.syncQuestNPCCatalog(false)
 	if time.Since(s.lastQuestCheck) >= 5*time.Second {
 		s.lastQuestCheck = time.Now()
 		s.questTimers()
@@ -387,7 +390,7 @@ func (s *Session) frame(f []byte) error {
 		return nil
 	}
 	o, _ := packet.U16(p)
-	op := packet.Opcode(o)
+	op := packet.BaseOpcode(o)
 	if op != packet.CharacterMove {
 		s.log.Printf("GX Server World opcode=0x%04X", o)
 	}
@@ -414,7 +417,7 @@ func (s *Session) handshake(f []byte) error {
 	s.accountID, s.sessionID = uid, h.SessionID
 	if a, err := db.AccountByUID(int32(uid)); err == nil {
 		s.account = a
-		s.gmTurbo = a.Admin
+		s.gmTurbo = false
 		s.faction, s.maxMode, s.isAdmin = a.Country, a.MaxGrow, a.Admin
 		if !isValidFaction(s.faction) {
 			s.faction = FactionNone
@@ -586,7 +589,11 @@ func (s *Session) dispatch(op packet.Opcode, p []byte) {
 		}
 	case packet.ExchangeAdd:
 		if len(p) >= 6 {
-			s.handleTradeAdd(p[2], p[3], p[4], p[5])
+			r := packet.NewReader(p)
+			bag, slot, count, dest := r.U8(), r.U8(), r.Count(), r.U8()
+			if r.Err() == nil {
+				s.handleTradeAdd(bag, slot, count, dest)
+			}
 		}
 	case packet.ExchangeRemove:
 		if len(p) >= 3 {
@@ -628,7 +635,7 @@ func (s *Session) dispatch(op packet.Opcode, p []byte) {
 	case packet.ResurrectRequest:
 		s.handleResurrect(p)
 	case packet.ItemRepair:
-		s.handleItemRepair(p)
+		// Legacy repair requests are ignored; GX has no item durability.
 	case packet.ReturnToTown:
 		s.handleReturnToTown()
 	case packet.UseVehicle:
@@ -674,6 +681,8 @@ func (s *Session) dispatch(op packet.Opcode, p []byte) {
 		s.handleGiftSend(p)
 	case packet.PointStoredItemGet:
 		s.handleGiftClaim(p)
+	case packet.GXForgeQuote:
+		s.handleForgeQuote(p)
 	case packet.CashPoint:
 		s.send(buildCashPoints(s.points), "0x2605 cash points")
 	case packet.Ping:
@@ -790,7 +799,18 @@ func (s *Session) selectCharacter(id uint32) {
 			s.skillCooldowns[k.SkillID] = time.Now().Add(time.Duration(k.Delay) * time.Second)
 		}
 	}
+	s.elements = elementRuntime{}
+	s.gmRevealed, s.gmVulnerable = false, false
 	s.buffs = restoreBuffs(id, s.log)
+	if s.isAdmin {
+		kept := s.buffs[:0]
+		for _, b := range s.buffs {
+			if b.Effect == typeEffectBuff {
+				kept = append(kept, b)
+			}
+		}
+		s.buffs = kept
+	}
 	s.quickSlots, err = db.QuickSlots(id)
 	s.logErr("load quick slots", err)
 	s.stored, err = db.StoredItems(s.accountID)
@@ -876,8 +896,12 @@ func (s *Session) handleMapLoaded() {
 		s.player.UpdateCharacter(*ch)
 		s.player.UpdateItems(s.items)
 	}
+	s.equipment()
+	s.syncVisibility()
+	s.send(s.player.visibilityPacket(), "GX visibility")
 	// CZone::EnterUser + SendCellInfoView: the 5x5 cells around the user.
 	s.placeView()
+	s.syncQuestNPCCatalog(true)
 	near := EntitiesInView(ch.MapID, cellFor(ch.PosX, ch.PosZ))
 	others := s.player.knownIDs(viewUser)
 	s.log.Printf("GX Server World map loaded map=%d npcs=%d mobs=%d players=%d", ch.MapID, len(near.NPCs), len(near.Mobs), len(others))

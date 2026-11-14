@@ -6,6 +6,9 @@ package packet
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/itemstack"
+	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"math"
 )
@@ -234,6 +237,13 @@ func New(opcode Opcode) *Writer {
 	return w
 }
 
+func (w *Writer) Count(v uint16) {
+	if v > itemstack.Max {
+		w.err = fmt.Errorf("item quantity %d exceeds %d", v, itemstack.Max)
+		return
+	}
+	w.U8(uint8(v))
+}
 func (w *Writer) U8(v uint8)     { w.data = append(w.data, v) }
 func (w *Writer) U16(v uint16)   { w.data = binary.LittleEndian.AppendUint16(w.data, v) }
 func (w *Writer) U32(v uint32)   { w.data = binary.LittleEndian.AppendUint32(w.data, v) }
@@ -308,3 +318,8 @@ func F32(b []byte) (float32, error) {
 
 // FixedText decodes NUL-terminated UTF-8 with a legacy ANSI fallback.
 func FixedText(b []byte) string { return textwire.Decode(b) }
+
+func NewReader(p []byte) *proto.Reader { return proto.NewReader(p) }
+func BaseOpcode(v uint16) Opcode       { return Opcode(itemstack.Base(v)) }
+
+const GXForgeQuote Opcode = 0x7F03

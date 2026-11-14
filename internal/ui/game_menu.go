@@ -97,12 +97,13 @@ func NewGameMenu(t Textures) (*GameMenu, error) {
 			b.UV[state] = UV{float32(x) / 512, float32(y) / 256, float32(x+128) / 512, float32(y+32) / 256}
 		}
 	}
+	m.buttons[5].Disabled = true // Help is unavailable until its content is useful.
 	m.close = nativeClose(ld.get("talk1_close_button.png"), 228, 5)
 	m.back = Button{Tex: ld.get("option_main_button2.png"), DrawW: 128, DrawH: 32, HitW: 128, HitH: 22, UV: FourRowUV}
 	m.ok = Button{Tex: ld.get("ok_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	m.cancel = Button{Tex: ld.get("cancel_button.png"), DrawW: 128, DrawH: 32, HitW: 65, HitH: 25, UV: FourRowUV}
 	m.reset = Button{Tex: ld.get("option_reset_button.png"), DrawW: 128, DrawH: 32, HitW: 81, HitH: 25, UV: FourRowUV}
-	m.DisplayModes = []platform.DisplayMode{{}}
+	m.DisplayModes = []platform.DisplayMode{{Width: 1024, Height: 768}}
 	m.displayPopup = &PlayerMenu{frame: ld.get("TipBox.png")}
 	m.displayScroll = newPanelScroll(ld.get("scrollbar.png"), 90, 8, displayModeRows*PlayerMenuRowHeight+8)
 	m.displayButton = Button{Tex: ld.get("option_graphic_resol.png"), OffX: 135, OffY: 81, DrawW: 32, DrawH: 32, HitW: 20, HitH: 20}
@@ -139,6 +140,9 @@ func (m *GameMenu) Origin(w, h int) (int, int) {
 }
 
 func (m *GameMenu) Open(page MenuPage) {
+	if page == MenuHelp {
+		page = MenuMain
+	}
 	if page != MenuMain {
 		m.original = m.Settings
 	}
@@ -357,6 +361,16 @@ type menuCheck struct {
 	value *bool
 }
 
+func (m *GameMenu) checkSelected(c menuCheck) bool {
+	if c.value == nil {
+		return false
+	}
+	if c.value == &m.Settings.HideCloak || c.value == &m.Settings.HideHelmet {
+		return !*c.value
+	}
+	return *c.value
+}
+
 func (m *GameMenu) checks() []menuCheck {
 	s := &m.Settings
 	switch m.Page {
@@ -408,7 +422,11 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int, solid ...*render.T
 			limit := []int{2, 4, 2, 2}[i]
 			knob(35, 184+i*50, float64(v)/float64(limit), 240)
 		}
-		f.Draw(s, m.Settings.DisplayMode.Label(), x+74, y+87, white, 65)
+		modeLabel := m.Settings.DisplayMode.Label()
+		if modeLabel == "" {
+			modeLabel = fmt.Sprintf("%dx%d", w, h)
+		}
+		f.Draw(s, modeLabel, x+74, y+87, white, 65)
 		m.displayButton.Draw(s)
 		if m.DisplayError != "" {
 			f.Draw(s, m.DisplayError, x+16, y+110, RGBColor(0xffa080), 275)
@@ -431,13 +449,13 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int, solid ...*render.T
 			f.Draw(s, fmt.Sprintf("%d", key), x+120+(i%2)*170, y+68+(i/2)*31, white, 50)
 		}
 	case MenuHelp:
-		lines := []string{"Character controls", "W / S: forward / backward", "A / D: turn; Q / E: side step", "Right mouse: orbit camera; moving turns to it; right mouse + A / D: side step", "Both mouse buttons: move forward", "Tab: walk / run; NumLock: automatic run", "Space: jump; C: sit / stand", "Windows", "T: status; I: inventory; K: skills; B: actions", "U: quests; G: guild; M: map; O / Esc: options", "Drag learned skills or inventory items onto an action bar.", "Drag bars to move; corner button changes orientation."}
+		lines := []string{"Character controls", "W / S: forward / backward", "A / D: turn; Q / E: side step", "Right mouse: steer; right mouse + A / D: side step", "Both mouse buttons: move forward", "Tab: walk / run; NumLock: automatic run", "Space: jump; C: sit / stand", "Windows", "T: status; I: inventory; K: skills; B: actions", "U: quests; G: guild; M: map; O / Esc: options", "Drag learned skills or inventory items onto an action bar.", "Drag bars to move; corner button changes orientation."}
 		for i, line := range lines {
 			f.Draw(s, line, x+24, y+143+i*16, white, 400)
 		}
 	}
 	for _, c := range m.checks() {
-		if c.value != nil && *c.value {
+		if m.checkSelected(c) {
 			s.Draw(m.check, float32(x+c.x), float32(y+c.y), 16, 16, 0, 0, 1, 1, white)
 		}
 	}

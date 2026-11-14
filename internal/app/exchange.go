@@ -191,7 +191,7 @@ func (a *App) drawExchange(w, h int) {
 			}
 			cx, cy, _ := ui.ExchangeCell(side, i)
 			if d := a.itemsItem(it.Type, it.TypeID); d != nil {
-				a.drawItemIcon(d, px+cx, py+cy, 32, white)
+				a.drawItemIcon(d, px+cx, py+cy, 32, white, &proto.InventoryItem{Type: it.Type, TypeID: it.TypeID, Gems: it.Gems})
 			}
 			if it.Count > 1 {
 				text := fmt.Sprint(it.Count)

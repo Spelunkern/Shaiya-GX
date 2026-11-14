@@ -50,16 +50,18 @@ type ConnectedPlayer struct {
 	out           *connWriter
 	log           *logx.Logger
 
-	mu        sync.Mutex
-	mapID     uint16
-	character db.Character
-	items     []db.Item
-	faction   uint8
-	motion    uint8
-	direction uint16
-	sitting   bool
-	gmVisible bool
-	mount     uint8 // 0x051D vehicle shape, 0 on foot
+	mu                            sync.Mutex
+	mapID                         uint16
+	character                     db.Character
+	items                         []db.Item
+	elementKnown                  bool
+	attackElement, defenseElement uint8
+	faction                       uint8
+	motion                        uint8
+	direction                     uint16
+	sitting                       bool
+	gmVisible                     bool
+	mount                         uint8 // 0x051D vehicle shape, 0 on foot
 
 	mailMu       sync.Mutex
 	teleport     *pendingTeleport
@@ -72,14 +74,16 @@ type ConnectedPlayer struct {
 	duelEnds     []pendingDuelEnd
 	duelWins     int
 	itemGrants   []db.Item
-	weaponWear   int
 
 	guild    playerGuildState // guarded by guildMu
 	soulKill bool
 
-	alive     atomic.Bool
-	debuffed  atomic.Bool // an active debuff (PvPHaveDebuff), refreshed by its session
-	kcRefresh atomic.Bool // the country tier changed (ApplyKillCount)
+	hidden      atomic.Bool
+	immune      atomic.Bool
+	noMobTarget atomic.Bool
+	alive       atomic.Bool
+	debuffed    atomic.Bool // an active debuff (PvPHaveDebuff), refreshed by its session
+	kcRefresh   atomic.Bool // the country tier changed (ApplyKillCount)
 
 	duel duelState // guarded by duelMu
 
@@ -172,6 +176,9 @@ func RegisterPlayer(ch db.Character, items []db.Item, isAdmin bool, faction uint
 	p := &ConnectedPlayer{CharacterID: ch.ID, CharacterName: ch.Name, IsAdmin: isAdmin, out: out, log: log,
 		mapID: ch.MapID, character: ch, items: append([]db.Item(nil), items...), faction: faction}
 	p.alive.Store(true)
+	p.hidden.Store(isAdmin)
+	p.immune.Store(isAdmin)
+	p.noMobTarget.Store(isAdmin)
 	registryMu.Lock()
 	bucket(ch.MapID)[ch.ID] = p
 	registryMu.Unlock()
@@ -355,6 +362,10 @@ func (p *ConnectedPlayer) EquipmentPacket(slot uint8) []byte {
 // Send writes a frame to this player with the post-handshake expanded XOR
 // encoding, which is stateless and safe from any goroutine.
 func (p *ConnectedPlayer) Send(frame []byte, label string) error {
+	if !p.canReceiveWorldPacket(frame) {
+		return nil
+	}
+	frame = p.redactPartyPositions(frame)
 	out := frame
 	if len(frame) > 2 {
 		out = append(append([]byte{}, frame[:2]...), crypto.ExpandedXOR(frame[2:])...)
@@ -429,11 +440,9 @@ func FindPlayerByID(id uint32) *ConnectedPlayer {
 	return nil
 }
 
-// canSeeCharacter: everyone is visible. The GM invisibility toggle was a
-// Rapture GM command and is gone with them; the hook stays for the
-// original admin-visibility rules if they come back.
+// Hidden GMs are visible only to other GMs.
 func canSeeCharacter(viewerIsAdmin, subjectIsAdmin, subjectGMVisible bool) bool {
-	return true
+	return !subjectIsAdmin || subjectGMVisible || viewerIsAdmin
 }
 
 // broadcast sends frame to each player, logging failures.
@@ -443,4 +452,13 @@ func broadcast(players []*ConnectedPlayer, frame []byte, label string, log *logx
 			log.Printf("GX Server World failed to deliver %s to character_id=%d: %v", label, p.CharacterID, err)
 		}
 	}
+}
+
+// UpdateElements publishes the owning session's native event state for
+// detection; no other session reads or mutates its applied skill list.
+func (p *ConnectedPlayer) UpdateElements(attack, defense uint8) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.elementKnown = true
+	p.attackElement, p.defenseElement = attack, defense
 }

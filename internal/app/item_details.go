@@ -95,7 +95,7 @@ func stripItemColors(text string) string {
 
 // Native 0x4a3950 distinguishes equipment bonuses from consumable restoration.
 // SysMsg owns labels; inline description controls remain archive data.
-func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8, price string, gemName func(uint8) string, messages ...text.SysMsg) []itemDetailLine {
+func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint16, price string, gemName func(uint8) string, messages ...text.SysMsg) []itemDetailLine {
 	label := func(id int, fallback string) string {
 		if len(messages) > 0 {
 			if value := messages[0].Get(id); value != "" {
@@ -127,6 +127,9 @@ func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8
 	}
 	if def.Resist > 0 {
 		add(fmt.Sprintf("%s %d", label(5203, "resistence"), def.Resist), white)
+	}
+	if def.Attribute >= 1 && def.Attribute <= 8 {
+		add(elementName(def.Attribute, messages...), [4]float32{1, 1, 0, 1})
 	}
 	hp, mp, sp := def.RecoveryHP, def.RecoveryMP, def.RecoverySP
 	if itemHasRestoration(def.Type) {
@@ -160,7 +163,27 @@ func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8
 			add(fmt.Sprintf("%s +%d", stat.name, stat.remake), orange)
 		}
 	}
-	if def.MinLevel > 0 {
+	if def.Type == 30 || def.Type == 95 {
+		add(label(5181, "Item possible to equip"), yellow)
+		// Use the same native target flags as placement. These fields are
+		// overloaded on lapis/lapisias, rather than character requirements.
+		for _, target := range []struct {
+			typ  uint8
+			msg  int
+			name string
+		}{
+			{1, 5182, "Weapons"}, {16, 5183, "Helmets"},
+			{17, 5184, "Upper armor"}, {18, 5185, "Lower armor"},
+			{21, 5186, "Shields"}, {19, 5187, "Gauntlet"},
+			{20, 5188, "Shoes"}, {22, 5189, "Rings"},
+			{23, 5190, "Necklaces"}, {24, 7026, "Coat"},
+			{40, 5381, "Bracelets"},
+		} {
+			if lapFitsItem(def, target.typ) {
+				add(label(target.msg, target.name), white)
+			}
+		}
+	} else if def.MinLevel > 0 {
 		add(fmt.Sprintf("%s %d", label(5211, "level"), def.MinLevel), white)
 	}
 
@@ -175,9 +198,6 @@ func itemDetailLines(def *sdata.Item, instance *proto.InventoryItem, count uint8
 		}
 		price = strings.TrimSuffix(price, " gold")
 		add(price, color)
-	}
-	if instance != nil && def.Quality > 0 {
-		add(fmt.Sprintf("%s : %d/%d", label(5221, "endurance"), instance.Quality, def.Quality), white)
 	}
 	// Keep names available to nonvisual consumers; the tooltip places sockets
 	// after its description, using the confirmed gem instance IDs.

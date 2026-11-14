@@ -10,6 +10,7 @@ const MessageNone, MessageOK, MessageCancel = 0, 1, 2
 // Message uses the native type 0/1 dialogs: 0x4c4d10, 0x4c49d0, 0x4c4ae0.
 // The caller owns modality and any action associated with confirmation.
 type Message struct {
+	extra            int
 	frame            *render.Texture
 	ok, cancel       Button
 	Text             string
@@ -26,18 +27,19 @@ func NewMessage(t Textures) (*Message, error) {
 
 func (m *Message) Open(text string, confirm bool) {
 	m.Text, m.Confirm, m.Visible = text, confirm, true
+	m.extra = 0
 	for _, b := range []*Button{&m.ok, &m.cancel} {
 		b.held, b.state = false, StateNormal
 	}
 }
 
 func (m *Message) controls(w, h int) {
-	x, y := w/2-128, h/2-128
-	m.ok.OriginX, m.ok.OriginY, m.ok.OffX, m.ok.OffY = x, y, 95, 114
+	x, y := w/2-128, h/2-128-m.extra/2
+	m.ok.OriginX, m.ok.OriginY, m.ok.OffX, m.ok.OffY = x, y, 95, 114+m.extra
 	if m.Confirm {
 		m.ok.OffX = 48
 	}
-	m.cancel.OriginX, m.cancel.OriginY, m.cancel.OffX, m.cancel.OffY = x, y, 143, 114
+	m.cancel.OriginX, m.cancel.OriginY, m.cancel.OffX, m.cancel.OffY = x, y, 143, 114+m.extra
 }
 
 func (m *Message) Update(in *platform.Input, w, h int) int {
@@ -62,14 +64,28 @@ func (m *Message) Draw(s *render.Sprites, f *Font, w, h int) {
 		return
 	}
 	m.controls(w, h)
-	x, y := w/2-128, h/2-128
-	s.DrawImage(m.frame, float32(x), float32(y))
+	x, y := w/2-128, h/2-128-m.extra/2
+	if m.extra == 0 {
+		s.DrawImage(m.frame, float32(x), float32(y))
+	} else {
+		s.Draw(m.frame, float32(x), float32(y), 256, 53, 0, 0, 1, 53.0/256, white)
+		s.Draw(m.frame, float32(x), float32(y+53), 256, float32(58+m.extra), 0, 53.0/256, 1, 111.0/256, white)
+		s.Draw(m.frame, float32(x), float32(y+111+m.extra), 256, 145, 0, 111.0/256, 1, 1, white)
+	}
 	lines := wrapLines(f, m.Text, 216)
-	for i, line := range lines[:min(4, len(lines))] {
+	for i, line := range lines[:min(4+m.extra/14, len(lines))] {
 		f.Draw(s, line, x+25, y+53+i*14, white, 216)
 	}
 	m.ok.Draw(s)
 	if m.Confirm {
 		m.cancel.Draw(s)
+	}
+}
+
+// OpenFull preserves all lines of native SysMsg confirmations.
+func (m *Message) OpenFull(text string, confirm bool, f *Font) {
+	m.Open(text, confirm)
+	if f != nil {
+		m.extra = max(0, len(wrapLines(f, text, 216))-4) * 14
 	}
 }

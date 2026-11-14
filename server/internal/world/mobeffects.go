@@ -164,7 +164,7 @@ func mobCombatOf(m *MapMob) mobCombat {
 		c.Guard[k] += o.Cat[k].Defense
 		c.Evasion[k] += o.Cat[k].Evasion
 	}
-	if o.NoElement {
+	if o.NoElement && !m.elementRestored {
 		c.Attrib = 0
 	}
 	return c
@@ -220,6 +220,9 @@ func ApplyMobEffect(mapID uint16, id, casterID uint32, def *db.SkillDef) (speed 
 			}
 			m.Effects = append(m.Effects[:j], m.Effects[j+1:]...)
 			break
+		}
+		if def.TypeDetail == detailNoElement2 {
+			m.elementRestored = false
 		}
 		m.Effects = append(m.Effects, MobEffect{Def: def, CasterID: casterID, prevTick: now,
 			endsAt: now.Add(time.Duration(def.KeepSeconds) * time.Second)})
@@ -354,6 +357,9 @@ func TickMobEffects() []MobEffectOutcome {
 				}
 				before := m.mods()
 				m.Effects = append(m.Effects[:j], m.Effects[j+1:]...)
+				if e.Def.TypeDetail == detailNoElement2 {
+					m.elementRestored = true
+				}
 				if e.Def.TypeDetail == detailDeathSentence {
 					hp := m.CurrentHP
 					if hit(&e, [3]int32{int32(min(hp, 65535)), 0, 0}, hp) {

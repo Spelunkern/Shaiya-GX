@@ -8,6 +8,8 @@ package proto
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/itemstack"
 	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"math"
 )
@@ -16,14 +18,18 @@ var ErrShort = errors.New("proto: short packet")
 
 // Reader decodes a body; the first error sticks and later reads return zero.
 type Reader struct {
-	b   []byte
-	off int
-	err error
+	wide bool
+	b    []byte
+	off  int
+	err  error
 }
 
 // NewReader starts after the opcode.
 func NewReader(payload []byte) *Reader {
 	r := &Reader{b: payload, off: 2}
+	if len(payload) >= 2 {
+		r.wide = itemstack.Wide(binary.LittleEndian.Uint16(payload))
+	}
 	if len(payload) < 2 {
 		r.err = ErrShort
 	}
@@ -48,6 +54,16 @@ func (r *Reader) U8() uint8 {
 		return p[0]
 	}
 	return 0
+}
+func (r *Reader) Count() uint16 {
+	if r.wide {
+		v := r.U16()
+		if v > itemstack.Max {
+			r.err = fmt.Errorf("item quantity %d exceeds %d", v, itemstack.Max)
+		}
+		return v
+	}
+	return uint16(r.U8())
 }
 func (r *Reader) Bool() bool { return r.U8() != 0 }
 func (r *Reader) U16() uint16 {
@@ -93,6 +109,12 @@ func NewWriter(op Opcode) *Writer {
 	return w
 }
 
+func (w *Writer) Count(v uint16) {
+	if v > itemstack.Max {
+		panic(fmt.Sprintf("item quantity %d exceeds %d", v, itemstack.Max))
+	}
+	w.U8(uint8(v))
+}
 func (w *Writer) U8(v uint8)   { w.b = append(w.b, v) }
 func (w *Writer) U16(v uint16) { w.b = binary.LittleEndian.AppendUint16(w.b, v) }
 func (w *Writer) U32(v uint32) { w.b = binary.LittleEndian.AppendUint32(w.b, v) }
@@ -140,5 +162,5 @@ func Op(payload []byte) Opcode {
 	if len(payload) < 2 {
 		return 0
 	}
-	return Opcode(binary.LittleEndian.Uint16(payload))
+	return Opcode(itemstack.Base(binary.LittleEndian.Uint16(payload)))
 }

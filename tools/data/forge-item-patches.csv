@@ -1,0 +1,29 @@
+type,type_id,req_vg,stack,description
+44,193,30,0,"Adds 30 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+44,194,40,0,"Adds 40 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+44,195,5,0,"Adds 5 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+44,196,10,0,"Adds 10 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+44,197,15,0,"Adds 15 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+44,198,20,0,"Adds 20 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+44,199,25,0,"Adds 25 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+44,237,30,0,Extracts one selected lapis with a 30% success rate. Consumed on every valid attempt. On failure only the selected lapis is destroyed; the equipment and other lapis are preserved.
+95,1,0,255,Enhances compatible equipment using its required material. Success rates and the maximum enchantment are defined by the server. Consumed on every valid attempt. Failure preserves equipment and its enchantment.
+95,2,0,255,Enhances compatible equipment using its required material. Success rates and the maximum enchantment are defined by the server. Consumed on every valid attempt. Failure preserves equipment and its enchantment.
+95,3,0,255,Enhances compatible equipment using its required material. Success rates and the maximum enchantment are defined by the server. Consumed on every valid attempt. Failure preserves equipment and its enchantment.
+95,4,0,255,Enhances compatible equipment using its required material. Success rates and the maximum enchantment are defined by the server. Consumed on every valid attempt. Failure preserves equipment and its enchantment.
+95,5,0,255,Enhances compatible equipment using its required material. Success rates and the maximum enchantment are defined by the server. Consumed on every valid attempt. Failure preserves equipment and its enchantment.
+95,6,0,255,Enhances compatible equipment using its required material. Success rates and the maximum enchantment are defined by the server. Consumed on every valid attempt. Failure preserves equipment and its enchantment.
+95,7,0,255,Enhances compatible equipment using its required material. Success rates and the maximum enchantment are defined by the server. Consumed on every valid attempt. Failure preserves equipment and its enchantment.
+95,8,0,255,Enhances compatible equipment using its required material. Success rates and the maximum enchantment are defined by the server. Consumed on every valid attempt. Failure preserves equipment and its enchantment.
+100,49,20,0,"Adds 20 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,82,100,0,"Adds 100 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,140,30,0,Extracts one selected lapis with a 30% success rate. Consumed on every valid attempt. On failure only the selected lapis is destroyed; the equipment and other lapis are preserved.
+100,141,90,0,Extracts one selected lapis with a 90% success rate. Consumed on every valid attempt. On failure only the selected lapis is destroyed; the equipment and other lapis are preserved.
+100,193,30,0,"Adds 30 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,194,40,0,"Adds 40 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,195,5,0,"Adds 5 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,196,10,0,"Adds 10 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,197,15,0,"Adds 15 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,198,20,0,"Adds 20 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,199,25,0,"Adds 25 percentage points to lapis linking success, up to 100%. Consumed on every valid attempt. Failure never destroys the equipment."
+100,204,30,0,Extracts one selected lapis with a 30% success rate. Consumed on every valid attempt. On failure only the selected lapis is destroyed; the equipment and other lapis are preserved.

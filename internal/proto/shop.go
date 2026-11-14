@@ -1,29 +1,31 @@
 package proto
 
 // ShopBuyPacket: npc global ID, catalog index, count (writer 0x598d20; Rapture handleShopBuy).
-func ShopBuyPacket(npc uint32, index, count uint8) []byte {
+func ShopBuyPacket(npc uint32, index uint8, count uint16) []byte {
 	w := NewWriter(ShopBuy)
 	w.U32(npc)
 	w.U8(index)
-	w.U8(count)
+	w.Count(count)
 	return w.Bytes()
 }
 
 // ShopSellPacket: bag, slot, count (writer 0x598d70; Rapture handleShopSell).
-func ShopSellPacket(bag, slot, count uint8) []byte {
+func ShopSellPacket(bag, slot uint8, count uint16) []byte {
 	w := NewWriter(ShopSell)
-	w.Raw([]byte{bag, slot, count})
+	w.Raw([]byte{bag, slot})
+	w.Count(count)
 	return w.Bytes()
 }
 
 type ShopResult struct {
-	Result, Bag, Slot, Type, TypeID, Count uint8
-	Money                                  uint32
+	Result, Bag, Slot, Type, TypeID uint8
+	Count                           uint16
+	Money                           uint32
 }
 
 func DecodeShopResult(p []byte) (m ShopResult, err error) {
 	r := NewReader(p)
-	m.Result, m.Bag, m.Slot, m.Type, m.TypeID, m.Count = r.U8(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8()
+	m.Result, m.Bag, m.Slot, m.Type, m.TypeID, m.Count = r.U8(), r.U8(), r.U8(), r.U8(), r.U8(), r.Count()
 	m.Money = r.U32()
 	return m, r.Err()
 }

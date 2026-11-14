@@ -1,6 +1,9 @@
 package sdata
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/element"
+)
 
 // Monster is an EP5 Monster.SData record (Parsec MonsterRecord).
 // IDs are the zero-based record indices used by the server.
@@ -28,7 +31,7 @@ func ParseMonsters(raw []byte) ([]Monster, error) {
 		m.HP = c.u32()
 		c.take(1)
 		m.Size = c.u8()
-		m.Element = c.u8()
+		m.Element = element.MobElement(c.u8())
 		m.NormalTimeMS, m.NormalStep = c.u32(), c.u8()
 		m.ChaseTimeMS, m.ChaseStep = c.u32(), c.u8()
 		for j := range 3 {

@@ -102,7 +102,7 @@ func (c *ChatPanel) paneGeometry(h, index int) (y, height, capacity int) {
 	if index == 0 {
 		y -= 8 + height
 	}
-	return max(0, y), height, max(1, height/16)
+	return max(0, y), height, max(1, (height-8)/16)
 }
 
 func (c *ChatPanel) SetEntries(f *Font, entries []ChatEntry) {
@@ -309,10 +309,11 @@ func (c *ChatPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, h in
 		}
 		y, height, capacity := c.paneGeometry(h, i)
 		s.Draw(blank, 0, float32(y), 350, float32(height), 0, 0, 1, 1, [4]float32{29.0 / 255, 31.0 / 255, 36.0 / 255, 154.0 / 255 * a})
+		restoreClip := s.ClipRect(25, float32(y+4), 316, float32(height-8))
 		end := max(0, len(p.lines)-p.offset)
 		start := max(0, end-capacity)
 		for row := start; row < end; row++ {
-			yText := y + 5 + (capacity-(end-start)+row-start)*16
+			yText := y + 4 + (capacity-(end-start)+row-start)*16
 			for _, run := range p.runs[row] {
 				tint := run.color
 				if tint[3] == 0 {
@@ -323,6 +324,7 @@ func (c *ChatPanel) Draw(s *render.Sprites, f *Font, blank *render.Texture, h in
 				f.Draw(s, run.text, 25+run.x, yText, tint, 316-run.x)
 			}
 		}
+		restoreClip()
 		// Phoenix's bordered scrollbar rail is always visible, alpha 0.82.
 		s.Draw(blank, 4, float32(y+4), 16, float32(height-8), 0, 0, 1, 1, [4]float32{.31, .27, .19, .8 * .82 * a})
 		s.Draw(blank, 5, float32(y+5), 14, float32(height-10), 0, 0, 1, 1, [4]float32{.037, .035, .031, .7 * .82 * a})

@@ -9,14 +9,18 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/render"
 	"github.com/Spelunkern/Shaiya-GX/internal/scene"
+	"github.com/Spelunkern/Shaiya-GX/internal/ui"
 )
 
 type npcActor struct {
-	key      sdata.NPCKey
-	actor    *scene.CreatureActor
-	entity   *game.Entity
-	position remotePosition
-	facing   render.V3
+	questEffect  *scene.Effect
+	questKind    ui.MapMarkerKind
+	questRefresh float64
+	key          sdata.NPCKey
+	actor        *scene.CreatureActor
+	entity       *game.Entity
+	position     remotePosition
+	facing       render.V3
 }
 
 func (a *App) npcPortrait(def sdata.NPC) *render.Texture {
@@ -47,6 +51,10 @@ func (a *App) loadNPCs() {
 
 func (a *App) prepareNPCs() {
 	a.loadNPCs()
+	if !a.questDataLoaded && a.arc != nil {
+		_ = a.loadQuests()
+	}
+	questBudget := 2
 	v := a.wv
 	if v.npcs == nil {
 		v.npcs = map[uint32]*npcActor{}
@@ -54,6 +62,12 @@ func (a *App) prepareNPCs() {
 	for id := range v.npcs {
 		if e := a.state.Entities[id]; e == nil || e.Kind != game.KindNpc {
 			delete(v.npcs, id)
+		}
+	}
+	questMarkers := 0
+	for _, n := range v.npcs {
+		if n.questEffect != nil {
+			questMarkers++
 		}
 	}
 	for id, e := range a.state.Entities {
@@ -81,7 +95,7 @@ func (a *App) prepareNPCs() {
 		initialized := cached.position.initialized
 		pos := cached.position.updateNPC(e, a.clock, a.npcDefs[key])
 		patrolling := initialized && cached.position.duration > 0 && a.clock < cached.position.start+cached.position.duration
-		if patrolling && v.world.HasTerrain() {
+		if (patrolling || e.Summoned) && v.world.HasTerrain() {
 			pos[1] = v.world.Height(pos[0], pos[2])
 			cached.position.pos = pos
 		}
@@ -99,6 +113,15 @@ func (a *App) prepareNPCs() {
 			a.assets.Missing[err.Error()] = true
 		}
 		cached.actor.Update(float32(a.frameDT))
+		hadQuestEffect := cached.questEffect != nil
+		if hadQuestEffect || questMarkers < 16 {
+			a.prepareNPCQuestEffect(cached, e, pos, &questBudget)
+			if !hadQuestEffect && cached.questEffect != nil {
+				questMarkers++
+			} else if hadQuestEffect && cached.questEffect == nil {
+				questMarkers--
+			}
+		}
 	}
 }
 
@@ -111,7 +134,57 @@ func (a *App) drawNPCs() {
 		if cached := a.wv.npcs[id]; cached != nil && cached.actor != nil {
 			if cached.actor.Visible(frustum, a.scene3d.ClipPlane) {
 				cached.actor.Draw(a.skinner, a.scene3d)
+				if cached.questEffect != nil && !a.scene3d.Shadow {
+					cached.questEffect.Draw(a.scene3d)
+				}
 			}
 		}
 	}
+}
+
+func (a *App) prepareNPCQuestEffect(n *npcActor, e *game.Entity, pos render.V3, budget *int) {
+	if !a.clientSettings().SkillEffects || pos.Sub(a.wv.pos).Len() > 45 {
+		n.questEffect = nil
+		return
+	}
+	if a.clock >= n.questRefresh || n.questRefresh == 0 {
+		n.questRefresh = a.clock + .25
+		kind, ok := a.npcQuestMapKind(e)
+		if !ok {
+			n.questEffect = nil
+			return
+		}
+		if n.questEffect != nil && n.questKind != kind {
+			n.questEffect = nil
+		}
+		n.questKind = kind
+	}
+	if n.questEffect == nil || n.questEffect.Done() {
+		// A missing/changed mark is checked again before any emitter is created.
+		kind, ok := a.npcQuestMapKind(e)
+		if !ok || *budget <= 0 {
+			return
+		}
+		n.questKind = kind
+		sequence := 0
+		if kind == ui.MapQuestEnd {
+			sequence = 1
+		}
+		if slot, ok := a.selfSlot(); ok && slot.Race >= 2 {
+			sequence += 2
+		}
+		*budget--
+		n.questEffect = a.loadSkillEffect("Effect/Quest.EFT", sequence)
+		if n.questEffect == nil {
+			return
+		}
+	}
+	anchor := pos.Add(render.V3{0, 2.5, 0})
+	if crown, ok := n.actor.NameAnchor(); ok {
+		anchor = crown.Add(render.V3{0, .6, 0})
+	}
+	matrix := render.Identity()
+	matrix[12], matrix[13], matrix[14] = anchor[0], anchor[1], anchor[2]
+	n.questEffect.SetTransform(matrix)
+	n.questEffect.Update(float32(a.frameDT))
 }

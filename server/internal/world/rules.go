@@ -1,6 +1,7 @@
 package world
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/Spelunkern/Shaiya-GX/server/internal/db"
@@ -230,11 +231,18 @@ func isWeaponReal(rt uint8) bool  { return rt > 0 && rt < 16 }
 func isOneHandReal(rt uint8) bool { return rt == 1 || rt == 3 || rt == 7 || rt == 9 }
 
 // canEquip is CUser::EnableEquipment: level, slot type, two-handed
-// weapons against shields, race (Items.Country), class, mode (Items.Grow)
+// weapons against shields, race (Items.Country), class
 // and the sex-only items (Special 64/65).
 func canEquip(ch *db.Character, def *db.ItemDef, slot uint8, items []db.Item) bool {
-	if def == nil || ch.Level < def.ReqLevel {
-		return false
+	return equipFailure(ch, def, slot, items) == ""
+}
+
+func equipFailure(ch *db.Character, def *db.ItemDef, slot uint8, items []db.Item) string {
+	if def == nil {
+		return "Item definition is unavailable."
+	}
+	if ch.Level < def.ReqLevel {
+		return fmt.Sprintf("Requires level %d.", def.ReqLevel)
 	}
 	rt := realType(def.Type)
 	equippedReal := func(s uint8) (uint8, bool) {
@@ -246,70 +254,60 @@ func canEquip(ch *db.Character, def *db.ItemDef, slot uint8, items []db.Item) bo
 	switch want, ok := equipSlotRealType[slot]; {
 	case slot == 5:
 		if !isWeaponReal(rt) {
-			return false
+			return "This item cannot be equipped in that slot or with the other equipped items."
 		}
 		if _, shield := equippedReal(6); shield && !isOneHandReal(rt) {
-			return false
+			return "This item cannot be equipped in that slot or with the other equipped items."
 		}
 	case slot == 6:
 		if int(rt) != want {
-			return false
+			return "This item cannot be equipped in that slot or with the other equipped items."
 		}
 		if w, weapon := equippedReal(5); weapon && !isOneHandReal(w) {
-			return false
+			return "This item cannot be equipped in that slot or with the other equipped items."
 		}
 	case slot == 13:
 		if def.Type != mountItemType {
-			return false
+			return "This item cannot be equipped in that slot or with the other equipped items."
 		}
 	case ok && int(rt) != want:
-		return false
+		return "This item cannot be equipped in that slot or with the other equipped items."
 	}
 	race := ch.Race
 	switch def.Country {
 	case 0, 1:
 		if race != def.Country {
-			return false
+			return "This item is not available for your race."
 		}
 	case 2:
 		if race != 0 && race != 1 {
-			return false
+			return "This item is not available for your race."
 		}
 	case 3:
 		if race != 3 {
-			return false
+			return "This item is not available for your race."
 		}
 	case 4:
 		if race != 2 {
-			return false
+			return "This item is not available for your race."
 		}
 	case 5:
 		if race != 2 && race != 3 {
-			return false
+			return "This item is not available for your race."
 		}
 	}
 	if int(ch.Class) >= len(def.Classes) || !def.Classes[ch.Class] {
-		return false
-	}
-	switch ch.Mode {
-	case growEasy:
-		if def.Grow != 0 {
-			return false
-		}
-	case growNormal:
-		if def.Grow > 1 {
-			return false
-		}
-	case growHard:
-		if def.Grow == 3 {
-			return false
-		}
+		return "This item is not available for your class."
 	}
 	switch def.Special {
 	case 64:
-		return ch.Gender != 1
+		if ch.Gender == 1 {
+			return "This item is restricted to male characters."
+		}
 	case 65:
-		return ch.Gender != 0
+		if ch.Gender == 0 {
+			return "This item is restricted to female characters."
+		}
 	}
-	return true
+	return ""
 }

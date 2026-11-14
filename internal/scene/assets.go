@@ -20,30 +20,32 @@ import (
 
 // Assets caches GPU textures and models loaded from the archive.
 type Assets struct {
-	cloaks           map[string]*cloakGeometry
-	Arc              *archive.Archive
-	textures         map[string]*render.Texture
-	models           map[string]*Model
-	parts            map[string]*skinPart
-	clips            map[string]*Clip
-	Missing          map[string]bool
-	byStem           map[string]string
-	monsters         []sdata.Monster
-	creatures        []model.Creature
-	npcVisuals       []model.Creature
-	vehicles         [4][]model.Creature
-	itemTables       map[string]*model.ITM
-	itemParts        map[string]*Part
-	groundModels     [4]*GroundModel
-	groundAttempted  [4]bool
-	effectTemplates  map[string]*effectTemplate
-	effectOrder      []string
-	effectQuad       *render.Mesh
-	effectMirrorQuad *render.Mesh
-	weaponSEFF       *effect.SEFF
-	weaponSEFFTried  bool
-	weaponRecipes    map[int32]*weaponEnchantRecipe
-	weaponQuad       *render.Mesh
+	monsterEffectLibrary *effect.Library
+	monsterEffectTried   bool
+	cloaks               map[string]*cloakGeometry
+	Arc                  *archive.Archive
+	textures             map[string]*render.Texture
+	models               map[string]*Model
+	parts                map[string]*skinPart
+	clips                map[string]*Clip
+	Missing              map[string]bool
+	byStem               map[string]string
+	monsters             []sdata.Monster
+	creatures            []model.Creature
+	npcVisuals           []model.Creature
+	vehicles             [4][]model.Creature
+	itemTables           map[string]*model.ITM
+	itemParts            map[string]*Part
+	groundModels         [4]*GroundModel
+	groundAttempted      [4]bool
+	effectTemplates      map[string]*effectTemplate
+	effectOrder          []string
+	effectQuad           *render.Mesh
+	effectMirrorQuad     *render.Mesh
+	weaponSEFF           *effect.SEFF
+	weaponSEFFTried      bool
+	weaponRecipes        map[int32]*weaponEnchantRecipe
+	weaponQuad           *render.Mesh
 }
 
 func NewAssets(a *archive.Archive) *Assets {

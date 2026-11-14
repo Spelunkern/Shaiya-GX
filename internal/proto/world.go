@@ -270,17 +270,21 @@ func DecodeMobMove(p []byte) (m MobMotion, err error) {
 
 // NpcSpawn is 0x0E01.
 type NpcSpawn struct {
-	ID      uint32
-	Type    uint8
-	TypeID  uint16
-	X, Y, Z float32
-	Angle   uint16
+	Summoned bool
+	ID       uint32
+	Type     uint8
+	TypeID   uint16
+	X, Y, Z  float32
+	Angle    uint16
 }
 
 func DecodeNpcEnter(p []byte) (m NpcSpawn, err error) {
 	r := NewReader(p)
 	m.ID, m.Type, m.TypeID = r.U32(), r.U8(), r.U16()
 	m.X, m.Y, m.Z, m.Angle = r.F32(), r.F32(), r.F32(), r.U16()
+	if r.Remaining() > 0 {
+		m.Summoned = r.Bool()
+	}
 	return m, r.Err()
 }
 

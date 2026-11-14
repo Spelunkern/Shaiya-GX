@@ -10,6 +10,9 @@ import (
 // message byte length:u16, UTF-8 message. Requests use ordinary chat commands.
 const GXGMState Opcode = 0x7F01
 
+// GXVisibility: character ID:u32, concealed:u8. Sent only to authorized viewers.
+const GXVisibility Opcode = 0x7F02
+
 type GMState struct {
 	ID        uint32
 	GM, Turbo bool

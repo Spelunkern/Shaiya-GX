@@ -49,6 +49,12 @@ func (a *App) updateInventory(in *platform.Input, w, h int) bool {
 	captured := panelPointer(in, x, y, ui.InventoryWidth, ui.InventoryHeight)
 	var closed bool
 	v.bag, closed = a.inventoryUI.Update(in, w, h, v.bag)
+	// Native bag tabs must be reachable without releasing the held item.
+	if v.dragging && v.selected && !in.Clicked {
+		if tab := ui.InventoryBagTab(in.MouseX-x, in.MouseY-y); tab >= 0 {
+			v.bag = uint8(tab + 1)
+		}
+	}
 	if in.Pressed {
 		v.message = ""
 	}
@@ -139,7 +145,7 @@ func (a *App) drawInventory(w, h int) {
 			a.sprites.Draw(a.white, float32(cx), float32(cy), float32(size), float32(size), 0, 0, 1, 1, [4]float32{1, .8, .2, .3})
 		}
 		if d := a.itemsItem(it.Type, it.TypeID); d != nil {
-			a.drawItemIcon(d, cx, cy, size, white)
+			a.drawItemIcon(d, cx, cy, size, white, &it)
 			a.drawItemCooldown(it, cx, cy, size)
 		}
 		if it.Count > 1 {
@@ -150,7 +156,7 @@ func (a *App) drawInventory(w, h int) {
 	if v.dragging && v.selected {
 		if it, ok := a.state.Inventory[v.source]; ok {
 			if d := a.itemsItem(it.Type, it.TypeID); d != nil {
-				a.drawItemIcon(d, a.lastMouseX-16, a.lastMouseY-16, 32, [4]float32{1, 1, 1, .85})
+				a.drawItemIcon(d, a.lastMouseX-16, a.lastMouseY-16, 32, [4]float32{1, 1, 1, .85}, &it)
 			}
 		}
 		return

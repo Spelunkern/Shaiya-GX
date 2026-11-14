@@ -61,12 +61,7 @@ func (a *App) confirmedSystemChat(p []byte, previousMoney uint32) {
 		}
 		return ""
 	}
-	skillName := func(id uint16, level uint8) string {
-		if a.arc != nil {
-			a.loadSkills()
-		}
-		return a.skillDefs[sdata.SkillKey{ID: id, Level: level}].Name
-	}
+	skillName := func(id uint16, level uint8) string { d, _ := a.skillDefinition(id, level); return d.Name }
 	switch proto.Op(p) {
 	case proto.ExpGain:
 		r := proto.NewReader(p)
@@ -149,7 +144,11 @@ func (a *App) confirmedSystemChat(p []byte, previousMoney uint32) {
 			}
 			return
 		}
-		name := skillName(r.ID, r.Level)
+		level := r.Level
+		if proto.Op(p) == proto.MobSkillUse || proto.Op(p) == proto.MobSkillDrain || proto.Op(p) == proto.MobSkillOther {
+			level = 100
+		}
+		name := skillName(r.ID, level)
 		target := a.chatEntityName(r.Target)
 		if r.Result == 3 {
 			if r.Source == s.SelfID {

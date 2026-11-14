@@ -14,7 +14,7 @@ GX reads loose assets from a `data/` folder beside the **Shaiya GX** executable.
 
 **SQLite is used during development because an embedded database makes setup and distribution easy. It is temporary: the database backend will change in the future. The replacement and migration format are not selected yet.**
 
-[**gx-v0.1.4 patch notes**](docs/releases/gx-v0.1.4.md) · [Latest client/server downloads](https://github.com/Spelunkern/Shaiya-GX/releases/latest)
+[**gx-v0.1.6 patch notes**](docs/releases/gx-v0.1.6.md) · [Latest client/server downloads](https://github.com/Spelunkern/Shaiya-GX/releases/latest)
 
 ## On-screen metrics panel
 
@@ -64,6 +64,8 @@ The client implements login, character creation/selection, world rendering, move
 GX Server retains Rapture's gameplay and protocol behavior. Its process names are now `gx_login`, `gx_world`, `gx_console` and `gx_server`; the advertised server name and micro app title are **GX Server**. Existing `RAPTURE_*` environment keys and `rapture.sqlite` filenames remain compatible to avoid changing operation or storage semantics.
 
 ## Guides
+
+- [GitHub Wiki: features, item effects, GM commands and configuration](https://github.com/Spelunkern/Shaiya-GX/wiki)
 
 - [First run on Windows and Linux](docs/quickstart.md)
 - [Build, test and package](docs/building.md)

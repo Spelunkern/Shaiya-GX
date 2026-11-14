@@ -77,6 +77,26 @@ func TestNPCNameplateOriginalAssetsGL(t *testing.T) {
 	if actor == nil || actor.actor == nil || actor.actor.Name == "" {
 		t.Fatal("original NPC was not rendered")
 	}
+
+	// Ordinary NPCs retain server height; GM summons follow the same ground
+	// surface as the player even if their packet uses an elevated caster Y.
+	entity := a.state.Entities[42]
+	originalPosition := actor.position
+	entity.Y = pos[1] + 100
+	actor.position = remotePosition{}
+	a.prepareNPCs()
+	if actor.position.pos[1] != entity.Y {
+		t.Fatal("ordinary NPC lost server height")
+	}
+	entity.Summoned = true
+	a.prepareNPCs()
+	if actor.position.pos[1] != pos[1] || entity.Y != pos[1]+100 {
+		t.Fatal("summoned NPC did not follow terrain")
+	}
+	entity.Summoned = false
+	entity.Y = pos[1]
+	actor.position = originalPosition
+	a.prepareNPCs()
 	if _, ok := actor.actor.NameAnchor(); !ok {
 		t.Fatal("NPC pose lacks a name anchor")
 	}
@@ -146,7 +166,7 @@ func TestNPCNameplateOriginalAssetsGL(t *testing.T) {
 	if actor.actor.World[12] != pos[0] {
 		t.Fatal("NPC snapped to patrol destination")
 	}
-	a.clock += .25
+	a.clock = actor.position.start + actor.position.duration*.5
 	a.prepareNPCs()
 	if actor.actor.World[12] != pos[0]+2 || a.state.Entities[42].X != pos[0]+4 {
 		t.Fatal("NPC patrol interpolation did not preserve server position")
@@ -154,7 +174,7 @@ func TestNPCNameplateOriginalAssetsGL(t *testing.T) {
 	if got := a.visualEntityPosition(a.state.Entities[42]); got[0] != pos[0]+2 {
 		t.Fatal("NPC effect did not follow model")
 	}
-	a.clock += .25
+	a.clock = actor.position.start + actor.position.duration
 	a.prepareNPCs()
 	if actor.actor.World[12] != pos[0]+4 {
 		t.Fatal("NPC did not reach patrol destination")

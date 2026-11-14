@@ -16,6 +16,11 @@ type SkinVertex struct {
 	Bone1       float32
 }
 
+// StealthOpacity gives concealment its subtle fade while preserving original colors.
+// Native texture factor replaces the authored texture alpha; multiplying
+// that alpha made otherwise opaque clothing disappear.
+const StealthOpacity float32 = .65
+
 const MaxBones = 256 // EP5 bone indices occupy one byte.
 
 const skinVS = `#version 450 core
@@ -31,13 +36,14 @@ uniform mat4 worldView;
 uniform vec4 clipPlane;
 uniform vec3 lightDir;
 uniform float ambient;
+uniform float actorOpacity;
 out vec2 vUV;
 out vec2 vUV2;
 out float vDiffuse;
 out float vDepth;
 out vec4 vEffectColor;
 void main() {
-	vEffectColor = vec4(1.0);
+	vEffectColor = vec4(1.0, 1.0, 1.0, actorOpacity);
 	vec4 p = vec4(pos, 1.0);
 	vec3 n = nrm;
 	if (boneCount > 0) {
@@ -119,6 +125,8 @@ type Skinner struct {
 	uMode, uRef, uFogColor, uFogRange                  int32
 	uDetailBias                                        int32
 	uClipPlane                                         int32
+	uOpacity                                           int32
+	opacity                                            float32
 }
 
 func NewSkinner() (*Skinner, error) {
@@ -133,12 +141,21 @@ func NewSkinner() (*Skinner, error) {
 	addGPUBytes(MaxBones * 64)
 	return &Skinner{prog: p, palette: palette, uBoneCount: u("boneCount"), uWorld: u("world"), uViewProj: u("worldViewProj"), uView: u("worldView"),
 		uLight: u("lightDir"), uAmb: u("ambient"), uMode: u("mode"), uRef: u("alphaRef"),
-		uDetailBias: u("detailBias"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uClipPlane: u("clipPlane")}, nil
+		uDetailBias: u("detailBias"), uFogColor: u("fogColor"), uFogRange: u("fogRange"), uClipPlane: u("clipPlane"), uOpacity: u("actorOpacity")}, nil
 }
 
 // Begin binds the program with the scene's camera, light and fog.
 func (k *Skinner) Begin(s *Scene3D, ambient float32) {
+	// A creature can follow UI previews, shadows or transparent emitters.
+	// Establish its own depth contract instead of inheriting the previous pass.
+	gl.Enable(gl.DEPTH_TEST)
+	s.applyDepthMode()
+	gl.DepthMask(true)
+	gl.Disable(gl.BLEND)
+	gl.Disable(gl.CULL_FACE)
+	gl.Disable(gl.POLYGON_OFFSET_FILL)
 	gl.UseProgram(k.prog)
+	k.SetOpacity(1)
 	gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, k.palette)
 	gl.Uniform4fv(k.uClipPlane, 1, &s.ClipPlane[0])
 	k.view, k.projection = s.View, s.depthProjection(s.Proj)
@@ -184,9 +201,31 @@ func (k *Skinner) Draw(m *SkinMesh, t *Texture, alphaRef float32) {
 		return
 	}
 	gl.Uniform1f(k.uRef, alphaRef)
-	gl.Disable(gl.BLEND)
+	if k.opacity < 1 {
+		gl.Enable(gl.BLEND)
+		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+		gl.Enable(gl.CULL_FACE)
+		gl.FrontFace(gl.CW)
+		gl.CullFace(gl.BACK)
+		gl.DepthMask(true)
+	} else {
+		gl.Disable(gl.BLEND)
+	}
 	bindDiffuse(t)
 	gl.BindVertexArray(m.vao)
 	gl.DrawElements(gl.TRIANGLES, m.Count, m.indexType, nil)
+	gl.DepthMask(true)
+	gl.Disable(gl.CULL_FACE)
+	gl.FrontFace(gl.CCW)
+	gl.Disable(gl.BLEND)
 	drawCalls++
+}
+
+// SetOpacity applies a scoped ghost alpha; Begin restores opaque drawing.
+func (k *Skinner) SetOpacity(alpha float32) {
+	k.opacity = alpha
+	gl.Uniform1f(k.uOpacity, alpha)
+	if alpha < 1 {
+		gl.Uniform1i(k.uMode, 10)
+	}
 }

@@ -129,6 +129,10 @@ void main() {
 		c.rgb *= vDiffuse;
 	}
 	if (c.a <= alphaRef) discard;
+ if (mode == 0) c *= vEffectColor;
+ if (mode == 9 || mode == 10) {
+  c.a = mode == 9 ? tint.a : vEffectColor.a;
+ }
 	if (fogRange.y > fogRange.x) {
 		float f = clamp((fogRange.y - vDepth) / (fogRange.y - fogRange.x), 0.0, 1.0);
 		c.rgb = mix(fogColor, c.rgb, f);
@@ -503,4 +507,27 @@ func (s *Scene3D) applyDepthMode() {
 func (s *Scene3D) SetReverseDepth(enabled bool) {
 	s.ReverseDepth = enabled
 	s.applyDepthMode()
+}
+
+// DrawModelFaded keeps cutout testing on the source texture and applies
+// concealment afterward, matching the character skin alpha.
+func (s *Scene3D) DrawModelFaded(m *Mesh, t *Texture, world M4, alphaRef, opacity float32) {
+	if s.Shadow || s.meshOccluded(m, world) {
+		return
+	}
+	s.setWorld(world)
+	gl.Uniform1i(s.uMode, 9)
+	gl.Uniform1i(s.uLit, 1)
+	gl.Uniform1f(s.uRef, alphaRef)
+	gl.Uniform4f(s.uTint, 1, 1, 1, opacity)
+	s.blend(true)
+	gl.Enable(gl.CULL_FACE)
+	gl.FrontFace(gl.CW)
+	gl.CullFace(gl.BACK)
+	gl.DepthMask(true)
+	bindDiffuse(t)
+	m.Draw()
+	gl.Disable(gl.CULL_FACE)
+	gl.FrontFace(gl.CCW)
+	gl.Disable(gl.BLEND)
 }

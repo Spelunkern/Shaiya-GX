@@ -66,7 +66,7 @@ func removeMapItem(mapID uint16, id uint32) {
 	}
 }
 
-func setMapItemCount(mapID uint16, id uint32, count uint8) (MapItem, bool) {
+func setMapItemCount(mapID uint16, id uint32, count uint16) (MapItem, bool) {
 	mapItemsMu.Lock()
 	defer mapItemsMu.Unlock()
 	for i := range mapItems[mapID] {
@@ -112,9 +112,11 @@ func buildMapAddItem(m *MapItem) []byte {
 	w.U32(m.ID)
 	w.U8(1)
 	if m.Money > 0 {
-		w.Bytes([]byte{moneyItemType, 0, 1})
+		w.Bytes([]byte{moneyItemType, 0})
+		w.Count(1)
 	} else {
-		w.Bytes([]byte{m.Item.Type, m.Item.TypeID, m.Item.Count})
+		w.Bytes([]byte{m.Item.Type, m.Item.TypeID})
+		w.Count(m.Item.Count)
 	}
 	w.F32(m.PosX)
 	w.F32(m.PosY)

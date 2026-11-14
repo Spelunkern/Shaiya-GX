@@ -51,20 +51,20 @@ type MapAction struct {
 }
 
 type Minimap struct {
-	WorldAvailable, WorldReturn                                         bool
-	worldButton, mapButton                                              Button
-	Position, FullPosition                                              WindowPosition
-	Caption, MapName                                                    string
-	plate                                                               *render.Texture
-	frame, arrow, party, questStart, questEnd, top, bottom, left, right *render.Texture
-	buttons                                                             [3]Button
-	close                                                               Button
+	WorldAvailable, WorldReturn                                                bool
+	worldButton, mapButton                                                     Button
+	Position, FullPosition                                                     WindowPosition
+	Caption, MapName                                                           string
+	plate                                                                      *render.Texture
+	frame, arrow, party, questStart, questEnd, enemy, top, bottom, left, right *render.Texture
+	buttons                                                                    [3]Button
+	close                                                                      Button
 }
 
 func NewMinimap(t Textures) (*Minimap, error) {
 	ld := &loader{t: t}
 	m := &Minimap{frame: ld.get("main_map.png"), arrow: ld.get("arrow.png"), party: ld.get("radar_party.png"),
-		questStart: ld.get("radar_queststart.png"), questEnd: ld.get("radar_questend.png"),
+		questStart: ld.get("radar_queststart.png"), questEnd: ld.get("radar_questend.png"), enemy: ld.get("radar_enemy.png"),
 		top: ld.get("map_up.png"), bottom: ld.get("map_bottom.png"),
 		left: ld.get("map_left.png"), right: ld.get("map_right.png")}
 	m.plate = ld.get("main_servertime.png")
@@ -132,6 +132,7 @@ const (
 	MapParty MapMarkerKind = iota
 	MapQuestStart
 	MapQuestEnd
+	MapQuestObjective
 )
 
 type MapMarker struct {
@@ -155,6 +156,8 @@ func (m *Minimap) drawMarkers(s *render.Sprites, markers []MapMarker, view UV, x
 			texture = m.questStart
 		case MapQuestEnd:
 			texture = m.questEnd
+		case MapQuestObjective:
+			texture = m.enemy
 		}
 		s.Draw(texture, x+px*side-size/2, y+py*side-size/2, size, size, 0, 0, 1, 1, white)
 	}
@@ -189,7 +192,7 @@ func (m *Minimap) Draw(s *render.Sprites, f *Font, image, solid *render.Texture,
 	if width := f.Width(label); width > 134 {
 		scale = 134 / float32(width)
 	}
-	f.DrawScaled(s, label, float32(x+84)-float32(f.Width(label))*scale/2, float32(y+168), scale, [4]float32{.95, .87, .66, 1}, 0)
+	drawStatusText(s, f, label, float32(x+84)-float32(f.Width(label))*scale/2, float32(y+168), scale, 0)
 }
 
 func (m *Minimap) DrawFull(s *render.Sprites, f *Font, image, solid *render.Texture, w, h int, view UV, u, v, heading float32, mapID uint16, markers []MapMarker) {
@@ -252,4 +255,12 @@ func (m *Minimap) DragHandleAt(mx, my, w, h int) bool {
 
 func (m *Minimap) DrawWorldMarker(s *render.Sprites, x, y, scale, alpha float32) {
 	s.Draw(m.party, x-8*scale, y-8*scale, 16*scale, 16*scale, 0, 0, 1, 1, [4]float32{1, 1, 1, alpha})
+}
+
+// MapCoordinates inverts the visible map crop, including zoom and panning.
+func MapCoordinates(view UV, fx, fy, mapSize float32) (x, z float32, ok bool) {
+	if mapSize <= 0 || fx < 0 || fx > 1 || fy < 0 || fy > 1 || view.U1 <= view.U0 || view.V1 <= view.V0 {
+		return
+	}
+	return (view.U0 + fx*(view.U1-view.U0)) * mapSize, (1 - view.V0 - fy*(view.V1-view.V0)) * mapSize, true
 }

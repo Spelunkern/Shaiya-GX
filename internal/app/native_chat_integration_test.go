@@ -153,8 +153,8 @@ func verifyNativeChat(t *testing.T, a, b *App, pump func(func() bool)) {
 	for _, line := range a.state.Chat {
 		if line.Op == proto.ChatWhisper && line.Text == "GX native whisper message" {
 			entry := chatEntry(a.msg, line)
-			if entry.Color != ui.RGBColor(0xd65b75) || entry.Text != a.msg.Format(354, map[string]string{"p": own.Name, "b": line.Text}) {
-				t.Fatal("whisper did not use SysMsg template and Phoenix RGB", entry)
+			if entry.Color != ui.RGBColor(0xf3a0a0) || entry.Text != a.msg.Format(354, map[string]string{"p": own.Name, "b": line.Text}) {
+				t.Fatal("whisper did not use SysMsg template and native RGB", entry)
 			}
 		}
 	}

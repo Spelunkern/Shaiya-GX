@@ -48,7 +48,13 @@ func (s *fieldStream) indexObjects() {
 		scale := sphereScale(m)
 		radius *= scale
 		id := len(s.objects)
-		s.objects = append(s.objects, cellObject{file: file, world: m, rotor: rotor, vani: vani, mani: mani, center: b.center, radius: b.radius, scale: scale})
+		var detailClass uint8
+		if strings.HasPrefix(file, "entity/grass/") {
+			detailClass = 1
+		} else if strings.HasPrefix(file, "entity/tree/") {
+			detailClass = 2
+		}
+		s.objects = append(s.objects, cellObject{detailClass: detailClass, detailRank: uint8(id % 4), file: file, world: m, rotor: rotor, vani: vani, mani: mani, center: b.center, radius: b.radius, scale: scale})
 		x0, x1 := int(math.Floor(float64((center[0]-radius)/s.size()))), int(math.Floor(float64((center[0]+radius)/s.size())))
 		z0, z1 := int(math.Floor(float64((center[2]-radius)/s.size()))), int(math.Floor(float64((center[2]+radius)/s.size())))
 		if x1-x0 > 64 || z1-z0 > 64 {

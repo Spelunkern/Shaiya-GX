@@ -40,6 +40,7 @@ func TestComposeAgainstRapture(t *testing.T) {
 		t.Fatal("blacksmith did not open")
 	}
 	a.worldControls(&platform.Input{}, 1024, 768)
+	a.blacksmithUI.Mode = ui.ForgeRemake
 	ix, iy := a.inventoryUI.Origin(1024, 768)
 	bx, by := a.blacksmithUI.Origin(1024, 768)
 	click := func(x, y int) {
@@ -48,7 +49,7 @@ func TestComposeAgainstRapture(t *testing.T) {
 	}
 	drag := func(key [2]uint8, slot int) {
 		sx, sy, _, _ := ui.InventoryCell(key[0], key[1])
-		dx, dy := ui.BlacksmithSlot(slot)
+		dx, dy := a.blacksmithUI.Slot(slot)
 		a.worldControls(&platform.Input{MouseX: ix + sx + 2, MouseY: iy + sy + 2, Pressed: true, MouseDown: true}, 1024, 768)
 		a.worldControls(&platform.Input{MouseX: bx + dx + 2, MouseY: by + dy + 2, Clicked: true}, 1024, 768)
 	}
@@ -62,7 +63,7 @@ func TestComposeAgainstRapture(t *testing.T) {
 		beforeItem, beforeRune := st.Inventory[itemKey], st.Inventory[source]
 		drag(itemKey, 0)
 		drag(source, 2)
-		click(bx+150, by+341)
+		click(bx+350, by+380)
 		if !a.gemConfirm.Visible {
 			t.Fatal("missing recreation confirmation")
 		}

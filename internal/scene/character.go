@@ -67,6 +67,7 @@ type skinPart struct {
 
 // Character is a posed, animated actor.
 type Character struct {
+	Concealed            bool
 	enchantTime          float64
 	cloak                *cloakInstance
 	attachments          []attachment
@@ -550,7 +551,7 @@ func (c *Character) preparePose() []render.M4 {
 }
 
 func (c *Character) Draw(k *render.Skinner, s *render.Scene3D) {
-	if c == nil || c.clip == nil {
+	if c == nil || c.clip == nil || (c.Concealed && s.Shadow) {
 		return
 	}
 	finals := c.preparePose()
@@ -575,6 +576,9 @@ func (c *Character) Draw(k *render.Skinner, s *render.Scene3D) {
 		ambient = s.CharacterAmbient
 	}
 	k.Begin(s, ambient)
+	if c.Concealed {
+		k.SetOpacity(render.StealthOpacity)
+	}
 	for _, p := range c.parts {
 		k.SetPose(c.World, p.pose)
 		ref := float32(-1)
@@ -584,7 +588,7 @@ func (c *Character) Draw(k *render.Skinner, s *render.Scene3D) {
 		k.Draw(p.mesh, p.tex, ref)
 	}
 	if c.cloak != nil {
-		c.cloak.draw(s, c.World)
+		c.cloak.draw(s, c.World, c.Concealed)
 	}
 	if !c.Mounted {
 		c.drawAttachments(s, finals)

@@ -10,10 +10,13 @@ import (
 // the space the original UI is laid out in. Blending is the D3D9 UI state
 // SRCALPHA / INVSRCALPHA.
 type Sprites struct {
+	clipRect               [4]float32
+	clipped                bool
 	prog                   uint32
 	vao, vbo               uint32
 	uScreen, uMasked       int32
 	uCircle                int32
+	uGrayscale             int32
 	uNameDepth             int32
 	nameDepth              float32
 	depth                  *Texture
@@ -45,6 +48,7 @@ layout(binding=0) uniform sampler2D tex;
 layout(binding=1) uniform sampler2D mask;
 layout(binding=2) uniform sampler2D worldDepth;
 uniform int masked;
+uniform int grayscale;
 uniform float nameDepth;
 uniform int reversedDepth;
 uniform vec2 screen;
@@ -77,7 +81,11 @@ void main() {
 	} else {
 		frag = texture(tex, uv) * vColor;
 	}
-	if (circle.z > 0.0) {
+ if (grayscale != 0) {
+  float gray = dot(frag.rgb, vec3(0.299,0.587,0.114));
+  frag.rgb = vec3(gray);
+ }
+ if (circle.z > 0.0) {
 		float radius = length(vec2(gl_FragCoord.x, screen.y - gl_FragCoord.y) - circle.xy);
 		frag.a *= 1.0 - smoothstep(circle.z - 1.0, circle.z, radius);
 	}
@@ -93,6 +101,7 @@ func NewSprites(maxQuads int) (*Sprites, error) {
 	s := &Sprites{prog: p, uScreen: gl.GetUniformLocation(p, gl.Str("screen\x00")), cap: maxQuads, nameDepth: -1}
 	s.uMasked = gl.GetUniformLocation(p, gl.Str("masked\x00"))
 	s.uCircle = gl.GetUniformLocation(p, gl.Str("circle\x00"))
+	s.uGrayscale = gl.GetUniformLocation(p, gl.Str("grayscale\x00"))
 	s.uNameDepth = gl.GetUniformLocation(p, gl.Str("nameDepth\x00"))
 	gl.ProgramUniform1f(p, s.uNameDepth, -1)
 	gl.CreateBuffers(1, &s.vbo)
@@ -111,6 +120,7 @@ func NewSprites(maxQuads int) (*Sprites, error) {
 
 // Begin starts a frame of w x h pixels.
 func (s *Sprites) Begin(w, h int) {
+	s.clipped = false
 	gl.UseProgram(s.prog)
 	gl.Uniform2f(s.uScreen, float32(w), float32(h))
 	gl.BindVertexArray(s.vao)
@@ -121,6 +131,17 @@ func (s *Sprites) Begin(w, h int) {
 
 // Draw queues a quad at (x,y) of size (w,h) with texture rect (u0,v0)-(u1,v1).
 func (s *Sprites) Draw(t *Texture, x, y, w, h, u0, v0, u1, v1 float32, rgba [4]float32) {
+	if s.clipped {
+		left, top := max(x, s.clipRect[0]), max(y, s.clipRect[1])
+		right, bottom := min(x+w, s.clipRect[2]), min(y+h, s.clipRect[3])
+		if right <= left || bottom <= top {
+			return
+		}
+		du, dv := u1-u0, v1-v0
+		u0, u1 = u0+du*(left-x)/w, u0+du*(right-x)/w
+		v0, v1 = v0+dv*(top-y)/h, v0+dv*(bottom-y)/h
+		x, y, w, h = left, top, right-left, bottom-top
+	}
 	if s.tex != t || len(s.verts) >= s.cap*6*floatsPerVertex {
 		s.Flush()
 		s.tex = t
@@ -175,3 +196,12 @@ func (s *Sprites) Flush() {
 
 // End flushes the remaining quads.
 func (s *Sprites) End() { s.Flush() }
+
+// DrawGrayscale scopes desaturation to this quad and restores color batching.
+func (s *Sprites) DrawGrayscale(t *Texture, x, y, w, h, u0, v0, u1, v1 float32, rgba [4]float32) {
+	s.Flush()
+	gl.ProgramUniform1i(s.prog, s.uGrayscale, 1)
+	s.Draw(t, x, y, w, h, u0, v0, u1, v1, rgba)
+	s.Flush()
+	gl.ProgramUniform1i(s.prog, s.uGrayscale, 0)
+}

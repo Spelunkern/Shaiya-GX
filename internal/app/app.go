@@ -13,6 +13,7 @@ import (
 
 	"github.com/Spelunkern/Shaiya-GX/internal/audio"
 	"github.com/Spelunkern/Shaiya-GX/internal/data/archive"
+	"github.com/Spelunkern/Shaiya-GX/internal/data/cash"
 	img "github.com/Spelunkern/Shaiya-GX/internal/data/image"
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"github.com/Spelunkern/Shaiya-GX/internal/data/text"
@@ -26,14 +27,15 @@ import (
 )
 
 type Config struct {
-	DisplayModes     func() []platform.DisplayMode
-	ApplyDisplayMode func(platform.DisplayMode) error
-	OverrideDisplay  bool
-	RememberLayout   bool
-	Volume           float64
-	LoginAddr        string
-	WorldPort        int
-	Version          uint32
+	DisplayModes       func() []platform.DisplayMode
+	CurrentDisplayMode func() platform.DisplayMode
+	ApplyDisplayMode   func(platform.DisplayMode) error
+	OverrideDisplay    bool
+	RememberLayout     bool
+	Volume             float64
+	LoginAddr          string
+	WorldPort          int
+	Version            uint32
 }
 
 type screen int
@@ -46,6 +48,9 @@ const (
 )
 
 type App struct {
+	tooltipMuted                        bool
+	forgeQuoteSerial                    uint32
+	npcSkillDefs                        map[sdata.SkillKey]sdata.Skill
 	chatBubbles                         []chatBubble
 	quickPotions                        quickPotionView
 	mapLabels                           mapLabelView
@@ -123,6 +128,7 @@ type App struct {
 	tooltipFont                         *ui.Font
 	tooltipItem                         bool
 	tooltipDescription                  string
+	tooltipExtra                        tooltipExtras
 	tooltipSockets                      []tooltipSocket
 	chatCache                           []game.ChatLine
 	chatEntries                         []ui.ChatEntry
@@ -147,7 +153,7 @@ type App struct {
 	worlds                              map[string]*scene.World
 	skinner                             *render.Skinner
 	items                               map[sdata.ItemKey]*sdata.Item
-	mallCatalog                         []sdata.CashProduct
+	mallCatalog                         []cash.Product
 	blessingMax                         [2]uint32
 	blessingLoaded                      bool
 	actor                               *scene.Character
@@ -179,6 +185,7 @@ type App struct {
 	npcDefs           map[sdata.NPCKey]sdata.NPC
 	questDefs         []sdata.Quest
 	questDataLoaded   bool
+	questMapCache     questMarkerCache
 	questStartedAt    map[uint16]time.Time
 	questSnapshotAt   map[uint16]time.Time
 	questUI           *ui.QuestLog
@@ -198,7 +205,6 @@ type App struct {
 	gemRemove         gemRemoveView
 	enchant           enchantView
 	compose           composeView
-	repair            repairView
 	attackVariant     uint8
 	combatNotice      string
 	combatNoticeUntil float64
@@ -411,6 +417,10 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	a.loadUILayout()
 	a.loadClientSettings()
 	a.gameMenu.Settings.Antialias = ui.NormalizeAntialias(a.gameMenu.Settings.Antialias, a.aaSamples)
+	if a.gameMenu.Settings.DisplayMode == (platform.DisplayMode{}) && cfg.CurrentDisplayMode != nil {
+		a.gameMenu.SetCurrentDisplayMode(cfg.CurrentDisplayMode())
+	}
+	a.applyClientSettings()
 	return a, nil
 }
 
@@ -682,7 +692,6 @@ func (a *App) backToLogin(msg string) {
 	a.gemRemove = gemRemoveView{}
 	a.enchant = enchantView{}
 	a.compose = composeView{}
-	a.repair = repairView{}
 	a.bank = warehouseView{}
 	a.questLog = questLogView{}
 	a.exchange = exchangeView{}
@@ -757,6 +766,10 @@ func (a *App) pumpWorld() {
 				a.backToLogin("Disconnected from the server.")
 				return
 			}
+			if proto.Op(p) == proto.GXForgeQuote {
+				a.confirmedForgeQuote(p)
+				continue
+			}
 			wasRaid := a.state.Party.Raid
 			var previousAppearance scene.Appearance
 			if proto.Op(p) == proto.ItemBagToBag || proto.Op(p) == proto.ChangeAppearance || proto.Op(p) == proto.EnchantAdd {
@@ -819,7 +832,6 @@ func (a *App) pumpWorld() {
 			if a.state == nil {
 				return
 			}
-			a.confirmedRepair(p)
 			if a.state == nil {
 				return
 			}
@@ -860,7 +872,7 @@ func (a *App) pumpWorld() {
 				if int(v.Mode) < 4 {
 					mode = [4]string{"Easy", "Normal", "Hard", "Ultimate"}[v.Mode]
 				}
-				a.questMessage(fmt.Sprintf("Detection: level %d, %s mode, defense element %d.", v.Level, mode, v.DefenseElement))
+				a.questMessage(fmt.Sprintf("Detection: level %d, %s mode, defense element %s.", v.Level, mode, elementName(uint8(v.DefenseElement), a.msg)))
 			}
 			a.confirmedBuffs(ev.Op)
 			a.confirmedSocial(ev.Op)

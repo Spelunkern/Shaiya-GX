@@ -12,6 +12,7 @@ type Skill struct {
 	Level                                      uint8
 	Icon, RequiredLevel                        uint16
 	Animation, Sound                           uint16
+	VisualCode, Detail                         uint16
 	Toggle                                     uint8
 	Country                                    uint8
 	Classes                                    [6]uint8
@@ -45,7 +46,9 @@ func ParseSkills(raw []byte) (map[SkillKey]Skill, error) {
 			p := c.take(116)
 			s.Level = p[0]
 			s.Icon = binary.LittleEndian.Uint16(p[1:])
-			s.Animation = binary.LittleEndian.Uint16(p[3:])
+			s.Animation = uint16(p[3])
+			s.VisualCode = binary.LittleEndian.Uint16(p[4:])
+			s.Detail = binary.LittleEndian.Uint16(p[22:])
 			s.Toggle, s.Sound = p[5], binary.LittleEndian.Uint16(p[6:])
 			s.RequiredLevel = binary.LittleEndian.Uint16(p[8:])
 			s.Country = p[10]

@@ -3,17 +3,19 @@ package proto
 import "fmt"
 
 type EnchantResult struct {
-	Result, LapisiaBag, LapisiaSlot, LapisiaCount uint8
-	MaterialBag, MaterialSlot, MaterialCount      uint8
-	ItemBag, ItemSlot                             uint8
-	Money                                         uint32
-	Craft                                         string
+	Result, LapisiaBag, LapisiaSlot uint8
+	LapisiaCount                    uint16
+	MaterialBag, MaterialSlot       uint8
+	MaterialCount                   uint16
+	ItemBag, ItemSlot               uint8
+	Money                           uint32
+	Craft                           string
 }
 
 func DecodeEnchantResult(p []byte) (EnchantResult, error) {
 	r := NewReader(p)
-	v := EnchantResult{Result: r.U8(), LapisiaBag: r.U8(), LapisiaSlot: r.U8(), LapisiaCount: r.U8(),
-		MaterialBag: r.U8(), MaterialSlot: r.U8(), MaterialCount: r.U8(), ItemBag: r.U8(), ItemSlot: r.U8(), Money: r.U32(), Craft: r.Fixed(21)}
+	v := EnchantResult{Result: r.U8(), LapisiaBag: r.U8(), LapisiaSlot: r.U8(), LapisiaCount: r.Count(),
+		MaterialBag: r.U8(), MaterialSlot: r.U8(), MaterialCount: r.Count(), ItemBag: r.U8(), ItemSlot: r.U8(), Money: r.U32(), Craft: r.Fixed(21)}
 	if err := r.Err(); err != nil {
 		return v, err
 	}
@@ -27,8 +29,10 @@ func DecodeEnchantResult(p []byte) (EnchantResult, error) {
 	return v, nil
 }
 
-func EnchantPacket(lapisiaBag, lapisiaSlot, materialBag, materialSlot, materialCount, itemBag, itemSlot uint8) []byte {
+func EnchantPacket(lapisiaBag, lapisiaSlot, materialBag, materialSlot uint8, materialCount uint16, itemBag, itemSlot uint8) []byte {
 	w := NewWriter(EnchantAdd)
-	w.Raw([]byte{lapisiaBag, lapisiaSlot, materialBag, materialSlot, materialCount, itemBag, itemSlot})
+	w.Raw([]byte{lapisiaBag, lapisiaSlot, materialBag, materialSlot})
+	w.Count(materialCount)
+	w.Raw([]byte{itemBag, itemSlot})
 	return w.Bytes()
 }

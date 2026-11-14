@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
@@ -209,27 +208,6 @@ func (a *App) drawShop(w, h int) {
 		return
 	}
 	a.sprites.Draw(a.white, 32, 82, 400, 460, 0, 0, 1, 1, [4]float32{0.05, 0.05, 0.05, 0.95})
-	a.font.Draw(a.sprites, def.Name+"  [Esc: close]", 40, 90, white, 380)
-	words := strings.Fields(def.Welcome)
-	line := ""
-	y := 115
-	for _, word := range words {
-		if a.font.Width(line+" "+word) > 380 {
-			a.font.Draw(a.sprites, line, 40, y, white, 380)
-			y += 16
-			line = ""
-		}
-		if y >= 180 {
-			break
-		}
-		if line != "" {
-			line += " "
-		}
-		line += word
-	}
-	if y < 180 {
-		a.font.Draw(a.sprites, line, 40, y, white, 380)
-	}
 	a.font.Draw(a.sprites, "Esc: close", 40, 510, white, 380)
 }
 
@@ -266,7 +244,7 @@ func (a *App) drawMarket(w, h int, def sdata.NPC) {
 	}
 }
 
-func (a *App) buyItem(index, count uint8) {
+func (a *App) buyItem(index uint8, count uint16) {
 	if err := a.world.Send(proto.ShopBuyPacket(a.shop.npcID, index, count)); err != nil {
 		a.backToLogin("Unable to request purchase.")
 		return
@@ -274,7 +252,7 @@ func (a *App) buyItem(index, count uint8) {
 	a.shop.pending, a.shop.deadline = true, a.clock+10
 }
 
-func (a *App) sellItem(source [2]uint8, count uint8) {
+func (a *App) sellItem(source [2]uint8, count uint16) {
 	if err := a.world.Send(proto.ShopSellPacket(source[0], source[1], count)); err != nil {
 		a.backToLogin("Unable to request sale.")
 		return

@@ -28,7 +28,7 @@ func buildInventoryPackets(items []db.Item) [][]byte {
 			w.U8(it.TypeID)
 			w.U16(it.Quality)
 			w.Bytes(it.Gems[:])
-			w.U8(it.Count)
+			w.Count(it.Count)
 			w.FixedString(it.CraftName, 21)
 		}
 		out = append(out, w.MustFinish())
@@ -60,7 +60,8 @@ func writeSlot(w *packet.Writer, bag, slot uint8, it *db.Item) {
 	w.U8(bag)
 	w.U8(slot)
 	if it == nil {
-		w.Bytes(make([]byte, 3))
+		w.Bytes(make([]byte, 2))
+		w.Count(0)
 		w.U16(0)
 		w.Bytes(make([]byte, 6))
 		w.FixedString("", 21)
@@ -68,7 +69,7 @@ func writeSlot(w *packet.Writer, bag, slot uint8, it *db.Item) {
 	}
 	w.U8(it.Type)
 	w.U8(it.TypeID)
-	w.U8(it.Count)
+	w.Count(it.Count)
 	w.U16(it.Quality)
 	w.Bytes(it.Gems[:])
 	w.FixedString(it.CraftName, 21)
@@ -104,9 +105,11 @@ func buildUseItemResult(characterID uint32, it *db.Item) []byte {
 	w := packet.New(packet.UseItem)
 	w.U32(characterID)
 	if it == nil {
-		w.Bytes(make([]byte, 5))
+		w.Bytes(make([]byte, 4))
+		w.Count(0)
 	} else {
-		w.Bytes([]byte{it.Bag, it.Slot, it.Type, it.TypeID, it.Count})
+		w.Bytes([]byte{it.Bag, it.Slot, it.Type, it.TypeID})
+		w.Count(it.Count)
 	}
 	return w.MustFinish()
 }
@@ -116,9 +119,11 @@ func buildRemoveItem(it *db.Item, full bool) []byte {
 	w.U8(it.Bag)
 	w.U8(it.Slot)
 	if full {
-		w.Bytes(make([]byte, 3))
+		w.Bytes(make([]byte, 2))
+		w.Count(0)
 	} else {
-		w.Bytes([]byte{it.Type, it.TypeID, it.Count})
+		w.Bytes([]byte{it.Type, it.TypeID})
+		w.Count(it.Count)
 	}
 	return w.MustFinish()
 }
@@ -142,14 +147,14 @@ func itemsMatch(a, b *db.Item) bool {
 // itemsCanStack: same item, and the destination is not equipped.
 func itemsCanStack(src, dest *db.Item) bool { return itemsMatch(src, dest) && dest.Bag != 0 }
 
-func maxStackOf(t, id uint8) uint8 {
+func maxStackOf(t, id uint8) uint16 {
 	if d := db.MustDefs().Item(t, id); d != nil {
 		return d.MaxStack()
 	}
 	return 1
 }
 
-func findStackable(items []db.Item, tpl *db.Item, maxStack uint8) int {
+func findStackable(items []db.Item, tpl *db.Item, maxStack uint16) int {
 	for i := range items {
 		if itemsCanStack(tpl, &items[i]) && items[i].Count < maxStack {
 			return i
@@ -159,7 +164,7 @@ func findStackable(items []db.Item, tpl *db.Item, maxStack uint8) int {
 }
 
 // wouldFit simulates giveItem on a copy of the inventory.
-func wouldFit(items []db.Item, tpl *db.Item, count, maxStack uint8) bool {
+func wouldFit(items []db.Item, tpl *db.Item, count, maxStack uint16) bool {
 	sim := append([]db.Item(nil), items...)
 	for count > 0 {
 		if i := findStackable(sim, tpl, maxStack); i >= 0 {
@@ -183,11 +188,11 @@ func wouldFit(items []db.Item, tpl *db.Item, count, maxStack uint8) bool {
 
 // giveItem stacks onto existing items, then fills free slots, persisting
 // each change. Returns the 0x0205 packets and what did not fit.
-func (s *Session) giveItem(tpl *db.Item, count, maxStack uint8) ([][]byte, uint8, error) {
+func (s *Session) giveItem(tpl *db.Item, count, maxStack uint16) ([][]byte, uint16, error) {
 	return giveItemTo(s.char.ID, &s.items, tpl, count, maxStack)
 }
 
-func giveItemTo(charID uint32, items *[]db.Item, tpl *db.Item, count, maxStack uint8) ([][]byte, uint8, error) {
+func giveItemTo(charID uint32, items *[]db.Item, tpl *db.Item, count, maxStack uint16) ([][]byte, uint16, error) {
 	var packets [][]byte
 	for count > 0 {
 		if i := findStackable(*items, tpl, maxStack); i >= 0 {
@@ -430,7 +435,11 @@ func (s *Session) handleDropItem(p []byte) {
 		return
 	}
 	ch := s.char
-	bag, slot, req := p[2], p[3], p[4]
+	r := packet.NewReader(p)
+	bag, slot, req := r.U8(), r.U8(), r.Count()
+	if r.Err() != nil {
+		return
+	}
 	if !isValidItemPosition(bag, slot) {
 		return
 	}
@@ -480,6 +489,8 @@ func (s *Session) handleDropItem(p []byte) {
 
 // equipmentChanged pushes 0x0507 for the slots to self and viewers.
 func (s *Session) equipmentChanged(slots []uint8) {
+	// Apply native elemental removal/addition before publishing the equipment.
+	s.equipment()
 	ch := s.char
 	if s.player != nil {
 		s.player.UpdateItems(s.items)
@@ -652,7 +663,7 @@ func (s *Session) handleItemBagToBag(p []byte) {
 	}
 	// Anything entering an equipment slot must pass CUser::EnableEquipment;
 	// a refused move echoes the unchanged slots.
-	if !s.equipAllowed(srcBag, srcSlot, destBag, destSlot) {
+	if reason := s.equipmentMoveFailure(srcBag, srcSlot, destBag, destSlot); reason != "" {
 		var src, dest *db.Item
 		if i := findItem(s.items, srcBag, srcSlot); i >= 0 {
 			src = &s.items[i]
@@ -660,8 +671,9 @@ func (s *Session) handleItemBagToBag(p []byte) {
 		if i := findItem(s.items, destBag, destSlot); i >= 0 {
 			dest = &s.items[i]
 		}
-		s.log.Printf("GX Server World refused equip (%d,%d)->(%d,%d)", srcBag, srcSlot, destBag, destSlot)
+		s.log.Printf("GX Server World refused equip (%d,%d)->(%d,%d): %s", srcBag, srcSlot, destBag, destSlot, reason)
 		s.send(buildBagToBag(srcBag, srcSlot, src, destBag, destSlot, dest), "0x0204 item move refused")
+		s.send(buildChatByName(packet.ChatMap, "System", "Cannot equip item: "+reason), "equipment refusal reason")
 		return
 	}
 	frame, ok := s.moveItem(srcBag, srcSlot, destBag, destSlot)
@@ -687,10 +699,14 @@ func (s *Session) handleItemBagToBag(p []byte) {
 // equipAllowed checks both directions of a move that touches the
 // equipment bag.
 func (s *Session) equipAllowed(srcBag, srcSlot, destBag, destSlot uint8) bool {
+	return s.equipmentMoveFailure(srcBag, srcSlot, destBag, destSlot) == ""
+}
+
+func (s *Session) equipmentMoveFailure(srcBag, srcSlot, destBag, destSlot uint8) string {
 	defs := db.MustDefs()
-	check := func(bag, slot uint8, item int) bool {
+	check := func(bag, slot uint8, item int) string {
 		if bag != 0 || item < 0 {
-			return true
+			return ""
 		}
 		it := s.items[item]
 		others := make([]db.Item, 0, len(s.items))
@@ -699,11 +715,13 @@ func (s *Session) equipAllowed(srcBag, srcSlot, destBag, destSlot uint8) bool {
 				others = append(others, o)
 			}
 		}
-		return canEquip(s.char, defs.Item(it.Type, it.TypeID), slot, others)
+		return equipFailure(s.char, defs.Item(it.Type, it.TypeID), slot, others)
 	}
 	if srcBag == 0 && destBag == 0 && srcSlot == destSlot {
-		return true
+		return ""
 	}
-	return check(destBag, destSlot, findItem(s.items, srcBag, srcSlot)) &&
-		check(srcBag, srcSlot, findItem(s.items, destBag, destSlot))
+	if reason := check(destBag, destSlot, findItem(s.items, srcBag, srcSlot)); reason != "" {
+		return reason
+	}
+	return check(srcBag, srcSlot, findItem(s.items, destBag, destSlot))
 }

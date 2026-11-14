@@ -1,6 +1,7 @@
 package world
 
 import (
+	"github.com/Spelunkern/Shaiya-GX/internal/element"
 	"math"
 	"math/rand/v2"
 
@@ -19,18 +20,8 @@ const (
 	maxDamage    = 30000
 )
 
-// attackElement is CGameData::m_AttackAttr (0x00542260): attacker element
-// by defender element.
-var attackElement = [9][9]float32{
-	{1.0, 0.8, 0.8, 0.8, 0.8, 0.7, 0.7, 0.7, 0.7},
-	{1.2, 1.0, 0.5, 1.0, 1.4, 1.0, 0.4, 1.0, 1.3},
-	{1.2, 1.4, 1.0, 0.5, 1.0, 1.3, 1.0, 0.4, 1.0},
-	{1.2, 1.0, 1.4, 1.0, 0.5, 1.0, 1.3, 1.0, 0.4},
-	{1.2, 0.5, 1.0, 1.4, 1.0, 0.4, 1.0, 1.3, 1.0},
-	{1.3, 1.0, 0.5, 1.0, 1.6, 1.0, 0.5, 1.0, 1.4},
-	{1.3, 1.6, 1.0, 0.5, 1.0, 1.4, 1.0, 0.5, 1.0},
-	{1.3, 1.0, 1.6, 1.0, 0.5, 1.0, 1.4, 1.0, 0.5},
-	{1.3, 0.5, 1.0, 1.6, 1.0, 0.5, 1.0, 1.4, 1.0},
+func elementMultiplier(attacker, defender uint8) float32 {
+	return element.Multiplier(attacker, defender)
 }
 
 func f32(v int32) float64     { return float64(float32(v)) }
@@ -162,10 +153,7 @@ func weaponDamage(s *CharacterStats, m *mobCombat, kind int, damage *[3]int32, e
 	if penalty {
 		attack = store(float64(attack) * float64(float32(0.7)))
 	}
-	factor := float32(1)
-	if element < 9 && defElement < 9 {
-		factor = attackElement[element][defElement]
-	}
+	factor := elementMultiplier(element, defElement)
 	// The two random terms read the attacker's LUC (CUser +0x1234; the
 	// same field SetAttack uses for luck).
 	luckRoll := func() int32 {
@@ -345,10 +333,7 @@ func mobWeaponDamage(m *mobCombat, kind int, attack float32, plus uint16, elemen
 	if plus > 0 {
 		attack = store(float64(attack) + f32(int32(rand.Uint32N(uint32(plus)))))
 	}
-	factor := float32(1)
-	if element < 9 && defElement < 9 {
-		factor = attackElement[element][defElement]
-	}
+	factor := elementMultiplier(element, defElement)
 	// The mob's LUC (stMOBInfo +0x3c).
 	luckRoll := func() int32 {
 		if m.Luck <= 0 {

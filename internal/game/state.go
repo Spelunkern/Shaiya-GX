@@ -4,6 +4,7 @@
 package game
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
@@ -34,7 +35,9 @@ const (
 
 // Entity is anything placed in view.
 type Entity struct {
+	Summoned                     bool
 	IsGM                         bool
+	Concealed                    bool
 	MobSpeedKnown                bool
 	MobAttackSpeed, MobMoveSpeed uint8
 	Sitting                      bool
@@ -81,61 +84,67 @@ type Event struct {
 }
 
 type State struct {
-	GMTurbo              bool
-	Social               SocialState
-	LastDetectInfo       proto.DetectInfo
-	LastPeriodicEffect   proto.PeriodicEffect
-	DeathLossFree        bool
-	LastMotion           proto.CharacterMotionResult
-	Blessing             BlessingState
-	Mall                 MallState
-	Guild                GuildState
-	GuildDuel            GuildDuelState
-	Exchange             ExchangeState
-	Duel                 DuelState
-	Quests               map[uint16]proto.ActiveQuest
-	FinishedQuests       map[uint16]uint8
-	QuestChoice          uint16
-	QuestChoosing        bool
-	LastQuestEnd         proto.QuestEndResult
-	Warehouse            map[uint8]proto.InventoryItem
-	WarehouseReady       bool
-	WarehouseGold        uint32
-	Party                PartyState
-	LastItemUse          proto.ItemUseResult
-	LastVehicle          proto.VehicleResult
-	VehicleSerial        uint64
-	vehicleShapeExpected bool
-	LastGatekeeper       proto.GatekeeperResult
-	GatekeeperSerial     uint64
-	LastCompose          proto.ComposeResult
-	ComposeSerial        uint64
-	LastEnchant          proto.EnchantResult
-	EnchantSerial        uint64
-	LastGemAdd           proto.GemAddResult
-	LastGemRemove        proto.GemRemoveResult
-	GemRemoveSerial      uint64
-	GemAddSerial         uint64
-	LastShop             proto.ShopResult
-	SkillBarReady        bool
-	Skills               map[uint8]proto.LearnedSkill
-	QuickSlots           []proto.QuickSlot
-	LastLearn            proto.LearnResult
-	LastSkill            proto.SkillResult
-	LastSkillExtra       proto.SkillResult
-	LastReflectedDamage  proto.ReflectedDamage
-	LastCast             proto.SkillCast
-	GroundItems          map[uint32]proto.GroundItem
-	InventoryReady       bool
-	Inventory            map[[2]uint8]proto.InventoryItem
-	Target               uint32
-	PreviousTarget       uint32
-	Pools                proto.Pools
-	LastAttack           proto.AttackResult
-	PvPCountsKnown       [4]bool
-	Phase                Phase
-	Faction              proto.Faction
-	Slots                map[uint8]proto.CharacterSlot // non-empty slots only
+	MapQuestNPCs           []proto.QuestNPC
+	MapQuestNPCsReady      bool
+	QuestMapRevision       uint64
+	QuestInventoryRevision uint64
+	questNPCStaging        []proto.QuestNPC
+	questNPCStagingActive  bool
+	GMTurbo                bool
+	Social                 SocialState
+	LastDetectInfo         proto.DetectInfo
+	LastPeriodicEffect     proto.PeriodicEffect
+	DeathLossFree          bool
+	LastMotion             proto.CharacterMotionResult
+	Blessing               BlessingState
+	Mall                   MallState
+	Guild                  GuildState
+	GuildDuel              GuildDuelState
+	Exchange               ExchangeState
+	Duel                   DuelState
+	Quests                 map[uint16]proto.ActiveQuest
+	FinishedQuests         map[uint16]uint8
+	QuestChoice            uint16
+	QuestChoosing          bool
+	LastQuestEnd           proto.QuestEndResult
+	Warehouse              map[uint8]proto.InventoryItem
+	WarehouseReady         bool
+	WarehouseGold          uint32
+	Party                  PartyState
+	LastItemUse            proto.ItemUseResult
+	LastVehicle            proto.VehicleResult
+	VehicleSerial          uint64
+	vehicleShapeExpected   bool
+	LastGatekeeper         proto.GatekeeperResult
+	GatekeeperSerial       uint64
+	LastCompose            proto.ComposeResult
+	ComposeSerial          uint64
+	LastEnchant            proto.EnchantResult
+	EnchantSerial          uint64
+	LastGemAdd             proto.GemAddResult
+	LastGemRemove          proto.GemRemoveResult
+	GemRemoveSerial        uint64
+	GemAddSerial           uint64
+	LastShop               proto.ShopResult
+	SkillBarReady          bool
+	Skills                 map[uint8]proto.LearnedSkill
+	QuickSlots             []proto.QuickSlot
+	LastLearn              proto.LearnResult
+	LastSkill              proto.SkillResult
+	LastSkillExtra         proto.SkillResult
+	LastReflectedDamage    proto.ReflectedDamage
+	LastCast               proto.SkillCast
+	GroundItems            map[uint32]proto.GroundItem
+	InventoryReady         bool
+	Inventory              map[[2]uint8]proto.InventoryItem
+	Target                 uint32
+	PreviousTarget         uint32
+	Pools                  proto.Pools
+	LastAttack             proto.AttackResult
+	PvPCountsKnown         [4]bool
+	Phase                  Phase
+	Faction                proto.Faction
+	Slots                  map[uint8]proto.CharacterSlot // non-empty slots only
 
 	SelfID          uint32
 	MapID           uint16
@@ -160,11 +169,23 @@ func New() *State {
 
 // Apply updates the state from one payload. Malformed packets are
 // reported as an error and leave the state as it was.
-func (s *State) Apply(p []byte) (Event, error) {
+func (s *State) Apply(p []byte) (result Event, applyErr error) {
 	op := proto.Op(p)
+	defer func() {
+		if applyErr == nil && questMapStateChanged(op) {
+			s.QuestMapRevision++
+		}
+		if applyErr == nil && questMapInventoryChanged(op) {
+			s.QuestInventoryRevision++
+		}
+	}()
 	ev := Event{Op: op}
 	fail := func(err error) (Event, error) { return ev, fmt.Errorf("0x%04X: %w", uint16(op), err) }
 	switch op {
+	case proto.GXQuestNPCs:
+		if err := s.applyQuestNPCs(p); err != nil {
+			return fail(err)
+		}
 	case proto.FriendList, proto.FriendInvite, proto.FriendAnswer, proto.FriendAdded, proto.FriendDelete, proto.FriendMemo, proto.FriendPresence, proto.BlockList, proto.BlockAdd, proto.BlockDelete, proto.BlockMemo, proto.PartySearchRequest, proto.PartySearchList, proto.SocialError:
 		if err := s.applySocial(p); err != nil {
 			return fail(err)
@@ -732,7 +753,7 @@ func (s *State) Apply(p []byte) (Event, error) {
 		}
 	case proto.RemoveItem:
 		r := proto.NewReader(p)
-		bag, slot, typ, id, count := r.U8(), r.U8(), r.U8(), r.U8(), r.U8()
+		bag, slot, typ, id, count := r.U8(), r.U8(), r.U8(), r.U8(), r.Count()
 		if err := r.Err(); err != nil {
 			return fail(err)
 		}
@@ -917,6 +938,8 @@ func (s *State) Apply(p []byte) (Event, error) {
 			s.Skills = map[uint8]proto.LearnedSkill{}
 			s.QuickSlots = nil
 			s.SkillBarReady = false
+			s.MapQuestNPCs, s.MapQuestNPCsReady = nil, false
+			s.questNPCStaging, s.questNPCStagingActive = nil, false
 			s.GroundItems = map[uint32]proto.GroundItem{}
 			s.Entities = map[uint32]*Entity{}
 		}
@@ -937,6 +960,8 @@ func (s *State) Apply(p []byte) (Event, error) {
 		}
 		if m.ID == s.SelfID {
 			if s.MapID != m.MapID {
+				s.MapQuestNPCs, s.MapQuestNPCsReady = nil, false
+				s.questNPCStaging, s.questNPCStagingActive = nil, false
 				s.Guild.RankingPointsKnown = false
 				s.GroundItems = map[uint32]proto.GroundItem{}
 				s.Entities = map[uint32]*Entity{}
@@ -945,6 +970,16 @@ func (s *State) Apply(p []byte) (Event, error) {
 			s.MapID, s.Self.X, s.Self.Y, s.Self.Z = m.MapID, m.X, m.Y, m.Z
 		}
 		ev.Text = fmt.Sprintf("map %d pos=(%.1f,%.1f,%.1f)", m.MapID, m.X, m.Y, m.Z)
+	case proto.GXVisibility:
+		if len(p) != 7 || p[6] > 1 {
+			return fail(fmt.Errorf("invalid GX visibility"))
+		}
+		id := binary.LittleEndian.Uint32(p[2:6])
+		if id == s.SelfID {
+			s.Self.Concealed = p[6] != 0
+		} else if e := s.Entities[id]; e != nil {
+			e.Concealed = p[6] != 0
+		}
 	case proto.GXGMState:
 		g, err := proto.DecodeGMState(p)
 		if err != nil {
@@ -953,7 +988,7 @@ func (s *State) Apply(p []byte) (Event, error) {
 		if g.ID == s.SelfID {
 			s.Self.IsGM, s.GMTurbo = g.GM, g.GM && g.Turbo
 			if g.Message != "" {
-				s.addChat(ChatLine{Op: proto.ChatError, Text: g.Message, Style: 1})
+				s.addChat(ChatLine{Op: proto.ChatError, Text: g.Message, Style: 4})
 			}
 		}
 	case proto.CharacterEnteredMap:
@@ -1081,7 +1116,7 @@ func (s *State) Apply(p []byte) (Event, error) {
 		if err != nil {
 			return fail(err)
 		}
-		s.Entities[n.ID] = &Entity{Kind: KindNpc, ID: n.ID, NpcType: n.Type, TypeID: n.TypeID, X: n.X, Y: n.Y, Z: n.Z, Dir: n.Angle}
+		s.Entities[n.ID] = &Entity{Kind: KindNpc, Summoned: n.Summoned, ID: n.ID, NpcType: n.Type, TypeID: n.TypeID, X: n.X, Y: n.Y, Z: n.Z, Dir: n.Angle}
 	case proto.MapNpcMove:
 		n, err := proto.DecodeNpcMove(p)
 		if err != nil {

@@ -106,11 +106,12 @@ func TestShortcutDragAgainstRapture(t *testing.T) {
 	if q, _ := a.shortcutAt(13); q == nil || q.Number != uint16(skill.Number) {
 		t.Fatal("return swap did not restore skill", q)
 	}
-	// A drag released in the world keeps its source and sends no use request.
+	// Explicitly dragging outside removes the binding, then restore it.
 	drag(bx+2, by+2, 500, 300)
-	if q, _ := a.shortcutAt(13); q == nil {
-		t.Fatal("invalid drop deleted source")
+	if q, _ := a.shortcutAt(13); q != nil {
+		t.Fatal("drag outside did not delete source")
 	}
+	drag(sx+cx+2, sy+cy+2, bx+2, by+2)
 	// The same slot can be invoked through the keypad edge without bar-0 fallback.
 	if p := a.actionPacket(13); len(p) == 0 || p[2] != skill.Number {
 		t.Fatal("second bar cast lost learned index", p)
@@ -131,8 +132,8 @@ func TestShortcutDragAgainstRapture(t *testing.T) {
 	}
 	a.state, a.world = persisted, reconnected
 	a.worldControls(&platform.Input{MouseX: bx + 2, MouseY: by + 2, RightPressed: true, RightDown: true}, 1024, 768)
-	if q, _ := a.shortcutAt(13); q != nil {
-		t.Fatal("right click did not clear shortcut")
+	if q, _ := a.shortcutAt(13); q == nil {
+		t.Fatal("right click cleared shortcut")
 	}
-	t.Log("K drag, moved vertical second bar, invalid drop, learned-number use, persistence and right-click clear confirmed")
+	t.Log("K drag, moved vertical second bar, drag-out removal, learned-number use, persistence and right-click preservation confirmed")
 }

@@ -111,7 +111,7 @@ func projectedLODError(error float32, center render.V3, radius float32, s *rende
 	return error / (z - error) * max(fx, fy)
 }
 func (e *fieldDrawEntry) chooseLOD(s *render.Scene3D, center render.V3, radius float32) int {
-	if !s.StaticObjectLOD || s.Shadow || s.ClipPlane != [4]float32{} || e.object.rotor != nil {
+	if !s.StaticObjectLOD || s.Shadow || (s.ClipPlane != [4]float32{} && s.DetailBias == 0) || e.object.rotor != nil {
 		return 0
 	}
 	m := e.batch.model
@@ -120,8 +120,17 @@ func (e *fieldDrawEntry) chooseLOD(s *render.Scene3D, center render.V3, radius f
 			continue
 		}
 		limit := float32(.35)
+		if s.DetailBias >= 2 {
+			limit = 3
+		} else if s.DetailBias >= 1 {
+			limit = 1.25
+		}
 		if e.object.drawLOD == level {
-			limit = .45
+			if s.DetailBias < 1 {
+				limit = .45
+			} else {
+				limit *= .45 / .35
+			}
 		} // hysteresis at subpixel error
 		if projectedLODError(m.lodErrors[level-1]*e.object.scale, center, radius, s) <= limit {
 			return level

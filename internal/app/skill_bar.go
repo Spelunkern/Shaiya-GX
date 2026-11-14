@@ -95,10 +95,7 @@ func (a *App) updateBarEditing(in *platform.Input, w, h int) bool {
 		return false
 	}
 	indexAt := a.actionBar.SlotAt(in.MouseX, in.MouseY, w, h)
-	if in.RightPressed && indexAt >= 0 {
-		a.saveShortcut(indexAt, nil, 0, -1)
-		return true
-	}
+
 	if in.Pressed && indexAt >= 0 && v.assign == nil && !in.Shift {
 		q, local := a.shortcutAt(indexAt)
 		if q != nil || local != 0 {

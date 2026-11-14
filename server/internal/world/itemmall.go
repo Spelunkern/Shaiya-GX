@@ -20,7 +20,10 @@ const (
 
 func time32() uint32 { return uint32(time.Now().Unix()) }
 
-type grantedItem struct{ Bag, Slot, Type, TypeID, Count uint8 }
+type grantedItem struct {
+	Bag, Slot, Type, TypeID uint8
+	Count                   uint16
+}
 
 func buildPointBuyResult(result uint8, points uint32, code string, cost uint32, items []grantedItem) []byte {
 	w := packet.New(packet.PointBuy)
@@ -31,7 +34,8 @@ func buildPointBuyResult(result uint8, points uint32, code string, cost uint32, 
 	w.U32(cost)
 	w.U8(uint8(len(items)))
 	for _, g := range items {
-		w.Bytes([]byte{g.Bag, g.Slot, g.Type, g.TypeID, g.Count})
+		w.Bytes([]byte{g.Bag, g.Slot, g.Type, g.TypeID})
+		w.Count(g.Count)
 	}
 	return w.MustFinish()
 }
@@ -56,7 +60,8 @@ func buildGiftBoxList(userUID uint32) ([]byte, error) {
 	w := packet.New(packet.PointStoredItemList)
 	w.U8(uint8(min(len(gifts), db.GiftBoxSlots)))
 	for _, g := range gifts {
-		w.Bytes([]byte{g.Slot, g.Type, g.TypeID, g.Count})
+		w.Bytes([]byte{g.Slot, g.Type, g.TypeID})
+		w.Count(g.Count)
 	}
 	return w.MustFinish(), nil
 }
@@ -80,7 +85,7 @@ func (s *Session) handlePointBuy(p []byte) {
 	}
 	prod := db.MustDefs().Products[code]
 	if prod == nil {
-		s.log.Printf("GX Server World point buy: product %q is not in PS_GameDefs.dbo.ProductList", code)
+		s.log.Printf("GX Server World point buy: unknown ProductList product %q", code)
 		s.send(buildPointBuyResult(pointBuyNoProduct, s.points, code, 0, nil), "0x2602 point buy result")
 		return
 	}
@@ -146,7 +151,7 @@ func (s *Session) handleGiftSend(p []byte) {
 		s.send(buildGiftSendResult(result, target, s.points, code, cost), "0x2603 gift send result")
 	}
 	prod := db.MustDefs().Products[code]
-	if prod == nil || prod.BuyCost == 0 {
+	if prod == nil {
 		reply(giftProductNotFound, 0)
 		return
 	}

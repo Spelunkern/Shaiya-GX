@@ -65,7 +65,7 @@ func TestDisplayOptionsPopupGL(t *testing.T) {
 	if err = render.SavePNG(filepath.Join(dir, "display-resolution-popup.png"), 1024, 768); err != nil {
 		t.Fatal(err)
 	}
-	a.gameMenuControls(&platform.Input{Keys: []platform.Key{platform.KeyDown}}, 1024, 768)
+	a.gameMenuControls(&platform.Input{Keys: []platform.Key{platform.KeyUp}}, 1024, 768)
 	a.gameMenuControls(&platform.Input{Keys: []platform.Key{platform.KeyEnter}}, 1024, 768)
 	if a.chatOpen || a.gameMenu.DisplayPopupOpen() || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) || len(applied) != 0 {
 		t.Fatal("pending resolution leaked input or applied early")
@@ -73,5 +73,27 @@ func TestDisplayOptionsPopupGL(t *testing.T) {
 	click(160, 500)
 	if len(applied) != 1 || applied[0] != (platform.DisplayMode{Width: 800, Height: 600}) || a.gameMenu.Page != ui.MenuMain {
 		t.Fatal("mode did not commit on OK", applied)
+	}
+	// Real options contain only numeric resolutions, all applied as windows.
+	a.gameMenu.SetDisplayModes(w.DisplayModes())
+	a.cfg.DisplayModes = w.DisplayModes
+	a.gameMenu.SetCurrentDisplayMode(w.CurrentDisplayMode())
+	a.gameMenu.Open(ui.MenuGraphics)
+	click(145, 90)
+	a.gameMenuControls(&platform.Input{Keys: []platform.Key{platform.KeyDown}}, 1024, 768)
+	selected := a.gameMenu.Settings.DisplayMode
+	for _, mode := range a.gameMenu.DisplayModes {
+		if mode.Width <= 0 || mode.Label() == "Window" || mode.Label() == "Fullscreen" {
+			t.Fatal("special display choice remains")
+		}
+	}
+	a.Draw(1024, 768)
+	if err = render.SavePNG(filepath.Join(dir, "window-resolution-popup.png"), 1024, 768); err != nil {
+		t.Fatal(err)
+	}
+	a.gameMenuControls(&platform.Input{Keys: []platform.Key{platform.KeyEnter}}, 1024, 768)
+	click(160, 500)
+	if len(applied) != 2 || applied[1] != selected {
+		t.Fatal("window resolution failed to commit", applied)
 	}
 }

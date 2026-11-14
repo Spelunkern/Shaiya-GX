@@ -35,7 +35,7 @@ func buildWarehouseItemList(items []db.Item) []byte {
 		w.U8(it.TypeID)
 		w.U16(it.Quality)
 		w.Bytes(it.Gems[:])
-		w.U8(it.Count)
+		w.Count(it.Count)
 		w.FixedString(it.CraftName, 21)
 	}
 	return w.MustFinish()
@@ -243,9 +243,10 @@ func (s *Session) warehouseWithdraw(src, destBag, destSlot uint8) []byte {
 
 // --- NPC shop ---
 
-func buildShopSellResult(result, bag, slot, itemType, typeID, remaining uint8, money uint32) []byte {
+func buildShopSellResult(result, bag, slot, itemType, typeID uint8, remaining uint16, money uint32) []byte {
 	w := packet.New(packet.ShopSell)
-	w.Bytes([]byte{result, bag, slot, itemType, typeID, remaining})
+	w.Bytes([]byte{result, bag, slot, itemType, typeID})
+	w.Count(remaining)
 	w.U32(money)
 	return w.MustFinish()
 }
@@ -259,7 +260,11 @@ func (s *Session) handleShopSell(p []byte) {
 	// 0), count 1..stack, else ignored; real type 27 pays nothing and a
 	// partial sale of it keeps the stack; overflowing gold is ignored.
 	ch := s.char
-	bag, slot, count := p[2], p[3], p[4]
+	r := packet.NewReader(p)
+	bag, slot, count := r.U8(), r.U8(), r.Count()
+	if r.Err() != nil {
+		return
+	}
 	if bag == 0 || !isValidItemPosition(bag, slot) {
 		return
 	}
@@ -278,7 +283,7 @@ func (s *Session) handleShopSell(p []byte) {
 	if !quest && uint64(ch.Money)+proceeds > uint64(^uint32(0)) {
 		return
 	}
-	remaining := uint8(0)
+	remaining := uint16(0)
 	if whole {
 		if err := db.DeleteCharacterItems(ch.ID, it.UID); err != nil {
 			s.log.Printf("GX Server World shop sell failed: %v", err)

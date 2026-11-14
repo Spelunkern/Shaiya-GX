@@ -291,7 +291,7 @@ func (a *App) updateWorldStep(in *platform.Input, dt float64) {
 	if !a.updateActionApproach(in) {
 		return
 	}
-	if !in.SuppressAutoRun && (intent.forward || intent.back || intent.side != 0 || intent.turn != 0) {
+	if !in.SuppressAutoRun && (intent.forward || intent.back || intent.side != 0 || intent.turn != 0 || in.RightDown) {
 		v.restoreMovementHeading()
 	}
 	var dir render.V3
@@ -345,12 +345,8 @@ func (a *App) updateWorldStep(in *platform.Input, dt float64) {
 	if yaw != 0 || pitch != 0 {
 		v.orbitCamera(yaw, pitch)
 	}
-	if (intent.forward || intent.back || intent.side != 0) && !blocked && speed > 0 && !a.state.Self.Dead {
-		// Standing still, right drag is a free camera orbit that leaves the
-		// character's facing alone. Any key movement (W/S, strafe, autorun,
-		// mouse chord) walks where the camera looks, so after a free orbit the
-		// character turns to the camera before moving. Click-to-move keeps its
-		// own heading toward the destination.
+	if in.RightDown && !blocked && speed > 0 && !a.state.Self.Dead {
+		// Right drag steers immediately; A/D become strafe keys.
 		v.facing = cameraHeading(v.target().Sub(v.eye), v.facing)
 	}
 	fwd := v.facing
@@ -605,7 +601,8 @@ func (a *App) drawWorldView(w, h int) {
 	s.WaterReflection = nil
 	waterVisible := a.clientSettings().Water && (underwater || eye[1] > 0) && v.world.WaterVisible(s.View, s.Proj)
 	if waterVisible {
-		width, height := max(1, w/2), max(1, h/2)
+		divisor := waterReflectionDivisor(a.clientSettings().Details)
+		width, height := max(1, w/divisor), max(1, h/divisor)
 		if v.waterReflection != nil && (v.waterWidth != width || v.waterHeight != height) {
 			v.waterReflection.Delete()
 			v.waterReflection, v.waterFailed = nil, false
@@ -720,6 +717,7 @@ func (a *App) prepareSelfForDraw() {
 		} else {
 			v.selfMount, v.selfMountLoaded = nil, false
 		}
+		v.self.Concealed = a.state.Self.Concealed
 		v.self.World = render.Basis(riderPos, heading.Scale(-1), render.V3{0, 1, 0})
 	}
 }
@@ -731,6 +729,7 @@ func (a *App) drawSelf() {
 	}
 	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 	if a.state.Self.Mounted && v.selfMount != nil {
+		v.selfMount.Concealed = a.state.Self.Concealed
 		if v.selfMount.Visible(frustum, a.scene3d.ClipPlane) {
 			v.selfMount.Draw(a.skinner, a.scene3d)
 		}

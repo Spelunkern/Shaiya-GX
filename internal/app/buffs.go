@@ -42,11 +42,7 @@ func (a *App) confirmedBuffs(op proto.Opcode) {
 	for _, b := range a.state.Buffs {
 		badge, exists := old[b.Instance]
 		if !exists || op == proto.CharacterActiveBuffs || op == proto.BuffAdd && b.Instance == a.state.LastBuff.Instance {
-			level := b.Level
-			if level == 100 { // Native 0x580880 resolves this special level as 1.
-				level = 1
-			}
-			def := a.skillDefs[sdata.SkillKey{ID: b.Skill, Level: level}]
+			def, _ := a.skillDefinition(b.Skill, b.Level)
 			seconds := def.KeepSeconds()
 			if b.HasRemaining {
 				seconds = b.Remaining

@@ -61,8 +61,9 @@ func SpendPoints(userUID, charID, cost uint32, productCode, targetName string, u
 
 // GiftEntry is one gift-box slot.
 type GiftEntry struct {
-	Slot                uint8
-	Type, TypeID, Count uint8
+	Slot         uint8
+	Type, TypeID uint8
+	Count        uint16
 }
 
 // GiftBox runs usp_Read_User_StoredPointItems.
@@ -80,7 +81,8 @@ func GiftBox(userUID uint32) ([]GiftEntry, error) {
 	defer rows.Close()
 	var gifts []GiftEntry
 	for rows.Next() {
-		var slot, count uint8
+		var slot uint8
+		var count uint16
 		var itemID int32
 		if err := rows.Scan(&slot, &itemID, &count); err != nil {
 			return nil, err

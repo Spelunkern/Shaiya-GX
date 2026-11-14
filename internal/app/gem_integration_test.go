@@ -104,6 +104,7 @@ func TestGemAddAgainstRapture(t *testing.T) {
 		}
 		app.worldControls(&platform.Input{MouseX: bx + 300, MouseY: by + 380, Pressed: true, MouseDown: true}, 1024, 768)
 		app.worldControls(&platform.Input{MouseX: bx + 300, MouseY: by + 380, Clicked: true}, 1024, 768)
+		awaitForgeConfirmation(t, app)
 		if !app.gemConfirm.Visible {
 			t.Fatal("missing link risk confirmation")
 		}
@@ -247,6 +248,7 @@ func TestGemExtractionAgainstRapture(t *testing.T) {
 		serial := st.GemRemoveSerial
 		a.worldControls(&platform.Input{MouseX: bx + 435, MouseY: by + 380, Pressed: true, MouseDown: true}, 1024, 768)
 		a.worldControls(&platform.Input{MouseX: bx + 435, MouseY: by + 380, Clicked: true}, 1024, 768)
+		awaitForgeConfirmation(t, a)
 		if !a.gemConfirm.Visible || st.Inventory[key] != item {
 			t.Fatal("missing extraction confirmation or optimistic mutation")
 		}

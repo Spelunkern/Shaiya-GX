@@ -16,7 +16,7 @@ const tradeSlots = 8
 
 type offeredItem struct {
 	Item  db.Item
-	Count uint8
+	Count uint16
 }
 
 type tradeOffer struct {
@@ -162,7 +162,7 @@ func (s *Session) handleTradeRequest(target uint32) {
 	// CUser::PacketExchange 0x0A01: a user of the same zone and country
 	// that is not trading.
 	other := FindPlayerByID(target)
-	if other == nil || other.MapID() != me.MapID() || other.Faction() != me.Faction() || tradeFor(target) != nil {
+	if other == nil || !me.canSee(other) || other.MapID() != me.MapID() || other.Faction() != me.Faction() || tradeFor(target) != nil {
 		return
 	}
 	tradeMu.Lock()
@@ -214,7 +214,8 @@ func (s *Session) handleTradeAnswer(accepted bool) {
 
 func writeOffered(w *packet.Writer, o *offeredItem) {
 	if o == nil {
-		w.Bytes(make([]byte, 3))
+		w.Bytes(make([]byte, 2))
+		w.Count(0)
 		w.U16(0)
 		w.Bytes(make([]byte, 6))
 		w.FixedString("", 21)
@@ -222,7 +223,7 @@ func writeOffered(w *packet.Writer, o *offeredItem) {
 	}
 	w.U8(o.Item.Type)
 	w.U8(o.Item.TypeID)
-	w.U8(o.Count)
+	w.Count(o.Count)
 	w.U16(o.Item.Quality)
 	w.Bytes(o.Item.Gems[:])
 	w.FixedString(o.Item.CraftName, 21)
@@ -257,7 +258,7 @@ func (s *Session) mutateOffer(fn func(*tradeOffer)) (*tradeSession, *ConnectedPl
 }
 
 // handleTradeAdd (0x0A06): bag, slot, count, trade slot.
-func (s *Session) handleTradeAdd(bag, slot, count, dest uint8) {
+func (s *Session) handleTradeAdd(bag, slot uint8, count uint16, dest uint8) {
 	if dest >= tradeSlots || bag == 0 || !isValidItemPosition(bag, slot) {
 		return
 	}
@@ -286,7 +287,12 @@ func (s *Session) handleTradeAdd(bag, slot, count, dest uint8) {
 	if !ok {
 		return
 	}
-	s.send(tradePacket(packet.ExchangeAdd, bag, slot, n, dest), "0x0A06 exchange add (self)")
+	w := packet.New(packet.ExchangeAdd)
+	w.U8(bag)
+	w.U8(slot)
+	w.Count(n)
+	w.U8(dest)
+	s.send(w.MustFinish(), "0x0A06 exchange add (self)")
 	if partner != nil {
 		partner.Send(buildTradeAddDest(dest, o), "0x0A09 exchange add dest")
 	}

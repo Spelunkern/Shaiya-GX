@@ -12,7 +12,8 @@ type enchantView struct {
 	refresh                      gemRefresh
 }
 
-func (a *App) sendEnchant(lapKey, materialKey, itemKey [2]uint8, count uint8) bool {
+func (a *App) sendEnchant(lapKey, materialKey, itemKey [2]uint8, count uint16) bool {
+	count = 1 // Each operation uses exactly one lapisia and one material.
 	if a.state == nil || a.world == nil || a.state.Self.Dead || a.shop.pending || a.inventory.pending || a.state.Exchange.Active ||
 		a.state.Duel.Phase != game.DuelNone || lapKey == materialKey || lapKey == itemKey || materialKey == itemKey {
 		return false
@@ -52,7 +53,8 @@ func (a *App) confirmedEnchant(p []byte) {
 	case proto.ItemBagToBag:
 		if v.refreshing && v.refresh.acknowledge(p) && len(v.refresh.pending) == 0 {
 			v.pending, a.shop.pending = false, false
-			a.blacksmith.selected = [4]bool{}
+			a.syncBlacksmithItems()
+			a.forgeResult(v.success)
 			if v.success {
 				a.questMessage("Equipment enchanted.")
 			} else {
@@ -76,8 +78,8 @@ func (a *App) updateEnchantQuantity(in *platform.Input) {
 	if count < 0 {
 		return
 	}
-	v.materialCount, v.confirm = uint8(count), 5
+	v.materialCount, v.confirm = uint16(count), 5
 	if a.gemConfirm != nil {
-		a.gemConfirm.Open("Enchanting consumes materials and gold. Failure can break the equipment. Continue?", true)
+		a.requestForgeQuote(proto.ForgeQuoteEnchant, 5, true)
 	}
 }

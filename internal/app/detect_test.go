@@ -17,7 +17,7 @@ func TestDetectInfoDisplaysConfirmedValues(t *testing.T) {
 	w.U8(3)
 	packets <- w.Bytes()
 	a.pumpWorld()
-	if len(a.state.Chat) != 1 || a.state.Chat[0].Text != "Detection: level 57, Ultimate mode, defense element 4." {
+	if len(a.state.Chat) != 1 || a.state.Chat[0].Text != "Detection: level 57, Ultimate mode, defense element Wind I." {
 		t.Fatalf("detection result: %+v", a.state.Chat)
 	}
 }

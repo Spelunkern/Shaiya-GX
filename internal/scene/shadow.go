@@ -179,7 +179,20 @@ func (w *World) shadowReceiverInto(x0, z0, x1, z1, height float32, vertices []re
 			b := a + 1
 			cc := a + uint32(nx+1)
 			d := cc + 1
-			indices = append(indices, a, b, cc, b, d, cc)
+			if w.terrainFan && ((baseX+x)%4 < 2) == ((baseZ+z)%4 < 2) {
+				// Match both diagonals of the native fan, including its centre.
+				indices = append(indices, a, b, d, a, d, cc)
+			} else {
+				indices = append(indices, a, b, cc, b, d, cc)
+			}
+		}
+	}
+	if w.dgShadow != nil {
+		dv, di := w.dgShadow.query(x0, z0, x1, z1, height)
+		base := uint32(len(vertices))
+		vertices = append(vertices, dv...)
+		for _, i := range di {
+			indices = append(indices, base+i)
 		}
 	}
 	return vertices, indices

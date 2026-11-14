@@ -1,6 +1,9 @@
 package proto
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/itemstack"
+)
 
 // LoginHello is the server's 0xA101 (plaintext): public RSA key.
 // Client handler: dispatcher case 0xa101; Rapture cmd/rapture_login handshake().
@@ -78,8 +81,8 @@ func DecodeServerList(p []byte) ([]Server, error) {
 	return out, r.Err()
 }
 
-// ClientVersion is the value the original sends (config/development_version.cpp).
-const ClientVersion uint32 = 0x11122200
+// ClientVersion identifies the GX uint16 item-count wire revision.
+const ClientVersion uint32 = itemstack.ClientVersion
 
 // SelectServerPacket is 0xA202 (writer 0x599440, 7 bytes).
 func SelectServerPacket(serverID uint8, version uint32) []byte {

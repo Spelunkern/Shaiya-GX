@@ -35,3 +35,22 @@ func TestFullMapFrameFitsWindowWithoutChangingImageAspect(t *testing.T) {
 		}
 	}
 }
+
+func TestExpandedMapHoverCoordinatesRespectCropAndNorth(t *testing.T) {
+	for _, view := range []UV{{U0: 0, V0: 0, U1: 1, V1: 1}, MapWindow(.72, .25, .25), MapWindow(0, 1, .5)} {
+		for _, p := range [][2]float32{{0, 0}, {1, 1}, {.25, .8}, {.5, .5}} {
+			x, z, ok := MapCoordinates(view, p[0], p[1], 2048)
+			if !ok {
+				t.Fatal("valid hover rejected")
+			}
+			u, v, _ := MapPosition(x, z, 2048)
+			fx, fy, ok := MapPoint(u, v, view)
+			if !ok || math.Abs(float64(fx-p[0])) > .00001 || math.Abs(float64(fy-p[1])) > .00001 {
+				t.Fatal("hover axes/crop mismatch", view, p, x, z, fx, fy)
+			}
+		}
+	}
+	if _, _, ok := MapCoordinates(MapWindow(.5, .5, 1), -.01, .5, 2048); ok {
+		t.Fatal("outside image accepted")
+	}
+}

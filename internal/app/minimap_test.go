@@ -133,3 +133,18 @@ func TestPartyMapMarkersUseOnlyCurrentVisibleAllies(t *testing.T) {
 		t.Fatalf("retained stale marker after leaving visibility: %+v", marks)
 	}
 }
+
+func TestMinimapObjectivesHideCompletedAndDeadMobs(t *testing.T) {
+	a := inputApp()
+	a.questDefs = []sdata.Quest{{EndType: 2, MobIDs: [2]uint16{100, 200}, MobCounts: [2]uint8{3, 2}}}
+	a.state.Quests = map[uint16]proto.ActiveQuest{1: {ID: 1, Counters: [3]uint8{3, 1}}}
+	a.state.Entities = map[uint32]*game.Entity{
+		1: {Kind: game.KindMob, TypeID: 100, X: 30, Z: 40},
+		2: {Kind: game.KindMob, TypeID: 200, X: 50, Z: 60},
+		3: {Kind: game.KindMob, TypeID: 200, X: 70, Z: 80, Dead: true},
+	}
+	marks := a.questMapMarkers(100, nil)
+	if len(marks) != 1 || marks[0].Kind != ui.MapQuestObjective || marks[0].U != .5 {
+		t.Fatal("objective markers", marks)
+	}
+}

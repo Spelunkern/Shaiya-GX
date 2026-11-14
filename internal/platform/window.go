@@ -15,8 +15,6 @@ import (
 func LockMainThread() { runtime.LockOSThread() }
 
 type Window struct {
-	windowedX, windowedY int
-	windowedMaximized    bool
 	*glfw.Window
 	rememberSize bool
 	normalSize   windowState

@@ -15,7 +15,7 @@ import (
 
 // The original PS_Game configuration (data/game/, copied from the EP4.5
 // server's PS_Game/Data): Map.ini (start positions, map types, rebirth
-// points) and ItemEnchant.ini (lapisia success rates and bonuses).
+// points). Enchant rules are compiled in enchant_rules.go.
 
 func gameDataDir() string { return filepath.Join(config.DataDir(), "game") }
 
@@ -119,10 +119,6 @@ var mapConfig = MapConfig{
 	Zones: map[uint16]ZoneConfig{},
 }
 
-var enchantConfig = struct {
-	WeaponRate, DefenseRate [enchantMaxLevel + 1]uint32 // per million, step N -> N+1
-}{}
-
 func loadMapIni(log *logx.Logger) error {
 	ini, err := readIni(filepath.Join(gameDataDir(), "Map.ini"))
 	if err != nil {
@@ -173,45 +169,13 @@ func loadMapIni(log *logx.Logger) error {
 	return nil
 }
 
-func loadItemEnchantIni(log *logx.Logger) error {
-	ini, err := readIni(filepath.Join(gameDataDir(), "ItemEnchant.ini"))
-	if err != nil {
-		return err
-	}
-	rates := ini["LAPISIANENCHANTPERCENTRATE"]
-	for step := 0; step <= enchantMaxLevel; step++ {
-		for prefix, dst := range map[string]*[enchantMaxLevel + 1]uint32{"WEAPON": &enchantConfig.WeaponRate, "DEFENSE": &enchantConfig.DefenseRate} {
-			v, ok := rates[fmt.Sprintf("%sSTEP%02d", prefix, step)]
-			if !ok {
-				return fmt.Errorf("ItemEnchant.ini: missing %sStep%02d", prefix, step)
-			}
-			n, err := strconv.ParseUint(strings.TrimSpace(v), 10, 32)
-			if err != nil {
-				return fmt.Errorf("ItemEnchant.ini: %sStep%02d: %w", prefix, step, err)
-			}
-			dst[step] = uint32(n)
-		}
-	}
-	add := ini["LAPISIANENCHANTADDVALUE"]
-	for step := 0; step <= enchantMaxLevel; step++ {
-		if v, err := strconv.Atoi(add[fmt.Sprintf("WEAPONSTEP%02d", step)]); err == nil {
-			weaponEnchantAttackBonus[step] = uint32(max(v, 0))
-		}
-		if v, err := strconv.Atoi(add[fmt.Sprintf("DEFENSESTEP%02d", step)]); err == nil {
-			armorEnchantAbsorption[step] = uint32(max(v, 0))
-		}
-	}
-	log.Printf("GX Server World loaded ItemEnchant.ini weapon=%v defense=%v", enchantConfig.WeaponRate, enchantConfig.DefenseRate)
-	return nil
-}
-
 // LoadGameConfig loads the original PS_Game ini files from data/game/.
 func LoadGameConfig(log *logx.Logger) error {
 	if err := loadMapIni(log); err != nil {
 		return fmt.Errorf("Map.ini: %w", err)
 	}
-	if err := loadItemEnchantIni(log); err != nil {
-		return fmt.Errorf("ItemEnchant.ini: %w", err)
+	if err := validateEnchantRules(); err != nil {
+		return err
 	}
 	if err := loadSequenceItems(log); err != nil {
 		return fmt.Errorf("SequenceItemCreate.ini: %w", err)

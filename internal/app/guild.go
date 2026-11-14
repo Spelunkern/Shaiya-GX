@@ -133,7 +133,6 @@ func (a *App) drawGuildDirectory(w, h int) {
 		if portrait := a.npcPortrait(def); portrait != nil {
 			a.sprites.Draw(portrait, float32(x+7), float32(y+7), 64, 64, 0, 0, 1, 1, white)
 		}
-		a.font.Draw(a.sprites, def.Name, x+77, y+22, white, 160)
 	}
 
 }

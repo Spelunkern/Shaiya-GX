@@ -11,9 +11,14 @@ import (
 
 func TestGMNPCCommandsAgainstIsolatedGX(t *testing.T) {
 	st, _, send, wait := testworld.Enter(t)
-	wait(func() bool { return st.Self.IsGM && st.GMTurbo })
+	wait(func() bool { return st.Self.IsGM && !st.GMTurbo })
 	send(proto.ChatPacket(proto.ChannelNormal, false, "/turbo"))
-	wait(func() bool { return !st.GMTurbo }) // Also drains the initial map snapshot.
+	wait(func() bool { return st.GMTurbo }) // Also drains the initial map snapshot.
+	for _, e := range st.Entities {
+		if e.Summoned {
+			t.Fatal("summon survived world restart")
+		}
+	}
 	for _, tc := range []struct {
 		command string
 		kind    uint8
@@ -30,7 +35,7 @@ func TestGMNPCCommandsAgainstIsolatedGX(t *testing.T) {
 			if before[id] || e.Kind != game.KindNpc {
 				continue
 			}
-			if e.NpcType != tc.kind || e.TypeID != 1 {
+			if e.NpcType != tc.kind || e.TypeID != 1 || !e.Summoned {
 				t.Fatalf("wrong summoned NPC: %+v", e)
 			}
 			dx, dz := e.X-st.Self.X, e.Z-st.Self.Z

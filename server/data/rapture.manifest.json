@@ -72,10 +72,10 @@
     "PS_GameData_dtproperties": 0,
     "PS_GameDefs_BaseItemsDefs": 24,
     "PS_GameDefs_ExpDefs": 240,
-    "PS_GameDefs_Items": 16047,
+    "PS_GameDefs_Items": 16065,
     "PS_GameDefs_MobItems": 24723,
     "PS_GameDefs_Mobs": 2747,
-    "PS_GameDefs_ProductList": 145,
+    "PS_GameDefs_ProductList": 300,
     "PS_GameDefs_Skills": 1333,
     "PS_GameDefs_StatusDefs": 360,
     "PS_GameDefs_dtproperties": 0,
@@ -97,5 +97,5 @@
     "PS_UserData_dtproperties": 0,
     "Rapture_LoginLog": 40
   },
-  "sha256": "663d4653ea7f49e4a88ec99b6ed43ecde96e5e3c99823c6969cc4e768609aa86"
+  "sha256": "482e110dbdb841a35e37fdb78f6dcecf59761fb44a7464756e835ce127f20924"
 }

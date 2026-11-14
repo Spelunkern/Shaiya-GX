@@ -65,6 +65,9 @@ func TestRealCash(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer a.Close()
+	if _, ok := a.Lookup("Cash.SData"); !ok {
+		t.Skip("legacy cash binary is import-only")
+	}
 	b, err := a.ReadFile("Cash.SData")
 	if err != nil {
 		t.Fatal(err)

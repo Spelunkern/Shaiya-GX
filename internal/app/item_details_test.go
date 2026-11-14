@@ -37,7 +37,10 @@ func TestItemDetailUsesInstanceAndGemDefinitions(t *testing.T) {
 		texts = append(texts, row.text)
 	}
 	joined := strings.Join(texts, "|")
-	for _, want := range []string{"Sword [2]", "endurance : 17", "STR +1", "Lapis: Power Lapis", "Lapis: Lapis 9"} {
+	if strings.Contains(joined, "endurance") || strings.Contains(joined, "Durability") {
+		t.Fatal("legacy durability remains visible", joined)
+	}
+	for _, want := range []string{"Sword [2]", "STR +1", "Lapis: Power Lapis", "Lapis: Lapis 9"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("missing %q in %q", want, joined)
 		}
@@ -73,5 +76,40 @@ func TestTooltipPreservesInlineColorsAndCompleteDescription(t *testing.T) {
 	rows := itemDetailLines(&sdata.Item{Name: "Item", Description: "first\\n{c3}second{/c}\nthird"}, nil, 1, "", nil)
 	if len(rows) != 4 || rows[2].text != "{c3}second{/c}" || rows[3].text != "third" {
 		t.Fatal("item description was truncated", rows)
+	}
+}
+
+func TestEquipmentTooltipHasNoModeRequirement(t *testing.T) {
+	rows := itemDetailLines(&sdata.Item{Name: "Goddess Anor Helmet", Grow: 3}, nil, 1, "", nil)
+	for _, row := range rows {
+		if strings.Contains(row.text, "Required mode") {
+			t.Fatal("obsolete mode requirement visible")
+		}
+	}
+}
+
+func TestLapisTooltipTargetsFollowPlacementFlags(t *testing.T) {
+	for _, typ := range []uint8{30, 95} {
+		def := &sdata.Item{Type: typ, Name: "Gem", MinLevel: 1, Country: 1,
+			Classes: [6]uint8{1, 0, 1, 0, 1, 0}, Grow: 1,
+			RequiredStats: [6]uint16{1}, Description: "original description"}
+		rows := itemDetailLines(def, nil, 1, "", nil)
+		var joined string
+		for _, row := range rows {
+			joined += "|" + row.text
+		}
+		for _, want := range []string{"Item possible to equip", "Weapons", "Helmets", "Upper armor", "Gauntlet", "Shields", "Necklaces", "Coat", "Bracelets"} {
+			if !strings.Contains(joined, "|"+want) {
+				t.Fatalf("type %d missing %s: %s", typ, want, joined)
+			}
+		}
+		for _, absent := range []string{"Lower armor", "Shoes", "Rings", "level 1"} {
+			if strings.Contains(joined, "|"+absent) {
+				t.Fatalf("type %d advertises unsupported %s", typ, absent)
+			}
+		}
+		if rows[len(rows)-1].text != def.Description {
+			t.Fatal("description must remain last for visual tooltip splitting")
+		}
 	}
 }

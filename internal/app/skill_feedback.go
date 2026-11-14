@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 )
 
@@ -31,8 +30,7 @@ func (a *App) confirmedSkillFeedback(op proto.Opcode) {
 		if r.Result == 3 {
 			label = "Miss"
 		} else {
-			a.loadSkills()
-			if d, ok := a.skillDefs[sdata.SkillKey{ID: r.ID, Level: r.Level}]; ok && d.Effect == 2 {
+			if d, ok := a.skillDefinition(r.ID, r.Level); ok && d.Effect == 2 {
 				label = "Healing"
 			}
 		}
@@ -50,8 +48,7 @@ func (a *App) confirmedSkillFeedback(op proto.Opcode) {
 			return
 		}
 		if op == proto.SkillKeep {
-			a.loadSkills()
-			d, ok := a.skillDefs[sdata.SkillKey{ID: r.Skill, Level: r.Level}]
+			d, ok := a.skillDefinition(r.Skill, r.Level)
 			if !ok {
 				return
 			}

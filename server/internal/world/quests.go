@@ -427,7 +427,7 @@ func (s *Session) giveQuestItem(t, id, count uint8) *db.Item {
 		return nil
 	}
 	tpl := db.Item{Type: t, TypeID: id, Quality: def.Quality, MakeType: "Q"}
-	adds, _, err := s.giveItem(&tpl, count, def.MaxStack())
+	adds, _, err := s.giveItem(&tpl, uint16(count), def.MaxStack())
 	s.logErr("give quest item", err)
 	for _, a := range adds {
 		s.send(a, "0x0205 quest item")
@@ -503,7 +503,7 @@ func (s *Session) questFindItems(q *activeQuest, consume bool) bool {
 			}
 			remaining[k] -= take
 			res := it
-			res.Count -= uint8(take)
+			res.Count -= uint16(take)
 			s.items[i].Count = res.Count
 			s.logErr("consume quest item", db.SaveCharacterItem(s.char.ID, &s.items[i]))
 			s.send(buildRemoveItem(&res, res.Count == 0), "0x0206 quest item handed in")

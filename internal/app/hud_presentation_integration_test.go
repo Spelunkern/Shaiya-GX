@@ -153,8 +153,8 @@ func TestHUDPresentationGL(t *testing.T) {
 	if err := render.SavePNG(filepath.Join(dir, "hud-item-tooltip.png"), 1024, 768); err != nil {
 		t.Fatal(err)
 	}
-	// Same explicit documents rendered by Phoenix's actual tooltip scripts in
-	// the isolated reference harness. Compare measured blocks and final cards.
+	// Fixed documents under the current external font pack. The historical
+	// Phoenix reference used a taller font; retain strict current-font goldens.
 	a.lastMouseX, a.lastMouseY = 400, 100
 	a.tooltip = []itemDetailLine{{"Magic Arrow Lv1", [4]float32{1, 1, 0, 1}}, {"SP: 15", white}, {"MP: 20", white}, {"Cast time: 1.5 seconds", white}, {"Recharge time: 12 seconds", white}, {"Range: 27 m", white}}
 	a.tooltipItem = false
@@ -162,8 +162,8 @@ func TestHUDPresentationGL(t *testing.T) {
 	a.tooltipDescription = "Launches a non-elemental magic arrow that causes 39 extra damage plus your Magic Power."
 	skillLayout := layoutTooltip(a.tooltipFont, a.tooltip, false, a.tooltipDescription, 0)
 	t.Logf("reference font height=%d ascent=%d skill height=%d", a.tooltipFont.Height, a.tooltipFont.Ascent, skillLayout.height)
-	if skillLayout.height != 186 {
-		t.Fatal("skill tooltip height differs from Phoenix", skillLayout.height)
+	if skillLayout.height != 159 {
+		t.Fatal("skill tooltip height differs from current font reference", skillLayout.height)
 	}
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	a.sprites.Begin(1024, 768)
@@ -172,14 +172,14 @@ func TestHUDPresentationGL(t *testing.T) {
 	if err := render.SavePNG(filepath.Join(dir, "go-skill-tooltip-reference.png"), 1024, 768); err != nil {
 		t.Fatal(err)
 	}
-	a.tooltip = []itemDetailLine{{"Templar Armor +3", white}, {"Defense: 50", white}, {"HP +100  {r}(+200){/r}", [4]float32{1, 1, 0, 1}}, {"STR +3", [4]float32{1, 135.0 / 255, 0, 1}}, {"Required level: 20", [4]float32{1, 0, 0, 1}}, {"Durability: 35 / 100", white}, {"Sell price: 100 Gold", white}}
+	a.tooltip = []itemDetailLine{{"Templar Armor +3", white}, {"Defense: 50", white}, {"HP +100  {r}(+200){/r}", [4]float32{1, 1, 0, 1}}, {"STR +3", [4]float32{1, 135.0 / 255, 0, 1}}, {"Required level: 20", [4]float32{1, 0, 0, 1}}, {"Sell price: 100 Gold", white}}
 	a.tooltipItem = true
 	a.tooltipSockets = []tooltipSocket{{}, {}}
 	a.tooltipDescription = "{c3}A coloured description{/c}\nA complete second line which wraps inside the tooltip."
 	itemLayout := layoutTooltip(a.tooltipFont, a.tooltip, true, a.tooltipDescription, 2)
 	t.Logf("item height=%d socket_y=%d", itemLayout.height, itemLayout.socketY)
-	if itemLayout.height != 216 || itemLayout.socketY != 185 {
-		t.Fatal("item tooltip blocks differ from Phoenix", itemLayout.height, itemLayout.socketY)
+	if itemLayout.height != 197 || itemLayout.socketY != 166 {
+		t.Fatal("item tooltip blocks differ from current font reference", itemLayout.height, itemLayout.socketY)
 	}
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	a.sprites.Begin(1024, 768)

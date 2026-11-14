@@ -18,11 +18,11 @@ func TestTerrainCellKeepsSectionUVAndSharedBorder(t *testing.T) {
 	}
 	left, li := outTerrain(w, 0, 0, 32, 32, 0, 0)
 	right, ri := outTerrain(w, 32, 0, 32, 32, 0, 0)
-	if len(li) != 32*32*6 || len(ri) != len(li) {
+	if len(li) != 8*8*12 || len(ri) != len(li) {
 		t.Fatal("cell triangle count")
 	}
-	for z := 0; z <= 32; z++ {
-		a, b := left[z*33+32], right[z*33]
+	for z := 0; z <= 8; z++ {
+		a, b := left[z*9+8], right[z*9]
 		if a.Pos != b.Pos || a.UV != b.UV || a.UV2 != b.UV2 || a.UV[0] != .5 {
 			t.Fatal("cell seam", z, a, b)
 		}

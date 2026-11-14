@@ -52,7 +52,8 @@ func (a *App) confirmedCompose(p []byte) {
 	case proto.ItemBagToBag:
 		if v.refreshing && v.refresh.acknowledge(p) && len(v.refresh.pending) == 0 {
 			v.pending, a.shop.pending = false, false
-			a.blacksmith.selected = [4]bool{}
+			a.syncBlacksmithItems()
+			a.forgeResult(v.success)
 			if v.success {
 				a.questMessage("Equipment attributes recreated.")
 				a.questMessage("Before: " + craftSummary(v.before))

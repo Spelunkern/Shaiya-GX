@@ -2,7 +2,6 @@ package app
 
 import (
 	"github.com/Spelunkern/Shaiya-GX/internal/data/effect"
-	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 )
 
@@ -19,8 +18,7 @@ func (a *App) startMobSkillEffects(r proto.SkillResult) {
 			mob.lastSkill, mob.skillAt = r.ID, a.clock
 		}
 	}
-	a.loadSkills()
-	d, ok := a.skillDefs[sdata.SkillKey{ID: r.ID, Level: 1}]
+	d, ok := a.skillDefinition(r.ID, 100)
 	if !ok || d.Effect == 0 || r.Result > 1 {
 		return
 	}
@@ -28,12 +26,13 @@ func (a *App) startMobSkillEffects(r proto.SkillResult) {
 	if d.Effect == 2 || d.Effect == 4 {
 		target = r.Source
 	}
-	if file := effect.ImpactLibrary(r.ID); file != "" {
+	if file := effect.ImpactLibrary(d.VisualCode); file != "" {
 		a.startSkillImpact(target, file, 2)
 	}
 	if d.Effect != 2 && d.Effect != 3 && d.Effect != 4 {
 		visual := r
 		visual.Level = 1
+		visual.ID = d.VisualCode
 		if file, sequence := skillSecondaryLibrary(visual, d); file != "" {
 			a.startSkillImpact(target, file, sequence)
 		}

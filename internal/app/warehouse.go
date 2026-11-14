@@ -231,7 +231,7 @@ func (a *App) drawWarehouse(w, h int, def sdata.NPC) {
 			a.sprites.Draw(a.white, float32(cx), float32(cy), 32, 32, 0, 0, 1, 1, [4]float32{1, .8, .2, .3})
 		}
 		if d := a.itemsItem(it.Type, it.TypeID); d != nil {
-			a.drawItemIcon(d, cx, cy, 32, white)
+			a.drawItemIcon(d, cx, cy, 32, white, &it)
 		}
 		if it.Count > 1 {
 			text := fmt.Sprint(it.Count)
@@ -241,7 +241,7 @@ func (a *App) drawWarehouse(w, h int, def sdata.NPC) {
 	if v.dragging && v.selected {
 		if it, ok := a.warehouseItems()[v.source]; ok {
 			if d := a.itemsItem(it.Type, it.TypeID); d != nil {
-				a.drawItemIcon(d, a.lastMouseX-16, a.lastMouseY-16, 32, [4]float32{1, 1, 1, .85})
+				a.drawItemIcon(d, a.lastMouseX-16, a.lastMouseY-16, 32, [4]float32{1, 1, 1, .85}, &it)
 			}
 		}
 		return

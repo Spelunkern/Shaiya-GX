@@ -176,7 +176,7 @@ func (a *App) duelCanEdit() bool {
 	}
 	return true
 }
-func (a *App) sendDuelOffer(source [2]uint8, item proto.InventoryItem, slot, count uint8) {
+func (a *App) sendDuelOffer(source [2]uint8, item proto.InventoryItem, slot uint8, count uint16) {
 	if !a.duelCanEdit() || a.state.Inventory[source] != item || count == 0 || count > item.Count {
 		return
 	}
@@ -273,7 +273,7 @@ func (a *App) updateDuelModal(in *platform.Input) {
 		}
 		v.quantity = nil
 		if n > 0 {
-			a.sendDuelOffer(q.source, q.item, q.slot, uint8(n))
+			a.sendDuelOffer(q.source, q.item, q.slot, uint16(n))
 		}
 		return
 	}
@@ -374,7 +374,7 @@ func (a *App) drawDuel(w, h int) {
 			}
 			cx, cy, _ := ui.ExchangeCell(side, i)
 			if def := a.itemsItem(it.Type, it.TypeID); def != nil {
-				a.drawItemIcon(def, x+cx, y+cy, 32, white)
+				a.drawItemIcon(def, x+cx, y+cy, 32, white, &proto.InventoryItem{Type: it.Type, TypeID: it.TypeID, Gems: it.Gems})
 			}
 			if it.Count > 1 {
 				text := fmt.Sprint(it.Count)

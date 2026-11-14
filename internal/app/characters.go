@@ -285,6 +285,7 @@ func (a *App) drawCharacters(w, h int) {
 		}
 	case game.PhaseInWorld:
 		a.tooltip = nil
+		a.tooltipMuted = false
 		a.drawPlayerNames(w, h)
 		a.drawCombat(w, h)
 		a.drawChatBubbles(w, h)
@@ -347,6 +348,7 @@ func (a *App) drawCharacters(w, h int) {
 		if a.shop.quantity != nil {
 			a.quantityUI.Draw(a.sprites, a.font)
 		}
+		a.drawRecreationDetails(w, h)
 		a.drawSharedTooltip(w, h)
 		a.drawShortcutDrag()
 		a.drawLocalActionDrag()

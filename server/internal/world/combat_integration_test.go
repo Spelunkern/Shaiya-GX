@@ -398,7 +398,7 @@ func TestPlayerEffects(t *testing.T) {
 
 // TestMobAI drives real mobs through TickMobCombat: target search (AI 1/3,
 // country, the 5 s spawn delay), aggro retargeting, the 45-unit leash,
-// returning home without a refill and the 5 s recovery.
+// returning home without a refill or passive regeneration.
 func TestMobAI(t *testing.T) {
 	if _, err := os.Stat("data/game"); err != nil {
 		os.Chdir("../..")
@@ -471,14 +471,14 @@ func TestMobAI(t *testing.T) {
 	s.mu.Lock()
 	m = mob()
 	m.CurrentHP = m.MaxHP / 2
-	m.PosX, m.recoverAt = 100+mobHomeDone-1, time.Time{}
+	m.PosX = 100 + mobHomeDone - 1
 	m.nextChaseAt = time.Time{}
 	s.mu.Unlock()
 	before := mob().CurrentHP
 	TickMobCombat(nil, 64)
 	TickMobCombat([]PlayerCombatSnapshot{snap(3, 900, 900)}, 64)
-	if got := mob().CurrentHP; got != min(before+uint32(md.RecoverValue), md.MaxHP) {
-		t.Fatalf("hp after return and one recovery %d (before %d, recover %d)", got, before, md.RecoverValue)
+	if got := mob().CurrentHP; got != before {
+		t.Fatalf("mob regenerated health after returning home: %d (before %d)", got, before)
 	}
 	if mob().returningHome {
 		t.Fatal("return did not complete within 10 units of home")
@@ -920,10 +920,9 @@ func TestUserAttack(t *testing.T) {
 	// Some mob damage first: the reward still goes to the top damager.
 	enemy.addDamage(damageByMob, 4242, 5)
 
-	// Resolve many swings: some hit, the HP drops, and a crit asks the
-	// attacker's session to wear the weapon.
+	// Resolve many swings: some hit and HP drops without equipment wear.
 	stats := attacker.stats()
-	hits, crits := 0, 0
+	hits := 0
 	for i := 0; i < 200 && !enemy.dead; i++ {
 		before := enemy.char.CurrentHP
 		enemy.player.QueueUserHit(pendingUserHit{AttackerID: attacker.char.ID, Stats: stats, Kind: attackMelee, X: 500, Z: 500})
@@ -931,7 +930,6 @@ func TestUserAttack(t *testing.T) {
 		if enemy.char.CurrentHP < before {
 			hits++
 		}
-		crits += attacker.player.TakeWeaponWear()
 	}
 	if hits == 0 {
 		t.Fatal("200 swings never hit")
@@ -939,7 +937,7 @@ func TestUserAttack(t *testing.T) {
 	if !enemy.dead || enemy.player.IsAlive() || enemy.char.CurrentHP != 0 {
 		t.Fatalf("enemy not killed: dead=%v hp=%d", enemy.dead, enemy.char.CurrentHP)
 	}
-	t.Logf("hits=%d crits=%d", hits, crits)
+	t.Logf("hits=%d", hits)
 	// CUser::Death: GetExp x 1.2 to the killer, KillPCFrom, ItemDropByUser.
 	exp, _ := attacker.player.TakeRewards()
 	if want := uint32(float64(pvpExp(40, 40)) * pvpExpFactor); len(exp) != 1 || exp[0] != want {

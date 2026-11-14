@@ -40,7 +40,7 @@ def check_seed(root):
                 raise ValueError("SQLite seed row-count mismatch: " + table)
     if not list((root / "data/maps").glob("*.svmap")):
         raise ValueError("server maps are missing")
-    for name in ("Map.ini", "ItemEnchant.ini", "NpcQuest.SData", "KillStatus.SData", "GuildHouse.ini", "SequenceItemCreate.ini"):
+    for name in ("Map.ini", "NpcQuest.SData", "KillStatus.SData", "GuildHouse.ini", "SequenceItemCreate.ini"):
         if not (root / "data/game" / name).is_file():
             raise ValueError("required server data is missing: " + name)
 

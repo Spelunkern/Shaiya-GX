@@ -1,13 +1,23 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
 	"github.com/Spelunkern/Shaiya-GX/internal/ui"
 )
 
-type tooltipSocket struct{ definition *sdata.Item }
+type tooltipExtras struct {
+	maxOJ     uint16
+	forgeInfo string
+	material  *sdata.Item
+}
+
+type tooltipSocket struct {
+	definition *sdata.Item
+	inactive   bool
+}
 type tooltipRun struct {
 	text   string
 	color  [4]float32
@@ -15,8 +25,9 @@ type tooltipRun struct {
 	shadow bool
 }
 type tooltipLayout struct {
-	runs            []tooltipRun
-	height, socketY int
+	runs                 []tooltipRun
+	height, socketY      int
+	materialX, materialY int
 }
 
 func wrapTooltip(f *ui.Font, text string, color [4]float32) [][]tooltipGlyph {
@@ -55,7 +66,7 @@ func wrapTooltip(f *ui.Font, text string, color [4]float32) [][]tooltipGlyph {
 
 // The two Phoenix classes have distinct block spacing, not a single list of
 // evenly spaced rows. Height is measured with the actual reference font.
-func layoutTooltip(f *ui.Font, rows []itemDetailLine, item bool, description string, sockets int) tooltipLayout {
+func layoutTooltip(f *ui.Font, rows []itemDetailLine, item bool, description string, sockets int, extras ...tooltipExtras) tooltipLayout {
 	layout := tooltipLayout{}
 	block := func(text string, color [4]float32, y int, shadow bool) (height, lines int) {
 		wrapped := wrapTooltip(f, text, color)
@@ -105,6 +116,30 @@ func layoutTooltip(f *ui.Font, rows []itemDetailLine, item bool, description str
 		}
 		height, _ := block(description, white, y, false)
 		y += height
+	}
+	if item && len(extras) > 0 {
+		e := extras[0]
+		if e.maxOJ > 0 {
+			y += 5
+			_, n := block(fmt.Sprintf("Max OJ %d/%d", e.maxOJ, e.maxOJ*100), [4]float32{.6, 1, .6, 1}, y, false)
+			y += max(15, n*15)
+		}
+		if e.forgeInfo != "" {
+			y += 5
+			_, n := block(e.forgeInfo, [4]float32{.6, 1, .6, 1}, y, false)
+			y += max(15, n*15)
+		}
+		if e.material != nil {
+			y += 5
+			prefix := "Enchant: "
+			layout.materialX, layout.materialY = 10+f.Width(prefix), y
+			gap := " "
+			for f.Width(gap) < 16 && len(gap) < 16 {
+				gap += " "
+			}
+			_, n := block(prefix+gap+e.material.Name, white, y, false)
+			y += max(15, n*15)
+		}
 	}
 	layout.socketY = y + 3
 	if item && sockets > 0 {

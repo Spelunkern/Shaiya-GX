@@ -79,7 +79,7 @@ func (s *State) applyMall(p []byte) error {
 
 // 0x2607 contains only the destination and gift slot. Resolve its item
 // attributes from the client's item catalog after the server confirms it.
-func (s *State) ResolveMallClaim(quality uint16, maxStack uint8) bool {
+func (s *State) ResolveMallClaim(quality uint16, maxStack uint16) bool {
 	claim := s.Mall.PendingClaim
 	if claim == nil || maxStack == 0 {
 		return false

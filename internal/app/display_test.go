@@ -20,7 +20,7 @@ func TestDisplayAppliesOnlyOnOKAndFailureRestoresSelection(t *testing.T) {
 		a.updateGameMenu(&platform.Input{MouseX: x + px, MouseY: y + py, Clicked: true}, 1024, 768)
 	}
 	click(145, 90)
-	click(80, 103+ui.PlayerMenuTextInset+ui.PlayerMenuRowHeight+5)
+	click(80, 103+ui.PlayerMenuTextInset+5)
 	if len(calls) != 0 {
 		t.Fatal("pending resolution changed the display")
 	}
@@ -45,7 +45,7 @@ func TestDisplayAppliesOnlyOnOKAndFailureRestoresSelection(t *testing.T) {
 func TestDisplayDropdownConsumesEnterBeforeChat(t *testing.T) {
 	a := inputApp()
 	a.menuOpen = true
-	a.gameMenu.SetDisplayModes([]platform.DisplayMode{{Width: 800, Height: 600}})
+	a.gameMenu.SetDisplayModes([]platform.DisplayMode{{Width: 800, Height: 600}, {Width: 1024, Height: 768}})
 	a.gameMenu.Open(ui.MenuGraphics)
 	x, y := a.gameMenu.Origin(1024, 768)
 	for _, in := range []platform.Input{{MouseX: x + 145, MouseY: y + 90, Pressed: true, MouseDown: true}, {MouseX: x + 145, MouseY: y + 90, Clicked: true}} {
@@ -81,6 +81,28 @@ func TestDisplaySettingsPersistAndExplicitWindowOverrides(t *testing.T) {
 		}
 		if applied != want || b.gameMenu.Settings.DisplayMode != want || !b.displayConfigured {
 			t.Fatalf("override=%v: applied=%v settings=%v", override, applied, b.gameMenu.Settings.DisplayMode)
+		}
+	}
+}
+
+func TestWindowedChoicesMigrateAndPersist(t *testing.T) {
+	configDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configDir)
+	t.Setenv("APPDATA", configDir)
+	for _, mode := range []platform.DisplayMode{{Width: 1600, Height: 900, Kind: platform.DisplayWindowed}, {Width: 1280, Height: 720}} {
+		a := inputApp()
+		a.cfg.RememberLayout = true
+		a.gameMenu.Settings.DisplayMode = mode
+		a.gameMenu.Open(ui.MenuGraphics)
+		a.saveClientSettings()
+		b := inputApp()
+		b.cfg.RememberLayout = true
+		b.gameMenu.SetDisplayModes([]platform.DisplayMode{mode})
+		var got platform.DisplayMode
+		b.cfg.ApplyDisplayMode = func(m platform.DisplayMode) error { got = m; return nil }
+		b.loadClientSettings()
+		if got != platform.WindowMode(mode) || b.gameMenu.Settings.DisplayMode != platform.WindowMode(mode) {
+			t.Fatal("display kind did not persist", mode, got)
 		}
 	}
 }

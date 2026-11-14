@@ -81,7 +81,7 @@ func (c *client) read(timeout time.Duration) []byte {
 	return c.recv.Transform(frame[2:])
 }
 
-func op(p []byte) packet.Opcode { v, _ := packet.U16(p); return packet.Opcode(v) }
+func op(p []byte) packet.Opcode { v, _ := packet.U16(p); return packet.BaseOpcode(v) }
 
 // until reads payloads until one has the wanted opcode.
 func (c *client) until(want packet.Opcode, seen map[packet.Opcode]int) []byte {

@@ -14,7 +14,7 @@ import (
 // the user's monitor mode or showing a fullscreen window on their desktop.
 func TestDisplayModeRoundTripHeadless(t *testing.T) {
 	if os.Getenv("SHAIYA_TEST_DISPLAY_MODES") != "1" {
-		t.Skip("requires isolated null-platform test")
+		t.Skip("isolated null platform")
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -28,35 +28,32 @@ func TestDisplayModeRoundTripHeadless(t *testing.T) {
 	defer glfw.DefaultWindowHints()
 	glfw.WindowHint(glfw.ClientAPI, glfw.NoAPI)
 	glfw.WindowHint(glfw.Visible, glfw.False)
-	raw, err := glfw.CreateWindow(640, 480, "isolated mode test", nil, nil)
+	raw, err := glfw.CreateWindow(640, 480, "isolated resolutions", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer raw.Destroy()
 	w := &Window{Window: raw, normalSize: windowState{Width: 640, Height: 480}}
-	modes := w.DisplayModes()
-	if len(modes) < 2 {
-		t.Fatal("null monitor has no test mode")
+	for _, mode := range w.DisplayModes() {
+		if mode.Label() == "Window" || mode.Label() == "Fullscreen" || mode.Width == 0 {
+			t.Fatal("special mode offered")
+		}
 	}
-	mode := modes[len(modes)-1]
-	if err = w.ApplyDisplayMode(mode); err != nil {
-		t.Fatal(err)
+	for _, mode := range []DisplayMode{{Width: 800, Height: 600}, {Width: 1600, Height: 900, Kind: DisplayWindowed}, {Width: 1920, Height: 1080}} {
+		if err = w.ApplyDisplayMode(mode); err != nil {
+			t.Fatal(err)
+		}
+		x, y := w.GetSize()
+		if w.GetMonitor() != nil || x != mode.Width || y != mode.Height {
+			t.Fatal("resolution entered fullscreen or resized incorrectly", mode, x, y)
+		}
 	}
-	width, height := w.GetSize()
-	if w.GetMonitor() == nil || width != mode.Width || height != mode.Height {
-		t.Fatal("fullscreen transition", width, height)
+	if err = w.ApplyDisplayMode(DisplayMode{Width: 7680, Height: 4320}); err == nil {
+		t.Fatal("unavailable resolution accepted")
 	}
-	if err = w.ApplyDisplayMode(DisplayMode{}); err != nil {
-		t.Fatal(err)
+	if err = w.ApplyDisplayMode(DisplayMode{Kind: DisplayFullscreen}); err != nil || w.GetMonitor() != nil {
+		t.Fatal("old fullscreen setting entered fullscreen", err)
 	}
-	width, height = w.GetSize()
-	if w.GetMonitor() != nil || width != 640 || height != 480 {
-		t.Fatal("window size was not restored", width, height)
-	}
-	if err = w.ApplyDisplayMode(DisplayMode{1234, 567}); err == nil {
-		t.Fatal("accepted a non-advertised mode")
-	}
-	t.Logf("null monitor fullscreen %dx%d -> window 640x480; unsupported mode refused", mode.Width, mode.Height)
 }
 
 func TestWindowedResizePreservesGL(t *testing.T) {
@@ -79,7 +76,9 @@ func TestWindowedResizePreservesGL(t *testing.T) {
 	gl.TextureStorage2D(tex, 1, gl.RGBA8, 1, 1)
 	data := [4]byte{17, 93, 201, 255}
 	gl.TextureSubImage2D(tex, 0, 0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(&data[0]))
-	w.SetSize(800, 600)
+	if err = w.ApplyDisplayMode(DisplayMode{Width: 800, Height: 600, Kind: DisplayWindowed}); err != nil {
+		t.Fatal(err)
+	}
 	glfw.PollEvents()
 	if err = w.ApplyDisplayMode(DisplayMode{}); err != nil {
 		t.Fatal(err)

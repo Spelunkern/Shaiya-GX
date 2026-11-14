@@ -119,7 +119,11 @@ func (a *App) updateQuickPotionDrop(in *platform.Input, w, h int) bool {
 			a.wv.uiLeft = -2
 			if in.Clicked {
 				x, y := ui.QuickPotionOrigin(v.Position, w, h)
-				if cell := ui.QuickPotionCell(in.MouseX, in.MouseY, x, y); cell >= 0 && cell != v.held {
+				cell := ui.QuickPotionCell(in.MouseX, in.MouseY, x, y)
+				if cell < 0 {
+					v.bindings[v.held] = sdata.ItemKey{}
+					a.saveQuickPotions()
+				} else if cell != v.held {
 					v.bindings[cell], v.bindings[v.held] = v.bindings[v.held], v.bindings[cell]
 					a.saveQuickPotions()
 				}
@@ -170,10 +174,7 @@ func (a *App) updateQuickPotions(in *platform.Input, w, h int) bool {
 	if !pointInside(in, x, y, 94, 54) {
 		return handled
 	}
-	if in.RightPressed && cell >= 0 {
-		a.quickPotions.bindings[cell] = sdata.ItemKey{}
-		a.saveQuickPotions()
-	}
+
 	if in.Pressed {
 		a.quickPotions.held = cell
 		a.quickPotions.pressX, a.quickPotions.pressY = in.MouseX, in.MouseY

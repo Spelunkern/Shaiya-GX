@@ -180,7 +180,7 @@ func rollMobDrops(mapID uint16, mob *MapMob, ownerID uint32, party []*ConnectedP
 		x, z := dropPosition(mob.PosX, mob.PosZ)
 		mi := MapItem{ID: nextMapItemID(), OwnerID: ownerID, FromMob: true, DroppedAt: time.Now(), PosX: x, PosZ: z}
 		if def != nil {
-			mi.Item = db.Item{Type: def.Type, TypeID: def.TypeID, Quality: def.Quality, Count: 1}
+			mi.Item = newDroppedItem(def)
 		} else {
 			mi.Item, mi.Money = db.Item{Type: moneyItemType, Count: 1}, money
 		}
@@ -231,4 +231,12 @@ func rollMobDrops(mapID uint16, mob *MapMob, ownerID uint32, party []*ConnectedP
 		}
 	}
 	return packets
+}
+
+func newDroppedItem(def *db.ItemDef) db.Item {
+	it := db.Item{Type: def.Type, TypeID: def.TypeID, Quality: def.Quality, Count: 1}
+	if def.Server > 0 && def.ReqWis > 0 {
+		it.CraftName = rollCraftName(min(def.Server, 9), uint8(min(def.ReqWis, 99)), rollsStatsOnly(def.Type), "")
+	}
+	return it
 }

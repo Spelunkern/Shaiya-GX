@@ -18,6 +18,12 @@ func TestNativeOptionsMenuRoutesAllEightButtons(t *testing.T) {
 		m.Update(&in, 1024, 768)
 		in.Pressed, in.MouseDown, in.Clicked = false, false, true
 		action := m.Update(&in, 1024, 768)
+		if index == 5 {
+			if !m.buttons[index].Disabled || m.Page != MenuMain {
+				t.Fatal("Help remains enabled")
+			}
+			continue
+		}
 		if index < 6 && m.Page != MenuPage(index+1) {
 			t.Fatal("wrong subpage", index, m.Page)
 		}
@@ -117,5 +123,28 @@ func TestAmbientSliderPreviewCancelAndSave(t *testing.T) {
 	m.Update(&platform.Input{MouseX: x + 120, MouseY: y + 374, Pressed: true, MouseDown: true}, 1024, 768)
 	if action := m.Update(&platform.Input{MouseX: x + 120, MouseY: y + 374, Clicked: true}, 1024, 768); action != MenuSave || m.SavedSettings().Ambient != .5 {
 		t.Fatal("ambient save failed", action)
+	}
+}
+
+func TestCapeAndHelmetCheckmarksMeanVisible(t *testing.T) {
+	m, _ := NewGameMenu(marketTextures{})
+	m.Open(MenuGraphics)
+	for _, c := range m.checks() {
+		if c.value != &m.Settings.HideCloak && c.value != &m.Settings.HideHelmet {
+			continue
+		}
+		if !m.checkSelected(c) || *c.value {
+			t.Fatal("default visible equipment must be checked")
+		}
+		x, y := m.Origin(1024, 768)
+		m.Update(&platform.Input{MouseX: x + c.x + 4, MouseY: y + c.y + 4, Pressed: true, MouseDown: true}, 1024, 768)
+		m.Update(&platform.Input{MouseX: x + c.x + 4, MouseY: y + c.y + 4, Clicked: true}, 1024, 768)
+		if m.checkSelected(c) || !*c.value {
+			t.Fatal("unchecking must hide equipment")
+		}
+	}
+	m.DiscardPage()
+	if m.Settings.HideCloak || m.Settings.HideHelmet {
+		t.Fatal("cancel retained hidden equipment")
 	}
 }

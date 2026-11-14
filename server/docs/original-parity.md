@@ -19,9 +19,9 @@ gaps; **invented** is still a GX Server rule to replace.
 | Level-up | stat/skill points by mode, +1 main stat | done |
 | Exp per kill | `CMob::GetExp` 0x00491690, `award_experience` | done: x1.5 with exp doubling (ability 35), +0.2 with a charm (40-42), quest rewards without modifiers; easy mode stops at level 30 and reaching the cap leaves the exp at the level start. No event multiplier |
 | Recovery | `CUser::UpdateRecover` 0x0048cfb0; `InitEquipment`, `GemEquipmentAdd`, abilities 10–12 and KC tiers | done: previous tick mode selects sitting (5% plus skill percent, flat 28 and recovery gems), standing (flat 4 and recovery gems), or combat (KC modifiers); blessing recovery uses current maximum pools. Dead actors do not recover. |
-| Lapisia enchant | `CUser::ItemLapisianAdd` 0x0045fb20, `EnableLapisianAdd` 0x0045f960, `GetGemMoneyByGrade` 0x0045f6e0, `ItemEnchant.ini` | done: lapisia type 95 whose own fields pick the targets (ReqLevel weapons, Country 16, job flags 17-22, Grow 23, ReqStr 25, real type 24 always); item count 1 with Server set and its ReqLuc as material; cost by the lapisia's ReqIg (30-40: 1,000-1,040,000; 96-100: 2.5-9.8 M); roll SRandom(1,000,000) + material count under the step's rate; lapisia and material count used either way; a failed ReqVg lapisia breaks the item (quality 0); armour steps stored as step + 50 in the Craftname |
+| Lapisia enchant | Original target/material fields and Craftname encoding retained | GX policy: compiled Go rates/bonuses and configurable compiled cap (default20), native ReqIg gold costs, material count does not change chance, no equipment destruction. See [feature wiki](../../docs/wiki/blacksmith.md). |
 | Craft bonuses | `CUser::ItemEquipmentAdd`, `CItem::CopyCraftExpassion` 0x004ba670 | done: Craftname stats only on items with Server set and ReqWis 1-99; enchant up to 50 adds attack, above 50 absorption; Items.Exp absorbs damage |
-| Gems | `CUser::ItemGemAdd` 0x00461310, `CItem::EnableGem` 0x004ba050, `ItemGemRemoveAll` 0x00461fc0 | done: target fields as the lapisia, item Slot is a capacity each gem uses its own Slot of, no duplicates; cost GetGemMoneyByGrade(ReqIg); chance trunc(289 - 8 x ReqIg + country tier type 24 + level x 0.05), Linking Hammer x ReqVg %, 1-50; cost GetGemMoneyByGrade - Vg / 10 (CUser +0x16a is Chars.Vg); a failed ReqVg gem destroys the item unless a Lucky Charm is used; removal pays every gem, rolls the first gem's chance, needs room for all, and a failure loses the gems (and the item for ReqVg gems). |
+| Gems | Native capacity, target flags and result layouts retained | GX policy: native ReqIg costs without Vg/level terms, additive linking hammers up to100%, selective extraction with direct hammer ReqVg probability, equipment always preserved. See [feature wiki](../../docs/wiki/blacksmith.md). |
 | Hit chance | `CUser::AttackSuccess` 0x0044d010 / `CMob::AttackSuccess` 0x004a23f0 | done: skills check the mob's ResistState/ResistSkill and SuccessType 1-3; the magic term reads WIS on both sides (CUser +0x122c, stMOBInfo +0x3a), SuccessType 3 reads LUC (Eternity labels these DEX). Defender blocks (buff 85 by count, 86 by chance, 92 all) and mirror reflection (buff 83, `CUser::ChkMirror` 0x0044e080: SuccessType 1 SuccessValue%, 2 LUC x 10 / value, 3 WIS x 10 / value; 0x051B back to the mob) |
 | Damage | `CUser::AttackDamage` 0x0044d540, `CMob::AttackDamage` 0x004a2920 / 0x004a3070, element table `CGameData::m_AttackAttr` 0x00542260 | done: skill DamageType 0-5, skill AttrType element, detail 24 ignores the defender element, bow x0.7 within 3 units unless cross road, mob normal attacks use element row 0 against the armour element; the random terms and the mob critical read LUC (+0x1234 / stMOBInfo +0x3c, Eternity labels them WIS) |
 | Mob stats and attacks | `Mobs` Dex/Wis/Luc/Defense/Magic/Attrib/Size, `CMob::AttackAI` 0x004a1ab0 | done: slots 3 to 1 by Attackok (3: HP 20-40%, 4: HP <= 5%, 5: HP < 20%), per-slot cooldowns, AttackTypeN is a mob skill (Skills level 100): attack (0x060D first hit, 0x060B area/repeat, 0x060C drain, 0x060E AddDamage), self heal; areas 6/7 by ApplyRange. Their debuff skills stay on the player (below). Attackok 6 turns to the weakest attacker of another country (FindAttackUserMinHP) |
@@ -87,6 +87,15 @@ gaps; **invented** is still a GX Server rule to replace.
 1.3 0.5 1.0 1.6 1.0 0.5 1.0 1.4 1.0
 ```
 
+Current element-specific evidence and event-state corrections are documented in
+`docs/wiki/elements.md`. Shared matrix: `internal/element`; all81 float32 bits
+checked against immutable original server SHA256
+`0fb7c9f13b5bcf186118f8bfe73ab214226b93e8aa502b8e6fded4a8312bc547`.
+Item normalization0..8 and mob base normalization0..4 follow native loaders;
+normal mob attacks remain neutral. Temporary element fields now follow apply/
+remove events, including weapon removal and native restoration quirks. Detection
+reads the live defensive snapshot, rather than equipment without active effects.
+
 ## Reading the original
 
 Ghidra 12.1.3 opens Eternity's project read-only:
@@ -106,3 +115,10 @@ instructions containing the filter text (for example `"0x12"` to see which
 the shipped binary; field meanings above come from the instruction offsets
 (Str 0x1220, Dex 0x1224, Int 0x1228, Wis 0x122c, Rec 0x1230, Luc 0x1234,
 HP 0x1238, MP 0x123c, SP 0x1240), cross-checked with `CUser::SetAttack`.
+
+
+GX item affinity intentionally overrides original conflict-to-neutral merging:
+intrinsic element wins, otherwise the first elemental lapis in six-socket order.
+Later elemental lapis stay linked/inactive (including bonuses and triggers);
+non-elemental lapis remain active. Client socket rows gray the inactive gems.
+See docs/wiki/elements.md for this requested rule and its original provenance.

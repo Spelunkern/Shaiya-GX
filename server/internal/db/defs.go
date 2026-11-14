@@ -2,6 +2,8 @@ package db
 
 import (
 	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/element"
+	"github.com/Spelunkern/Shaiya-GX/internal/itemstack"
 	"strings"
 	"sync"
 )
@@ -37,14 +39,14 @@ type ItemDef struct {
 	Grade                                  uint16
 	Drop                                   uint16 // drop-limit interval selector (0 = unlimited)
 	Server                                 uint8
-	Count                                  uint8
-	ReqVg                                  int16 // lapisia: breaks the item on a failed enchant
+	Count                                  uint16
+	ReqVg                                  int16 // linking hammer bonus points / extraction hammer success percent
 	ReqOg                                  uint8 // stItemInfo byOG: not storable in the guild bank
 	ExpAbsorb                              uint8 // Items.Exp: damage absorbed while equipped
 }
 
 // MaxStack is the stack size (Items.Count, at least 1).
-func (d *ItemDef) MaxStack() uint8 { return max(d.Count, 1) }
+func (d *ItemDef) MaxStack() uint16 { return itemstack.Limit(d.Count) }
 
 type SkillKey struct {
 	SkillID uint16
@@ -159,7 +161,10 @@ type MobDrop struct {
 	DropRate  uint32
 }
 
-type ProductItem struct{ Type, TypeID, Count uint8 }
+type ProductItem struct {
+	Type, TypeID uint8
+	Count        uint16
+}
 
 type Product struct {
 	Code    string
@@ -185,8 +190,9 @@ type Status struct{ HP, SP, MP uint32 }
 // BaseItem is a BaseItemsDefs row: an item a new character of that
 // family and job starts with, in inventory bag 1 at Slot.
 type BaseItem struct {
-	Type, TypeID, Count, Slot uint8
-	Quality                   uint16
+	Type, TypeID, Slot uint8
+	Count              uint16
+	Quality            uint16
 }
 
 // BaseItemKey indexes BaseItemsDefs by family (race) and job.
@@ -335,6 +341,7 @@ func loadDefs() (*Defs, error) {
 			return nil, fmt.Errorf("scan Items: %w", err)
 		}
 		it.Name = strings.TrimRight(it.Name, " ")
+		it.Attrib = element.Normalize(it.Attrib)
 		it.ReqLevel, it.Quality, it.Grade, it.Drop = clampU16(reqLevel), clampU16(quality), clampU16(grade), clampU16(drop)
 		for i, v := range classes {
 			it.Classes[i] = v != 0
@@ -448,7 +455,7 @@ func loadDefs() (*Defs, error) {
 			MoneyMax: uint32(max(money2, 0)), RespawnSeconds: MobRespawnSeconds(special),
 			Exp: uint32(max(exp, 0)), Attack: uint32(max(attack, 0)), AI: ai, ChaseRange: float32(max(chase, 0)),
 			Dex: clampU16(dex), Wis: clampU16(wis), Luc: clampU16(luc), Defense: clampU16(def), Magic: clampU16(magic),
-			ShieldDefense: uint32(max(shield, 0)), Attrib: clampU8(attrib), Size: clampU8(size), QuestItemID: int32(questItem), NormalTimeMS: uint32(max(ntime, 0)),
+			ShieldDefense: uint32(max(shield, 0)), Attrib: element.MobElement(clampU8(attrib)), Size: clampU8(size), QuestItemID: int32(questItem), NormalTimeMS: uint32(max(ntime, 0)),
 			NormalStep: clampU16(nstep), ChaseTimeMS: uint32(max(ctime, 0)), ChaseStep: clampU16(cstep)}
 		for i := range a {
 			d.Mobs[uint16(mobID)].Attacks[i] = MobAttack{Type: clampU16(a[i][0]), TimeMS: uint32(max(a[i][1], 0)),
@@ -561,7 +568,7 @@ func loadDefs() (*Defs, error) {
 		var p Product
 		var cost int64
 		ids := make([]int64, 24)
-		counts := make([]uint8, 24)
+		counts := make([]uint16, 24)
 		dest := []any{&p.Code, &p.Name, &cost}
 		for i := range 24 {
 			dest = append(dest, &ids[i], &counts[i])
@@ -572,6 +579,10 @@ func loadDefs() (*Defs, error) {
 		}
 		p.Code, p.Name, p.BuyCost = strings.TrimRight(p.Code, " "), strings.TrimRight(p.Name, " "), uint32(max(cost, 0))
 		for i := range 24 {
+			if counts[i] > itemstack.Max {
+				rows.Close()
+				return nil, fmt.Errorf("ProductList %q slot %d exceeds quantity limit", p.Code, i+1)
+			}
 			if ids[i] > 0 && counts[i] > 0 {
 				p.Items = append(p.Items, ProductItem{clampU8(ids[i] / 1000), clampU8(ids[i] % 1000), counts[i]})
 			}

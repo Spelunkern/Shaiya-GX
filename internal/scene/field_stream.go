@@ -17,6 +17,8 @@ const cellsPerFrame = 8
 type cellKey struct{ x, z int }
 type cellObject struct {
 	resourceID      int
+	detailClass     uint8 // 1: grass, 2: tree; structural objects are always retained
+	detailRank      uint8
 	drawCenter      [3]float32
 	drawRadius      float32
 	drawBoundsValid bool
@@ -82,6 +84,8 @@ type fieldStream struct {
 	lastPrepare, lastTerrain, lastTrim time.Duration
 	lodInstances                       int
 	submittedTriangles                 int
+	detailCulled                       int
+	detailBias                         float32
 	drawSectors                        []fieldDrawSector
 	objectTests                        int
 	disableSectors                     bool // reference path for image/performance comparisons
@@ -126,6 +130,7 @@ func loadStreamedField(parent *Assets, stem string) (*World, error) {
 	}
 	s := &fieldStream{world: w, assets: NewAssets(parent.Arc), stem: stem, index: map[cellKey][]int{}, cells: map[cellKey]*fieldCell{}, materials: map[int]Section{}, vanis: map[string]*vaniAsset{}, terrainBatches: map[terrainBatchKey]*terrainBatch{}}
 	w.stream = s
+	w.loadPlacedDungeons(s.assets)
 	s.indexObjects()
 	s.indexResources()
 	w.loadMapEffects(parent)

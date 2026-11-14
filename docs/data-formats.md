@@ -138,3 +138,41 @@ The native World Map uses `WorldMap.cfg`, `interface/wm_map.png`, `wm_letter.png
 arrow and `MiniMap/<MapNum>.png` previews. CFG coordinates refer to its original
 512×512 content area. Country 0/1/2 means both/Light/Fury. The legacy
 `worldmap-light.jpg`/`worldmap-dark.jpg` images are not used by this EP5 path.
+
+Outdoor FLD geometry uses the original finest four-triangle fan per eight-unit
+square, preserving corner/centre samples and reconstructing unused intermediate
+heights. Mesh, height queries and shadow receivers share this surface. See
+[terrain reverse engineering](terrain.md) for original addresses and validation.
+
+
+### Placed dungeon assets and monster skill metadata
+
+FLD `Dungeons` placements reference full `world/dungeon/*.dg` assets. The client
+applies each WLD basis and position to DG vertices, normals and collider bounds,
+loads the authored lightmap pages, and preserves those textures during field
+streaming. Placed DG parts use normal frustum/terrain visibility; they do not
+switch an outdoor field to dungeon fog or dungeon-only occlusion.
+
+`Monster/NpcSkill.SData` shares the nine-slot Skill.SData record format but owns
+an independent one-based skill ID namespace. In the 116-byte serialized payload,
+byte 3 is animation style, word 4 is the NPC visual selector and word 22 is skill
+detail. Wire level 100 selects rank one of this table, never player rank one.
+NPC icon numbers address the existing native skill icon atlases.
+
+MON bone/effect pairs address individual emitters in `Effect/Monster.EFT`, not
+sequence IDs. They use animated bone times creature-world transforms directly;
+world/skill EFT basis conversion does not apply to bone attachments. MON attack
+and death filenames address their own EFT libraries and remain separate from
+NpcSkill recipient effects. Invalid placeholder names such as LOAD are ignored.
+
+
+Native forge views also require `interface/rapisian.png` (enhancement) and
+`interface/Remake3.png` (recreation); quest objectives use `radar_enemy.png`.
+These are decoded from the corresponding original TGA files, with no new art.
+They remain external game assets, not repository binaries. The ordinary full
+asset import produces them alongside the other interface resources.
+
+
+Item Mall runtime data uses the native binary `Cash.SData` table and SQL
+ProductList on the server, with byte quantities up to 255. The asset importer
+preserves Cash.SData. See [cash catalog](cash-catalog.md).

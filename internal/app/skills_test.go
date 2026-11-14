@@ -12,6 +12,7 @@ import (
 func TestActionsUseAssignedNumberAndItemPosition(t *testing.T) {
 	a := &App{state: game.New(), skillDefs: map[sdata.SkillKey]sdata.Skill{{ID: 30, Level: 1}: {Target: 2}}}
 	a.state.SelfID, a.state.Target = 42, 99
+	a.state.Entities[99] = &game.Entity{ID: 99, Kind: game.KindMob}
 	a.state.Inventory[[2]uint8{3, 8}] = proto.InventoryItem{Bag: 3, Slot: 8, Type: 25, TypeID: 4, Count: 1}
 	a.state.Skills[7] = proto.LearnedSkill{ID: 30, Level: 1, Number: 7}
 	a.state.QuickSlots = []proto.QuickSlot{{Slot: 9, Bag: 100, Number: 7}, {Slot: 2, Bag: 3, Number: 8}}
@@ -82,5 +83,25 @@ func TestSkillBookCategoriesAndConfirmedLearningLimits(t *testing.T) {
 	keys = a.visibleSkills()
 	if len(keys) != 1 || keys[0].ID != 3 {
 		t.Fatal("assignment did not use confirmed learned skills", keys)
+	}
+}
+
+func TestEquipmentActionKeepsSwapPosition(t *testing.T) {
+	a := &App{state: game.New()}
+	a.state.QuickSlots = []proto.QuickSlot{{Bar: 1, Slot: 3, Bag: 2, Number: 7}}
+	key := [2]uint8{2, 7}
+	equip := [2]uint8{0, 5}
+	a.state.Inventory[key] = proto.InventoryItem{Bag: 2, Slot: 7, Type: 1, TypeID: 2, Count: 1}
+	a.state.Inventory[equip] = proto.InventoryItem{Bag: 0, Slot: 5, Type: 1, TypeID: 3, Count: 1}
+	for i := 0; i < 4; i++ {
+		if got := a.actionPacket(13); !bytes.Equal(got, proto.ItemMovePacket(2, 7, 0, 5)) {
+			t.Fatalf("equipment shortcut did not swap: %x", got)
+		}
+		// Server-confirmed positions remain the bar's identity; the item changes.
+		a.state.Inventory[key], a.state.Inventory[equip] = a.state.Inventory[equip], a.state.Inventory[key]
+	}
+	a.inventory.pending = true
+	if a.actionPacket(13) != nil {
+		t.Fatal("duplicate equip request while awaiting server")
 	}
 }

@@ -85,6 +85,10 @@ type dgPart struct {
 }
 
 func (w *World) loadDG(a *Assets, layout string) error {
+	return w.loadDGAt(a, layout, render.Identity())
+}
+
+func (w *World) loadDGAt(a *Assets, layout string, matrix render.M4) error {
 	file := "world/dungeon/" + layout
 	b, err := a.Arc.ReadFile(file)
 	if err != nil {
@@ -94,7 +98,8 @@ func (w *World) loadDG(a *Assets, layout string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", file, err)
 	}
-	w.dgShadow = buildDungeonShadowIndex(d.Root)
+	transformDG(d.Root, matrix)
+	w.appendDGShadow(buildDungeonShadowIndex(d.Root))
 	d.Root.Walk(func(n *world.DGNode) {
 		if len(n.Collider.Faces) > 0 {
 			w.dgColliders = append(w.dgColliders, n.Collider)

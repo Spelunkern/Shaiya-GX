@@ -3,6 +3,7 @@ package sdata
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/Spelunkern/Shaiya-GX/internal/itemstack"
 	"github.com/Spelunkern/Shaiya-GX/internal/textwire"
 	"math"
 )
@@ -13,6 +14,7 @@ import (
 type Item struct {
 	Name, Description                  string
 	Special                            uint8
+	Server                             uint8
 	RecoveryHP, RecoverySP, RecoveryMP uint16
 	Type, TypeID                       uint8
 	Model, Icon                        uint8
@@ -30,7 +32,7 @@ type Item struct {
 	Def, Resist                        uint16
 	BuyPrice                           uint32
 	SellPrice                          uint32
-	Count                              uint8
+	Count                              uint16
 }
 
 type ItemKey struct{ Type, TypeID uint8 }
@@ -114,8 +116,11 @@ func ParseItems(raw []byte) (map[ItemKey]*Item, error) {
 			c.take(2) // Speed, Exp
 			it.BuyPrice, it.SellPrice = c.u32(), c.u32()
 			c.take(4) // Grade, Drop
-			c.take(1) // Server
-			it.Count = c.u8()
+			it.Server = c.u8()
+			it.Count = uint16(c.u8())
+			if it.Count > 1 {
+				it.Count = itemstack.Max
+			}
 			out[ItemKey{it.Type, it.TypeID}] = it
 		}
 	}

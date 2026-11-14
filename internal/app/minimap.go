@@ -22,6 +22,7 @@ type mapView struct {
 	diameter, zoom         float32
 	u, v                   float32
 	lastX, lastY           int
+	markers                []ui.MapMarker
 }
 
 // Quest readiness is only a presentation hint; Rapture validates turn-in.
@@ -61,12 +62,16 @@ func questMapReady(q sdata.Quest, active proto.ActiveQuest, s *game.State) bool 
 }
 
 func (a *App) npcQuestMapKind(e *game.Entity) (ui.MapMarkerKind, bool) {
+	return a.npcQuestMapKindAt(e, time.Now())
+}
+
+func (a *App) npcQuestMapKindAt(e *game.Entity, now time.Time) (ui.MapMarkerKind, bool) {
 	def := a.npcDefs[sdata.NPCKey{Type: e.NpcType, ID: e.TypeID}]
 	for _, id := range def.EndQuests {
 		if active, ok := a.state.Quests[id]; ok && id > 0 && int(id) <= len(a.questDefs) {
 			q := a.questDefs[id-1]
 			started, known := a.questStartedAt[id]
-			if (!known || time.Since(started).Seconds() >= float64(q.MinMinutes)*60) && questMapReady(q, active, a.state) {
+			if (!known || !now.Before(started.Add(time.Duration(q.MinMinutes)*time.Minute))) && questMapReady(q, active, a.state) {
 				return ui.MapQuestEnd, true
 			}
 		}
@@ -85,13 +90,32 @@ func (a *App) npcQuestMapKind(e *game.Entity) (ui.MapMarkerKind, bool) {
 	return 0, false
 }
 
-func (a *App) questMapMarkers(mapSize float32, markers []ui.MapMarker) []ui.MapMarker {
-	for _, e := range a.state.Entities {
-		if e.Kind != game.KindNpc {
+func (a *App) visibleQuestMapMarkers(mapSize float32, markers []ui.MapMarker) []ui.MapMarker {
+	// Build objectives once, rather than scanning all quests for every creature.
+	objectives := map[uint16]bool{}
+	for id, active := range a.state.Quests {
+		if id == 0 || int(id) > len(a.questDefs) {
 			continue
 		}
-		kind, ok := a.npcQuestMapKind(e)
-		if !ok {
+		q := a.questDefs[id-1]
+		if q.EndType != 2 {
+			continue
+		}
+		for i, mob := range q.MobIDs {
+			if mob != 0 && active.Counters[i] < q.MobCounts[i] {
+				objectives[mob] = true
+			}
+		}
+	}
+	for _, e := range a.state.Entities {
+		kind, show := ui.MapParty, false
+		if e.Kind == game.KindNpc {
+			kind, show = a.npcQuestMapKind(e)
+		}
+		if e.Kind == game.KindMob && !e.Dead && objectives[e.TypeID] {
+			kind, show = ui.MapQuestObjective, true
+		}
+		if !show {
 			continue
 		}
 		if u, v, ok := ui.MapPosition(e.X, e.Z, mapSize); ok {
@@ -252,9 +276,10 @@ func (a *App) drawMinimap(w, h int, full bool) {
 		u, z = -1, -1
 	}
 	heading := float32(math.Atan2(float64(a.wv.facing[0]), float64(a.wv.facing[2])))
-	var storage [32]ui.MapMarker
-	markers := partyMapMarkers(a.state, float32(a.wv.world.WLD.MapSize), storage[:0])
+	markers := partyMapMarkers(a.state, float32(a.wv.world.WLD.MapSize), v.markers[:0])
 	markers = a.questMapMarkers(float32(a.wv.world.WLD.MapSize), markers)
+	v.markers = markers
+
 	a.minimap.MapName = ui.MapName(a.msg, a.wv.mapID)
 	if full {
 		a.loadWorldMap(v)
@@ -265,6 +290,18 @@ func (a *App) drawMinimap(w, h int, full bool) {
 			return
 		}
 		a.minimap.DrawFull(a.sprites, a.font, v.image, a.white, w, h, ui.MapWindow(v.u, v.v, 1/v.zoom), u, z, heading, a.wv.mapID, markers)
+		x, y, scale := a.minimap.FullRect(w, h)
+		position := fmt.Sprintf("X: %.0f  Z: %.0f", a.wv.pos[0], a.wv.pos[2])
+		a.font.DrawScaled(a.sprites, position, float32(x)+24*scale, float32(y)+559*scale, scale, white, 0)
+		fx := (float32(a.lastMouseX-x) - 16*scale) / (512 * scale)
+		fy := (float32(a.lastMouseY-y) - 43*scale) / (512 * scale)
+		if px, pz, inside := ui.MapCoordinates(ui.MapWindow(v.u, v.v, 1/v.zoom), fx, fy, float32(a.wv.world.WLD.MapSize)); inside {
+			label := fmt.Sprintf("X: %.0f  Z: %.0f", px, pz)
+			width := a.font.Width(label) + 8
+			left, top := min(a.lastMouseX+16, w-width), min(a.lastMouseY+20, h-a.font.Height-8)
+			a.sprites.Draw(a.white, float32(left), float32(top), float32(width), float32(a.font.Height+6), 0, 0, 1, 1, [4]float32{0, 0, 0, .8})
+			a.font.Draw(a.sprites, label, left+4, top+3, white, 0)
+		}
 		return
 	}
 	span := float32(1)

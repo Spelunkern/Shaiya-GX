@@ -69,7 +69,7 @@ func (a *App) exchangeCanEdit() bool {
 	}
 	return true
 }
-func (a *App) sendExchangeOffer(source [2]uint8, item proto.InventoryItem, slot, count uint8) {
+func (a *App) sendExchangeOffer(source [2]uint8, item proto.InventoryItem, slot uint8, count uint16) {
 	if !a.exchangeCanEdit() || a.state.Inventory[source] != item || count == 0 || count > item.Count {
 		return
 	}
@@ -167,7 +167,7 @@ func (a *App) updateExchangeModal(in *platform.Input) {
 		}
 		v.quantity = nil
 		if count > 0 {
-			a.sendExchangeOffer(q.source, q.item, q.slot, uint8(count))
+			a.sendExchangeOffer(q.source, q.item, q.slot, uint16(count))
 		}
 		return
 	}

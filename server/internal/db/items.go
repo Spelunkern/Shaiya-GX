@@ -20,7 +20,7 @@ type Item struct {
 	Type, TypeID uint8
 	Quality      uint16
 	Gems         [6]uint8
-	Count        uint8
+	Count        uint16
 	CraftName    string
 	MakeTime     time.Time
 	MakeType     string

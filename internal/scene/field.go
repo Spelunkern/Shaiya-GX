@@ -43,6 +43,7 @@ type World struct {
 	FogStart          float32
 	FogEnd            float32
 	heights           []float32
+	terrainFan        bool
 	side              int
 	step              float32
 }
@@ -99,6 +100,7 @@ func LoadField(a *Assets, stem string) (*World, error) {
 			sec.Lightmap = a.optionalTexture(field + "_L.dds")
 		}
 	}
+	out.loadPlacedDungeons(a)
 	out.addObjects(a)
 	out.addManis(a)
 	out.addVanis(a)
@@ -112,6 +114,9 @@ func LoadField(a *Assets, stem string) (*World, error) {
 func (w *World) Height(x, z float32) float32 {
 	if w.side < 2 {
 		return 0
+	}
+	if w.terrainFan {
+		return terrainFanHeight(w.heights, w.side, x/w.step, z/w.step)
 	}
 	fx, fz := x/w.step, z/w.step
 	maxI := float32(w.side - 1)
@@ -127,8 +132,7 @@ func (w *World) Height(x, z float32) float32 {
 	return h(x1, z1) + (1-tx)*(h(x0, z1)-h(x1, z1)) + (1-tz)*(h(x1, z0)-h(x1, z1))
 }
 
-// buildTerrain: samples every MapSize/(side-1) units, height (raw-10000)/50,
-// diagonal (x1,z0)-(x0,z1) (Phoenix terrain_builder / wld_data).
+// Decode source samples, then reconstruct the original finest terrain surface.
 func (w *World) heightsOnly() bool {
 	side := int(w.WLD.MapSize/2) + 1
 	if side < 2 || len(w.WLD.Heights) < side*side {
@@ -138,6 +142,20 @@ func (w *World) heightsOnly() bool {
 	w.heights = make([]float32, side*side)
 	for i, raw := range w.WLD.Heights[:side*side] {
 		w.heights[i] = (float32(raw) - 10000) / 50
+	}
+	w.terrainFan = (side-1)%4 == 0
+	if w.terrainFan {
+		// Only fan corners and centres are authored surface vertices. Filling
+		// unused samples keeps bounds, water and occlusion on the same surface.
+		// These anchors are unchanged by interpolation, so this is safe in place.
+		for z := 0; z < side; z++ {
+			for x := 0; x < side; x++ {
+				if x%4 == 0 && z%4 == 0 || x%4 == 2 && z%4 == 2 {
+					continue
+				}
+				w.heights[z*side+x] = terrainFanHeight(w.heights, side, float32(x), float32(z))
+			}
+		}
 	}
 	return true
 }

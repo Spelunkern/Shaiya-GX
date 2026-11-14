@@ -78,7 +78,7 @@ func (g *guild) bankListPackets() [][]byte {
 			w.U8(it.TypeID)
 			w.U16(it.Quality)
 			w.Bytes(it.Gems[:])
-			w.U8(it.Count)
+			w.Count(it.Count)
 			w.FixedString(it.CraftName, 21)
 		}
 		out = append(out, w.MustFinish())
@@ -105,10 +105,12 @@ func buildGuildBankSlot(op packet.Opcode, slot uint8, it *db.Item, charID uint32
 		w.U8(it.TypeID)
 		w.U16(it.Quality)
 		w.Bytes(it.Gems[:])
-		w.U8(it.Count)
+		w.Count(it.Count)
 		w.FixedString(it.CraftName, 21)
 	} else {
-		w.Bytes(make([]byte, 32))
+		w.Bytes(make([]byte, 10))
+		w.Count(0)
+		w.FixedString("", 21)
 	}
 	w.U32(charID)
 	return w.MustFinish()

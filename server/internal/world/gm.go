@@ -59,61 +59,82 @@ func (s *Session) handleGMCommand(text string) bool {
 		return true
 	}
 	if !s.isAdmin {
-		s.gmReply("GM: acceso denegado.")
+		s.gmReply("GM: access denied.")
 		return true
 	}
-	if tradeFor(s.char.ID) != nil { // Inventory must not change underneath an exchange.
-		s.gmReply("GM: termina el intercambio antes de usar comandos.")
+	if tradeFor(s.char.ID) != nil && command != "/char" && command != "/attack" { // Inventory must not change underneath an exchange.
+		s.gmReply("GM: finish trading before using commands.")
 		return true
 	}
 	var err error
 	switch command {
+	case "/char", "/attack":
+		if len(args) != 1 || (args[0] != "on" && args[0] != "off") {
+			s.gmReply("Usage: " + command + " on|off")
+			break
+		}
+		enabled := args[0] == "on"
+		if command == "/char" {
+			s.gmRevealed = !enabled
+			s.syncVisibility()
+			s.gmReply("GM: invisibility " + args[0] + ".")
+		} else {
+			s.gmVulnerable = !enabled
+			if s.player != nil {
+				s.player.immune.Store(enabled)
+			}
+			if enabled {
+				s.removeEffects(func(b *ActiveBuff) bool { return b.Effect != typeEffectBuff }, "GM immunity")
+			}
+			s.syncVisibility()
+			s.gmReply("GM: invulnerability " + args[0] + ".")
+		}
 	case "/turbo":
 		if len(args) != 0 {
-			s.gmReply("Uso: /turbo")
+			s.gmReply("Usage: /turbo")
 			break
 		}
 		s.gmTurbo = !s.gmTurbo
-		state := "desactivado"
+		state := "disabled"
 		if s.gmTurbo {
-			state = "activado"
+			state = "enabled"
 		}
 		s.gmReply("GM: turbo " + state + ".")
 	case "/iclear":
 		if len(args) != 0 {
-			s.gmReply("Uso: /iclear")
+			s.gmReply("Usage: /iclear")
 			break
 		}
 		err = s.gmClearInventory()
 	case "/getitem":
 		n, e := gmNumbers(args, 255, 255, 5*24*255)
 		if e != nil {
-			s.gmReply("Uso: /getitem tipo id cantidad")
+			s.gmReply("Usage: /getitem type id quantity")
 			break
 		}
 		err = s.gmGiveItem(uint8(n[0]), uint8(n[1]), int(n[2]))
 	case "/mmake":
 		n, e := gmNumbers(args, 65535, gmMaxSpawn)
 		if e != nil {
-			s.gmReply("Uso: /mmake mobid cantidad (1-100)")
+			s.gmReply("Usage: /mmake mobid quantity (1-100)")
 			break
 		}
 		err = s.gmSpawn(uint16(n[0]), int(n[1]), 0)
 	case "/nmake":
 		n, e := gmNumbers(args, npcTypeCount, 65535)
 		if e != nil {
-			s.gmReply("Uso: /nmake tipo id")
+			s.gmReply("Usage: /nmake type id")
 			break
 		}
 		err = s.gmSpawn(uint16(n[1]), 1, uint8(n[0]))
 	case "/cmove":
 		if len(args) != 1 {
-			s.gmReply("Uso: /cmove mapid")
+			s.gmReply("Usage: /cmove mapid")
 			break
 		}
 		n, e := strconv.ParseUint(args[0], 10, 16)
 		if e != nil {
-			s.gmReply("Uso: /cmove mapid")
+			s.gmReply("Usage: /cmove mapid")
 			break
 		}
 		err = s.gmMove(uint16(n))
@@ -127,32 +148,36 @@ func (s *Session) handleGMCommand(text string) bool {
 	return true
 }
 
-// Clear every item owned by this character, including equipped items; never
-// the account warehouse or another character. One DELETE is atomic.
+// Clear carried inventory only. Equipped items and warehouse contents survive.
 func (s *Session) gmClearInventory() error {
-	ids := make([]int64, 0, len(s.items))
+	var removed, kept []db.Item
+	var ids []int64
 	for _, it := range s.items {
-		ids = append(ids, it.UID)
+		if it.Bag >= InventoryFirstBag && it.Bag <= InventoryLastBag {
+			removed = append(removed, it)
+			ids = append(ids, it.UID)
+		} else {
+			kept = append(kept, it)
+		}
 	}
 	if err := db.DeleteCharacterItems(s.char.ID, ids...); err != nil {
 		return err
 	}
-	old := s.items
-	s.items = nil
-	s.dismount()
-	for i := range old {
-		s.send(buildRemoveItem(&old[i], true), "GM inventory clear")
+	s.items = kept
+	if s.player != nil {
+		s.player.UpdateItems(s.items)
 	}
-	s.equipmentChanged([]uint8{0, 1, 2, 3, 4, 5, 6, 7})
-	s.sendStatPackets()
-	s.gmReply(fmt.Sprintf("GM: inventario vaciado (%d objetos).", len(old)))
+	for i := range removed {
+		s.send(buildRemoveItem(&removed[i], true), "GM inventory clear")
+	}
+	s.gmReply(fmt.Sprintf("GM: inventory cleared (%d carried items).", len(removed)))
 	return nil
 }
 
 // planGMGrant keeps the entire request atomic, including quantities above 255.
 func planGMGrant(items []db.Item, def *db.ItemDef, quantity int) ([]db.Item, []db.Item, []db.Item, error) {
 	if def == nil || quantity <= 0 || quantity > 5*24*255 {
-		return nil, nil, nil, fmt.Errorf("objeto o cantidad invalida")
+		return nil, nil, nil, fmt.Errorf("invalid item or quantity")
 	}
 	sim := append([]db.Item(nil), items...)
 	tpl := db.Item{Type: def.Type, TypeID: def.TypeID, Quality: def.Quality, MakeType: "G"}
@@ -161,20 +186,20 @@ func planGMGrant(items []db.Item, def *db.ItemDef, quantity int) ([]db.Item, []d
 	for quantity > 0 {
 		if i := findStackable(sim, &tpl, stack); i >= 0 {
 			n := min(quantity, int(stack-sim[i].Count))
-			sim[i].Count += uint8(n)
+			sim[i].Count += uint16(n)
 			quantity -= n
 			changed = append(changed, sim[i])
 			continue
 		}
 		free := freeInventorySlots(sim)
 		if len(free) == 0 {
-			return nil, nil, nil, fmt.Errorf("no hay espacio para toda la cantidad")
+			return nil, nil, nil, fmt.Errorf("not enough space for the entire quantity")
 		}
 		it := tpl
 		it.UID = db.NewItemUID()
 		it.MakeTime = time.Now()
 		it.Bag, it.Slot = free[0][0], free[0][1]
-		it.Count = uint8(min(quantity, int(stack)))
+		it.Count = uint16(min(quantity, int(stack)))
 		quantity -= int(it.Count)
 		sim = append(sim, it)
 		added = append(added, it)
@@ -201,7 +226,7 @@ func (s *Session) gmGiveItem(itemType, id uint8, quantity int) error {
 	if s.player != nil {
 		s.player.UpdateItems(s.items)
 	}
-	s.gmReply(fmt.Sprintf("GM: recibiste %d x %s (%d/%d).", quantity, def.Name, itemType, id))
+	s.gmReply(fmt.Sprintf("GM: received %d x %s (%d/%d).", quantity, def.Name, itemType, id))
 	return nil
 }
 
@@ -210,7 +235,7 @@ func (s *Session) gmGiveItem(itemType, id uint8, quantity int) error {
 func gmSpawnPositions(mapID uint16, x, z float32, count int, entities *MapEntities) ([][2]float32, error) {
 	size, exists := mapSize(mapID)
 	if !exists || size <= 0 {
-		return nil, fmt.Errorf("mapa no disponible")
+		return nil, fmt.Errorf("map unavailable")
 	}
 	var result [][2]float32
 	for ring := 1; ring <= 16 && len(result) < count; ring++ {
@@ -251,29 +276,29 @@ func gmSpawnPositions(mapID uint16, x, z float32, count int, entities *MapEntiti
 		}
 	}
 	if len(result) != count {
-		return nil, fmt.Errorf("no hay espacio libre cercano")
+		return nil, fmt.Errorf("no nearby free space")
 	}
 	return result, nil
 }
 
 func (s *Session) gmSpawn(id uint16, count int, npcType uint8) error {
 	if count < 1 || count > gmMaxSpawn {
-		return fmt.Errorf("cantidad fuera de rango")
+		return fmt.Errorf("quantity out of range")
 	}
 	var nd *npcDef
 	var md *db.MobDef
 	if npcType != 0 {
 		if count != 1 {
-			return fmt.Errorf("nmake invoca exactamente un NPC")
+			return fmt.Errorf("nmake summons exactly one NPC")
 		}
 		nd = findNpcDef(npcType, id)
 		if nd == nil {
-			return fmt.Errorf("NPC desconocido; usa /nmake tipo id (1 1 = merchant 1)")
+			return fmt.Errorf("unknown NPC; use /nmake type id (1 1 = merchant 1)")
 		}
 	} else {
 		md = db.MustDefs().Mobs[id]
 		if md == nil {
-			return fmt.Errorf("mob desconocido")
+			return fmt.Errorf("unknown mob")
 		}
 	}
 	sh := shard(s.char.MapID)
@@ -287,8 +312,9 @@ func (s *Session) gmSpawn(id uint16, count int, npcType uint8) error {
 	var mobs []MapMob
 	for _, pos := range positions {
 		if npcType != 0 {
-			n := MapNpc{ID: nextNpcID.Add(1) - 1, Type: nd.Type, TypeID: nd.TypeID, PosX: pos[0], PosY: s.char.PosY, PosZ: pos[1], cell: cellFor(pos[0], pos[1]), hasCell: true}
+			n := MapNpc{ID: nextNpcID.Add(1) - 1, Type: nd.Type, TypeID: nd.TypeID, PosX: pos[0], PosY: s.char.PosY, PosZ: pos[1], Summoned: true, cell: cellFor(pos[0], pos[1]), hasCell: true}
 			sh.entities.NPCs = append(sh.entities.NPCs, n)
+			sh.npcRevision.Add(1)
 			npcs = append(npcs, n)
 		} else {
 			m := NewStaticMob(md, id, pos[0], pos[1], nil, 0)
@@ -307,14 +333,14 @@ func (s *Session) gmSpawn(id uint16, count int, npcType uint8) error {
 			viewEnter(p, viewMob, m.ID, buildMobEnter(&m, false), "GM mob spawn")
 		}
 	}
-	s.gmReply(fmt.Sprintf("GM: invocados %d (id %d).", count, id))
+	s.gmReply(fmt.Sprintf("GM: summoned %d (id %d).", count, id))
 	return nil
 }
 
 func (s *Session) gmMove(mapID uint16) error {
 	size, ok := mapSize(mapID)
 	if !ok || size <= 0 || isInstanceZone(mapID) {
-		return fmt.Errorf("mapa desconocido")
+		return fmt.Errorf("unknown map")
 	}
 	// The server owns bind heights, not terrain geometry. Choose the closest
 	// bind to the equivalent relative X/Z rather than guessing an unsafe Y.
@@ -368,7 +394,7 @@ func (s *Session) gmMove(mapID uint16) error {
 		}
 	}
 	if target == nil {
-		return fmt.Errorf("mapa sin destino de llegada seguro")
+		return fmt.Errorf("map has no safe arrival point")
 	}
 	b := target
 	s.cast = nil
@@ -376,8 +402,8 @@ func (s *Session) gmMove(mapID uint16) error {
 	s.useNpc(0)
 	s.applyTeleport(mapID, (b.LowerX+b.UpperX)/2, b.LowerY+.9, (b.LowerZ+b.UpperZ)/2, "GM cmove", true)
 	if realMap(s.char.MapID) != mapID {
-		return fmt.Errorf("destino no disponible")
+		return fmt.Errorf("destination unavailable")
 	}
-	s.gmReply(fmt.Sprintf("GM: mapa %d.", mapID))
+	s.gmReply(fmt.Sprintf("GM: map %d.", mapID))
 	return nil
 }
