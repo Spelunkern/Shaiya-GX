@@ -22,6 +22,19 @@ type mobActor struct {
 	soundAt      float64
 	deathAt      float64
 	dead         bool
+	// The last ground query: map collision is static, so a mob standing at
+	// the same point keeps its height without another support search.
+	groundFrom, groundAt render.V3
+	groundKnown          bool
+}
+
+// groundPosition is MobGroundPosition, reused while the mob does not move.
+func (m *mobActor) groundPosition(w *scene.World, pos render.V3) render.V3 {
+	if m.groundKnown && m.groundFrom == pos {
+		return m.groundAt
+	}
+	m.groundFrom, m.groundAt, m.groundKnown = pos, w.MobGroundPosition(pos), true
+	return m.groundAt
 }
 
 func (a *App) prepareMonsters() {
@@ -72,7 +85,7 @@ func (a *App) prepareMonsters() {
 			}
 		}
 		if e.MobHeightKnown {
-			pos = v.world.MobGroundPosition(pos)
+			pos = cached.groundPosition(v.world, pos)
 		} else if v.world.HasTerrain() {
 			pos[1] = v.world.Height(pos[0], pos[2])
 		}

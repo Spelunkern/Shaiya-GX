@@ -33,6 +33,10 @@ func (a *App) LoadCursors(window *platform.Window) *platform.Cursors {
 
 // Native 0x41fde0: default, attack, pickup, interaction, drag, talk, aim.
 func (a *App) CursorIndex(w, h int) int {
+	// The picks below run every frame for the cursor only: their depth tests
+	// must not stall on the GPU (see nameVisibleAt).
+	a.cursorProbe = true
+	defer func() { a.cursorProbe = false }()
 	if a.screen != screenWorld || a.wv == nil || a.state == nil {
 		return 0
 	}
@@ -82,4 +86,14 @@ func (a *App) CursorIndex(w, h int) int {
 		return 1
 	}
 	return 0
+}
+
+// nameVisibleAt tests a label or pick point against the scene depth: exact
+// and synchronous for real input, asynchronous (one frame late, no GPU
+// stall) for the per-frame cursor probe.
+func (a *App) nameVisibleAt(x, y, w, h int, depth float32) bool {
+	if a.cursorProbe {
+		return a.sprites.NameVisibleAtHover(x, y, w, h, depth)
+	}
+	return a.sprites.NameVisibleAt(x, y, w, h, depth)
 }

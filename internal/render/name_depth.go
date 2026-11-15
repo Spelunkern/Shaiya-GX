@@ -72,3 +72,52 @@ func (s *Sprites) NameVisibleAt(x, y, width, height int, depth float32) bool {
 	}
 	return s.depthReadValue+0.000001 >= depth
 }
+
+// NameVisibleAtHover answers NameVisibleAt for per-frame cursor feedback
+// without stalling: a synchronous one-pixel read makes the CPU wait for the
+// GPU to finish the frame, which serialises them every frame. It requests
+// the depth under the cursor through a pixel-pack buffer and answers from
+// the latest completed sample at that pixel, normally one frame old. Clicks
+// keep the exact synchronous NameVisibleAt.
+func (s *Sprites) NameVisibleAtHover(x, y, width, height int, depth float32) bool {
+	if s == nil || !s.depthValid || s.depth == nil || s.depth.W != width || s.depth.H != height || x < 0 || y < 0 || x >= width || y >= height {
+		return false
+	}
+	s.pollHoverDepth()
+	if !s.hoverPending {
+		s.requestHoverDepth(x, y, height)
+	}
+	return s.hoverValid && s.hoverX == x && s.hoverY == y && s.hoverValue+0.000001 >= depth
+}
+
+func (s *Sprites) requestHoverDepth(x, y, height int) {
+	if s.hoverPBO == 0 {
+		gl.CreateBuffers(1, &s.hoverPBO)
+		gl.NamedBufferData(s.hoverPBO, 4, nil, gl.STREAM_READ)
+	}
+	gl.BindBuffer(gl.PIXEL_PACK_BUFFER, s.hoverPBO)
+	gl.GetTextureSubImage(s.depth.ID, 0, int32(x), int32(height-1-y), 0, 1, 1, 1, gl.DEPTH_COMPONENT, gl.FLOAT, 4, gl.PtrOffset(0))
+	gl.BindBuffer(gl.PIXEL_PACK_BUFFER, 0)
+	s.hoverFence = gl.FenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
+	s.hoverPending, s.hoverReqX, s.hoverReqY, s.hoverReversed = true, x, y, s.depthReversed
+}
+
+// pollHoverDepth collects a finished request without waiting.
+func (s *Sprites) pollHoverDepth() {
+	if !s.hoverPending {
+		return
+	}
+	switch gl.ClientWaitSync(s.hoverFence, 0, 0) {
+	case gl.ALREADY_SIGNALED, gl.CONDITION_SATISFIED:
+		var value float32
+		gl.GetNamedBufferSubData(s.hoverPBO, 0, 4, gl.Ptr(&value))
+		if s.hoverReversed {
+			value = 1 - value
+		}
+		s.hoverValue, s.hoverX, s.hoverY, s.hoverValid = value, s.hoverReqX, s.hoverReqY, true
+	case gl.TIMEOUT_EXPIRED:
+		return
+	}
+	gl.DeleteSync(s.hoverFence)
+	s.hoverFence, s.hoverPending = 0, false
+}

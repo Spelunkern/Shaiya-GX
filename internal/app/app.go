@@ -160,6 +160,7 @@ type App struct {
 	frameWidth, frameHeight             int
 	worlds                              map[string]*scene.World
 	skinner                             *render.Skinner
+	cursorProbe                         bool // CursorIndex is picking for cursor feedback only
 	items                               map[sdata.ItemKey]*sdata.Item
 	mallCatalog                         []cash.Product
 	blessingMax                         [2]uint32

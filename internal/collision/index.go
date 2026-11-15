@@ -1,6 +1,9 @@
 package collision
 
-import "math"
+import (
+	"math"
+	"sync"
+)
 
 const cellSize = 16
 
@@ -10,6 +13,16 @@ type Index struct {
 	triangles []Triangle
 	cells     map[[2]int][]int
 	global    []int
+	// marks recycles each query's visited set (see Visit); a pool keeps
+	// concurrent readers independent.
+	marks sync.Pool
+}
+
+// visitMarks is a visited set by generation: a triangle was seen in this
+// query when its stamp equals epoch, so queries never clear or allocate.
+type visitMarks struct {
+	stamp []uint32
+	epoch uint32
 }
 
 func NewIndex() *Index { return &Index{cells: map[[2]int][]int{}} }
@@ -49,12 +62,23 @@ func (i *Index) Visit(b Box, visit func(Triangle)) {
 	if i == nil {
 		return
 	}
-	seen := map[int]struct{}{}
+	// Triangles spanning several cells are listed in each; a per-query map
+	// to skip repeats allocated on every call, so reuse generation marks.
+	m, _ := i.marks.Get().(*visitMarks)
+	if m == nil || len(m.stamp) != len(i.triangles) {
+		m = &visitMarks{stamp: make([]uint32, len(i.triangles))}
+	}
+	m.epoch++
+	if m.epoch == 0 {
+		clear(m.stamp)
+		m.epoch = 1
+	}
+	defer i.marks.Put(m)
 	emit := func(id int) {
-		if _, ok := seen[id]; ok {
+		if m.stamp[id] == m.epoch {
 			return
 		}
-		seen[id] = struct{}{}
+		m.stamp[id] = m.epoch
 		t := i.triangles[id]
 		if b.Overlaps(t.Bounds()) {
 			visit(t)

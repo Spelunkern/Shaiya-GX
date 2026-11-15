@@ -42,7 +42,7 @@ func (a *App) pickGroundLabel(in *platform.Input, w, h int) uint32 {
 			bestDepth, bestID = depth, id
 		}
 	}
-	if bestID != 0 && a.sprites.NameVisibleAt(in.MouseX, in.MouseY, w, h, bestDepth) {
+	if bestID != 0 && a.nameVisibleAt(in.MouseX, in.MouseY, w, h, bestDepth) {
 		return bestID
 	}
 	return 0
@@ -90,7 +90,7 @@ func (a *App) pickNPC(in *platform.Input, w, h int) uint32 {
 				continue
 			}
 			_, _, depth, projected := projectLabel(origin.Add(direction.Scale(distance)), vp, w, h)
-			if !projected || a.sprites != nil && !a.sprites.NameVisibleAt(in.MouseX, in.MouseY, w, h, depth) {
+			if !projected || a.sprites != nil && !a.nameVisibleAt(in.MouseX, in.MouseY, w, h, depth) {
 				continue
 			}
 			if distance < bestDistance || distance == bestDistance && (id == 0 || key < id) {
@@ -234,11 +234,14 @@ func (a *App) pickMob(in *platform.Input, w, h int) uint32 {
 			} else if p := a.wv.actors[id]; p != nil {
 				actor = p.character
 			}
-			if actor != nil && rayOK {
+			// A ray missing the padded envelope of the last pose cannot hit the
+			// exact bounds either; skip posing the actor (the cursor probes
+			// every mob every frame) and fall through to the label test.
+			if actor != nil && rayOK && actor.RayMayHit(origin, direction) {
 				if lo, hi, valid := actor.WorldBounds(); valid {
 					if distance, hit := rayBox(origin, direction, lo, hi); hit {
 						_, _, depth, projected := projectLabel(origin.Add(direction.Scale(distance)), vp, w, h)
-						if projected && (a.sprites == nil || a.sprites.NameVisibleAt(in.MouseX, in.MouseY, w, h, depth)) && (distance < bestRay || distance == bestRay && (target == 0 || id < target)) {
+						if projected && (a.sprites == nil || a.nameVisibleAt(in.MouseX, in.MouseY, w, h, depth)) && (distance < bestRay || distance == bestRay && (target == 0 || id < target)) {
 							bestRay, target = distance, id
 						}
 						continue
@@ -254,7 +257,7 @@ func (a *App) pickMob(in *platform.Input, w, h int) uint32 {
 			if !ok {
 				continue
 			}
-			if a.sprites != nil && !a.sprites.NameVisibleAt(in.MouseX, in.MouseY, w, h, depth) {
+			if a.sprites != nil && !a.nameVisibleAt(in.MouseX, in.MouseY, w, h, depth) {
 				continue
 			}
 			dx, dy := float32(x-in.MouseX), float32(sy-in.MouseY)

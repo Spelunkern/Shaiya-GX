@@ -48,7 +48,7 @@ func (a *App) pickGroundModel(in *platform.Input, w, h int) uint32 {
 		}
 		best, bestID, bestDepth = d, id, depth
 	}
-	if bestID != 0 && a.sprites.NameVisibleAt(in.MouseX, in.MouseY, w, h, bestDepth) {
+	if bestID != 0 && a.nameVisibleAt(in.MouseX, in.MouseY, w, h, bestDepth) {
 		return bestID
 	}
 	return 0

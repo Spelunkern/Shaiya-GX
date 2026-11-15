@@ -220,3 +220,20 @@ is claimed. A float-depth map 1 regression checks camera motion from eight views
 in normal and reverse depth. Separate GL tests check both sides, cutout holes,
 unpaired foliage and raster-state cleanup; field/dungeon batching comparisons
 use the same surface contract.
+
+## Crowded dungeons: cursor probe, mob grounding and culling
+
+A CPU profile of map 15 (F1) with many mobs showed frames bound by the CPU while
+the GPU stayed light. The cursor probe (`CursorIndex`) runs NPC, mob and ground
+picks every frame; their one-pixel depth read waited for the GPU to finish the
+frame. The probe now uses an asynchronous pixel-pack read answered one frame
+later; real clicks keep the synchronous read. Mob ground support is reused
+while a mob stays put, collision queries no longer allocate a visited map, and
+culling and the probe skip posing actors whose padded envelope from the last
+pose is out of view or off the cursor ray.
+
+Measured offline on map 15 at 1600x900 with 200 mobs and the cursor probe each
+frame (Windows, RTX 3070 Ti): frame CPU median 27.4-28.2 ms before and
+10.5-11.0 ms after. A small-box collision query went from 674 ns and 3
+allocations to 380 ns and none. Map effects and the draw-call volume remain the
+largest costs in that scene.

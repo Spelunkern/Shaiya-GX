@@ -25,9 +25,17 @@ type Sprites struct {
 	depthReadValid         bool
 	depthReadX, depthReadY int
 	depthReadValue         float32
-	verts                  []float32
-	tex                    *Texture
-	cap                    int
+	// Asynchronous cursor-hover depth (see NameVisibleAtHover).
+	hoverPBO                    uint32
+	hoverFence                  uintptr
+	hoverPending, hoverReversed bool
+	hoverReqX, hoverReqY        int
+	hoverValid                  bool
+	hoverX, hoverY              int
+	hoverValue                  float32
+	verts                       []float32
+	tex                         *Texture
+	cap                         int
 }
 
 const spriteVS = `#version 450 core
