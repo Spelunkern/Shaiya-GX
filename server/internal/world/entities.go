@@ -96,7 +96,8 @@ type MapMob struct {
 	cell                 cell        // view cell, with the move hysteresis
 	hasCell              bool
 	diedAt               time.Time
-	corpseGone           bool // the corpse left the view (5 s after death)
+	corpseGone           bool       // the corpse left the view (5 s after death)
+	relic                *relicLink // relic or relic guard (Obelisk.ini)
 }
 
 type MapPortal struct {
@@ -522,6 +523,9 @@ func TickMobRespawns(viewersByMap map[uint16][][2]float32, maxPerMap int) []enti
 				if !m.corpseGone || g.alive >= g.count || now.Before(g.respawnAt) {
 					continue
 				}
+				if m.relic != nil && !m.relic.prepareRespawn(m) {
+					continue
+				}
 				var ok bool
 				if x, z, ok = m.respawnSpot(mapID); !ok {
 					continue
@@ -540,6 +544,9 @@ func TickMobRespawns(viewersByMap map[uint16][][2]float32, maxPerMap int) []enti
 				g.respawnAt = now.Add(m.respawnDelay)
 			} else {
 				if m.respawnAt.IsZero() || m.respawnAt.After(now) {
+					continue
+				}
+				if m.relic != nil && !m.relic.prepareRespawn(m) {
 					continue
 				}
 				x, z = m.pickRespawnPosition(mapID)
@@ -952,7 +959,7 @@ func (m *MapMob) retargetByAggro(players []PlayerCombatSnapshot) {
 // stepChase is CMob::Chase: ChaseStep (plus the speed offset) every
 // ChaseTime toward the target, stopping just inside attack reach.
 func (m *MapMob) stepChase(now time.Time, mapID uint16, t *PlayerCombatSnapshot, d float32, mods *mobMods, tick *MobCombatTick) bool {
-	if now.Before(m.nextChaseAt) || !mods.canMove() || m.def == nil {
+	if now.Before(m.nextChaseAt) || !mods.canMove() || m.def == nil || m.stationary() {
 		return false
 	}
 	if m.nav != nil {

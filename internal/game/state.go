@@ -151,6 +151,8 @@ type State struct {
 	LastAttack             proto.AttackResult
 	LastFallDamage         proto.FallDamage
 	PvPCountsKnown         [4]bool
+	Relics                 []proto.Relic // current map's relics (0x2101/0x2102)
+	LastRelicNotice        proto.RelicDestroyed
 	Phase                  Phase
 	Faction                proto.Faction
 	Slots                  map[uint8]proto.CharacterSlot // non-empty slots only
@@ -270,6 +272,29 @@ func (s *State) Apply(p []byte) (result Event, applyErr error) {
 		case 3:
 			s.Details.Losses = value.Value
 		}
+	case proto.RelicList:
+		list, err := proto.DecodeRelicList(p)
+		if err != nil {
+			return fail(err)
+		}
+		s.Relics = list
+	case proto.RelicOwner:
+		v, err := proto.DecodeRelicOwner(p)
+		if err != nil {
+			return fail(err)
+		}
+		// 0x598540 updates only a relic the list announced.
+		for i := range s.Relics {
+			if s.Relics[i].Key == v.Key {
+				s.Relics[i].Owner = v.Owner
+			}
+		}
+	case proto.RelicNotice:
+		v, err := proto.DecodeRelicNotice(p)
+		if err != nil {
+			return fail(err)
+		}
+		s.LastRelicNotice = v
 	case proto.CharacterPvPKills:
 		value, err := proto.DecodeVisiblePvPKills(p)
 		if err != nil {
@@ -997,6 +1022,7 @@ func (s *State) Apply(p []byte) (result Event, applyErr error) {
 		}
 		if m.ID == s.SelfID {
 			if s.MapID != m.MapID {
+				s.Relics = nil // a map without relics sends no 0x2101
 				s.MapQuestNPCs, s.MapQuestNPCsReady = nil, false
 				s.questNPCStaging, s.questNPCStagingActive = nil, false
 				s.Guild.RankingPointsKnown = false

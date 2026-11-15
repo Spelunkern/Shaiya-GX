@@ -912,6 +912,10 @@ func (s *Session) handleMapLoaded() {
 	s.syncPlayerSpeed(true)
 	s.syncVisibility()
 	s.send(s.player.visibilityPacket(), "GX visibility")
+	// CZone::EnterUser (0x0041c891): the map's relics and their owners.
+	if list := relicListFor(ch.MapID); list != nil {
+		s.send(list, "0x2101 relics")
+	}
 	// CZone::EnterUser + SendCellInfoView: the 5x5 cells around the user.
 	s.placeView()
 	s.syncQuestNPCCatalog(true)

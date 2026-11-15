@@ -57,6 +57,7 @@ type Minimap struct {
 	Caption, MapName                                                           string
 	plate                                                                      *render.Texture
 	frame, arrow, party, questStart, questEnd, enemy, top, bottom, left, right *render.Texture
+	relics                                                                     [3]*render.Texture // obelisk_<owner>.png
 	buttons                                                                    [3]Button
 	close                                                                      Button
 }
@@ -67,6 +68,12 @@ func NewMinimap(t Textures) (*Minimap, error) {
 		questStart: ld.get("radar_queststart.png"), questEnd: ld.get("radar_questend.png"), enemy: ld.get("radar_enemy.png"),
 		top: ld.get("map_up.png"), bottom: ld.get("map_bottom.png"),
 		left: ld.get("map_left.png"), right: ld.get("map_right.png")}
+	// 0x4de575: relic icons per owner (0 neutral, 1 light, 2 fury); optional art.
+	for i := range m.relics {
+		if tex, err := t.Interface(fmt.Sprintf("obelisk_%d.png", i)); err == nil {
+			m.relics[i] = tex
+		}
+	}
 	m.plate = ld.get("main_servertime.png")
 	tex := ld.get("main_map_button.png")
 	for i, angle := range []float64{-45, -27, 40} {
@@ -133,7 +140,18 @@ const (
 	MapQuestStart
 	MapQuestEnd
 	MapQuestObjective
+	MapRelicNeutral // relic owners follow the 0x2101 owner byte
+	MapRelicLight
+	MapRelicFury
 )
+
+// RelicMarkerKind maps a relic owner (0 neutral, 1 light, 2 fury).
+func RelicMarkerKind(owner uint8) (MapMarkerKind, bool) {
+	if owner > 2 {
+		return 0, false
+	}
+	return MapRelicNeutral + MapMarkerKind(owner), true
+}
 
 type MapMarker struct {
 	U, V float32
@@ -141,15 +159,9 @@ type MapMarker struct {
 }
 
 func (m *Minimap) drawMarkers(s *render.Sprites, markers []MapMarker, view UV, x, y, side, size float32, circular bool) {
+	base := size
 	for _, mark := range markers {
-		px, py, ok := MapPoint(mark.U, mark.V, view)
-		if !ok || px*side < size/2 || py*side < size/2 || (1-px)*side < size/2 || (1-py)*side < size/2 {
-			continue
-		}
-		dx, dy := px-.5, py-.5
-		if circular && dx*dx+dy*dy > (.5-size/side/2)*(.5-size/side/2) {
-			continue
-		}
+		size := base
 		texture := m.party
 		switch mark.Kind {
 		case MapQuestStart:
@@ -158,6 +170,20 @@ func (m *Minimap) drawMarkers(s *render.Sprites, markers []MapMarker, view UV, x
 			texture = m.questEnd
 		case MapQuestObjective:
 			texture = m.enemy
+		case MapRelicNeutral, MapRelicLight, MapRelicFury:
+			// The 32px relic art is drawn larger than the 12px radar dots.
+			texture, size = m.relics[mark.Kind-MapRelicNeutral], base*2
+			if texture == nil {
+				continue
+			}
+		}
+		px, py, ok := MapPoint(mark.U, mark.V, view)
+		if !ok || px*side < size/2 || py*side < size/2 || (1-px)*side < size/2 || (1-py)*side < size/2 {
+			continue
+		}
+		dx, dy := px-.5, py-.5
+		if circular && dx*dx+dy*dy > (.5-size/side/2)*(.5-size/side/2) {
+			continue
 		}
 		s.Draw(texture, x+px*side-size/2, y+py*side-size/2, size, size, 0, 0, 1, 1, white)
 	}

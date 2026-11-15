@@ -177,7 +177,7 @@ func (s *Session) skillHit(target uint32, def *db.SkillDef, k db.CharacterSkill,
 		return false
 	}
 	md := db.MustDefs().Mobs[mob.MobID]
-	if md == nil {
+	if md == nil || mobFriendly(md, s.faction) {
 		return false
 	}
 	s.breakStealth()

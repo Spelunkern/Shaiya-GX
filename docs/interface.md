@@ -395,6 +395,13 @@ the four original Quest.EFT sequences; confirmed completion uses up.EFT sequence
 one and the original quest jingle. Their preparation is bounded and respects
 Skill Effects.
 
+The minimap and the expanded map mark the current map's relics with
+`obelisk_0/1/2.tga` for a neutral, Light or Fury owner, at twice the radar
+marker size. The list comes from 0x2101 and owner changes from 0x2102; a map
+change clears it, because maps without relics send no list. 0x2103 shows the
+original notices 463 ("Destoyed <p>.") to the country that took a relic and 462
+("<p> is destroyed!") to the one that lost it.
+
 Generic NPC dialogues have native Okay/Quest/service actions. Quest details use
 the original take/complete/cancel sheets, correct disabled/pressed states,
 separate story/reward regions and native scrollbars. Cancel closes the

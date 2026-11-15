@@ -301,6 +301,7 @@ func (a *App) drawMinimap(w, h int, full bool) {
 	heading := float32(math.Atan2(float64(a.wv.facing[0]), float64(a.wv.facing[2])))
 	markers := partyMapMarkers(a.state, float32(a.wv.world.WLD.MapSize), v.markers[:0])
 	markers = a.questMapMarkers(float32(a.wv.world.WLD.MapSize), markers)
+	markers = relicMapMarkers(a.state, float32(a.wv.world.WLD.MapSize), markers)
 	v.markers = markers
 
 	a.minimap.MapName = ui.MapName(a.msg, a.wv.mapID)

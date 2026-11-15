@@ -55,6 +55,9 @@ func main() {
 		logger.Printf("GX Server World failed to load maps: %v", err)
 		os.Exit(1)
 	}
+	if err := world.LoadRelics(logger); err != nil {
+		logger.Printf("GX Server World failed to load relics: %v", err)
+	}
 	world.StartSweeps(logger)
 
 	listener, err := net.Listen("tcp", config.WorldListen())

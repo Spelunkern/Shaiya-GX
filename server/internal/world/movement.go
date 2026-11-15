@@ -99,6 +99,7 @@ func (s *Session) applyTeleport(mapID uint16, x, y, z float32, label string, gmD
 		guildDuelLeave(s.player, nil, 1)
 	}
 	s.clearView(mapID == ch.MapID)
+	changedMap := mapID != ch.MapID
 	ch.MapID, ch.PosX, ch.PosY, ch.PosZ = mapID, x, y, z
 	s.movement = playerMovement{geometry: g, mapID: mapID}
 	if err := s.initPlayerMovement(time.Now()); err != nil {
@@ -112,6 +113,13 @@ func (s *Session) applyTeleport(mapID uint16, x, y, z float32, label string, gmD
 	s.savePosition()
 	s.send(buildCharacterMapPosition(ch), "0x020B "+label)
 	s.send(buildCharacterMove(ch, 0, 0), "0x0501 "+label+" move")
+	// CZone::EnterUser (0x0041c891) runs for every zone entry: the new map's
+	// relics follow the 0x020B that made the client drop the old ones.
+	if changedMap {
+		if list := relicListFor(mapID); list != nil {
+			s.send(list, "0x2101 relics")
+		}
+	}
 	s.placeView()
 }
 

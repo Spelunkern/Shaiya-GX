@@ -67,6 +67,13 @@ func (a *App) confirmedSystemChat(p []byte, previousMoney uint32) {
 		if r.Target == s.SelfID {
 			a.combatMessage(1, 5, map[string]string{"v": number(r.Amount)})
 		}
+	case proto.RelicNotice:
+		v := s.LastRelicNotice
+		if id, ok := relicNoticeMessage(v.OldOwner, v.NewOwner, s.Faction.Faction); ok && a.assets != nil {
+			if d, err := a.assets.MonsterDefinition(v.MobID); err == nil {
+				a.systemMessage(relicNoticeStyle(s.MapID), id, map[string]string{"p": d.Name})
+			}
+		}
 	case proto.ExpGain:
 		r := proto.NewReader(p)
 		gain := r.U32()

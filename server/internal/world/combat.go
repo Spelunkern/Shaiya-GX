@@ -95,6 +95,9 @@ func (s *Session) autoAttackSwing(target uint32) bool {
 		s.log.Printf("GX Server World cancelled auto attack unknown or dead mob character_id=%d mob_global_id=%d", ch.ID, target)
 		return false
 	}
+	if mobFriendly(db.MustDefs().Mobs[mob.MobID], s.faction) {
+		return false
+	}
 	// CUser::EnableAttackRange: weapon reach + mob size + 2.3, plus the
 	// movement allowance (at least 2 units).
 	size := float32(0)
@@ -470,6 +473,7 @@ func expBounds(ch *db.Character) (prev, next uint32) {
 // exp queued to its recipient's session. An offline DoT caster gets the
 // solo exp straight in the database.
 func rewardKill(killer *ConnectedPlayer, killerID uint32, mapID uint16, m *MapMob, log logPrinter) {
+	relicDestroyed(killer, mapID, m, log)
 	var party []*ConnectedPlayer
 	if killer != nil {
 		party = partyMembersNear(killer, mapID, m.PosX, m.PosZ)
