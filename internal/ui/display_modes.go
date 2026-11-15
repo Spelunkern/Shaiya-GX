@@ -13,7 +13,7 @@ func (m *GameMenu) SetDisplayModes(modes []platform.DisplayMode) {
 	m.displayHeld = -1
 }
 func (m *GameMenu) DisplayPopupOpen() bool {
-	return m != nil && m.Page == MenuGraphics && (m.displayOpen || m.antialiasOpen)
+	return m != nil && m.Page == MenuGraphics && (m.displayOpen || m.advancedListOpen())
 }
 func (m *GameMenu) displaySelected() int {
 	for i, mode := range m.DisplayModes {

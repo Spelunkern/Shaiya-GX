@@ -30,6 +30,7 @@ type Config struct {
 	DisplayModes       func() []platform.DisplayMode
 	CurrentDisplayMode func() platform.DisplayMode
 	ApplyDisplayMode   func(platform.DisplayMode) error
+	SetVSync           func(bool)
 	OverrideDisplay    bool
 	RememberLayout     bool
 	Volume             float64
@@ -134,6 +135,7 @@ type App struct {
 	tooltip                             []itemDetailLine
 	tooltipFont                         *ui.Font
 	chatTextFont                        *ui.Font
+	titleFont                           *ui.Font
 	tooltipItem                         bool
 	tooltipDescription                  string
 	tooltipExtra                        tooltipExtras
@@ -160,6 +162,7 @@ type App struct {
 	frameWidth, frameHeight             int
 	worlds                              map[string]*scene.World
 	skinner                             *render.Skinner
+	vsyncApplied, vsyncKnown            bool
 	items                               map[sdata.ItemKey]*sdata.Item
 	mallCatalog                         []cash.Product
 	blessingMax                         [2]uint32
@@ -262,6 +265,10 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	if a.chatTextFont, err = fonts.Load(15); err != nil {
 		return nil, err
 	}
+	// Titles of GX-drawn windows, closer to the baked 16px window captions.
+	if a.titleFont, err = fonts.Load(16); err != nil {
+		return nil, err
+	}
 
 	if b, err := arc.ReadFile("sysmsg-uni.txt"); err == nil {
 		a.msg = text.ParseSysMsg(b)
@@ -302,6 +309,7 @@ func New(cfg Config, arc *archive.Archive) (*App, error) {
 	if a.gameMenu, err = ui.NewGameMenu(a); err != nil {
 		return nil, err
 	}
+	a.gameMenu.TitleFont = a.titleFont
 	if cfg.DisplayModes != nil {
 		a.gameMenu.SetDisplayModes(cfg.DisplayModes())
 	}
@@ -560,6 +568,10 @@ func (a *App) drawFrame(w, h int) {
 	if a.loading.active && !a.loading.started {
 		a.drawMapLoading(w, h)
 		return
+	}
+	if vsync := !a.clientSettings().NoVSync; a.cfg.SetVSync != nil && (!a.vsyncKnown || vsync != a.vsyncApplied) {
+		a.cfg.SetVSync(vsync)
+		a.vsyncApplied, a.vsyncKnown = vsync, true
 	}
 	msaa := a.beginSceneAntialias(w, h)
 	if a.screen == screenLogin || a.screen == screenServers {

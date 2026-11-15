@@ -218,9 +218,27 @@ Help remains visible but disabled in the options menu.
 Validation covers window-only transitions, real GL resize/resource preservation
 and graphics settings save/restart with real AA rendering.
 
+## Advanced graphics window
+
+The former `Color Bit` slot of the graphics page holds an **Advanced** button
+(`talk_blank_button.tga`, centred on the Resolution box). It opens an Advanced
+Graphics window beside the page, or left of it on narrow screens, drawn with
+the `option_main.tga` frame whose baked caption is covered by a clean slice of
+its own title band. Each row is a label and a value list. Edits follow the
+page: they preview immediately, OK saves, Cancel and Reset restore. Escape closes
+an open list, then the window, then the page.
+
+The window ships two base options, Antialias and VSync. Rows come from
+`ui.AdvancedGraphicsOptions`; a new option is one entry (label, values, get and
+set) plus its `ClientSettings` field, validation range and default, with no
+further layout code. VSync defaults to on; the setting is stored inverted
+(`NoVSync`) so earlier settings files keep it on, and the swap interval changes
+at runtime without recreating the window. With VSync off the frame rate is
+uncapped.
+
 ## Antialiasing
 
-The former `Color Bit` slot offers **Off** (default), FXAA, TAA and supported
+The Advanced window's Antialias row offers **Off** (default), FXAA, TAA and supported
 MSAA levels. Existing settings remain Off; unsupported saved MSAA counts fall
 back to the nearest lower supported count. Colour/depth format support is queried
 separately. Selection previews immediately; OK saves and Cancel restores it.

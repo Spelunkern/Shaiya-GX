@@ -33,11 +33,9 @@ type GameMenu struct {
 	DisplayModes               []platform.DisplayMode
 	DisplayError               string
 	displayPopup               *PlayerMenu
-	antialiasButton            Button
-	antialiasOpen              bool
-	antialiasHover             int
-	antialiasHeld              int
 	antialiasChoices           []int
+	advanced                   advancedGraphics
+	TitleFont                  *Font // optional larger font for GX-drawn window titles
 	Position                   WindowPosition
 	Page                       MenuPage
 	frames                     [7]*render.Texture
@@ -66,6 +64,7 @@ type ClientSettings struct {
 	OwnName, PlayerNames, MonsterNames        bool
 	Shadows, Water, SkillEffects              bool
 	Antialias                                 int `json:",omitempty"`
+	NoVSync                                   bool `json:",omitempty"` // inverted so saved settings keep VSync on
 }
 
 func DefaultClientSettings() ClientSettings {
@@ -110,9 +109,7 @@ func NewGameMenu(t Textures) (*GameMenu, error) {
 	for i, state := range []int{0, 1, 2, 2, 3} {
 		m.displayButton.UV[i] = UV{float32(state) / 4, 0, float32(state+1) / 4, 1}
 	}
-	m.antialiasButton = m.displayButton
-	m.antialiasButton.OffX = 268 // right end of the old "Color Bit" box
-	m.antialiasHover, m.antialiasHeld = -1, -1
+	m.initAdvanced(ld)
 	m.slider, m.check = ld.get("option_graphic_slider.png"), ld.get("chat_check.png")
 	return m, ld.err
 }
@@ -151,8 +148,7 @@ func (m *GameMenu) Open(page MenuPage) {
 	m.displayHeld = -1
 	m.displayButton.held = false
 	m.displayHover = -1
-	m.antialiasButton.held = false
-	m.antialiasOpen, m.antialiasHover, m.antialiasHeld = false, -1, -1
+	m.resetAdvanced()
 	m.displayScroll.dragging = false
 	for i := range m.displayScroll.arrows {
 		m.displayScroll.arrows[i].held = false
@@ -207,7 +203,6 @@ func (m *GameMenu) controls(w, h int) (int, int, int, int) {
 	}
 	m.displayButton.OriginX, m.displayButton.OriginY = x, y
 	m.displayButton.Disabled = len(m.DisplayModes) < 2
-	m.antialiasButton.OriginX, m.antialiasButton.OriginY = x, y
 	m.reset.Disabled = m.Page == MenuKeys || m.Page == MenuExtraKeys
 	for i := range m.buttons {
 		m.buttons[i].OriginX, m.buttons[i].OriginY = x, y
@@ -219,12 +214,12 @@ func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 	x, y, _, _ := m.controls(w, h)
 	if m.Page == MenuGraphics {
 		if !m.displayOpen {
-			if handled, result := m.updateAntialias(in, x, y); handled {
+			if handled, result := m.updateAdvanced(in, w, h, x, y); handled {
 				return result
 			}
 		}
 		if handled, result := m.updateDisplayModes(in, w, h, x, y); handled {
-			m.antialiasOpen = false
+			m.advanced.list = -1
 			return result
 		}
 	}
@@ -283,6 +278,7 @@ func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 			m.Settings.HideCloak, m.Settings.HideHelmet = false, false
 			m.Settings.DisplayMode = platform.DisplayMode{}
 			m.Settings.Antialias = defaults.Antialias
+			m.Settings.NoVSync = defaults.NoVSync
 		}
 		return MenuChanged
 	}
@@ -435,7 +431,7 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int, solid ...*render.T
 		if len(solid) > 0 {
 			blank = solid[0]
 		}
-		m.drawAntialias(s, f, blank, x, y)
+		m.drawAdvancedButton(s, f, blank, x, y)
 	case MenuKeys:
 		keys := [][2]string{{"A", "D"}, {"W", "S"}, {"Q", "E"}, {"Tab", "NumLock"}, {"C", "Space"}, {"T", "I"}, {"K", "B"}, {"U", "G"}, {"O", "M"}, {"", "Esc"}}
 		for i, row := range keys {
@@ -461,7 +457,10 @@ func (m *GameMenu) Draw(s *render.Sprites, f *Font, w, h int, solid ...*render.T
 	}
 	if len(solid) > 0 {
 		m.drawDisplayModes(s, f, solid[0], x, y)
-		m.drawAntialiasPopup(s, f, solid[0], x, y)
+		if m.Page == MenuGraphics {
+			m.drawAdvanced(s, f, solid[0], w, h)
+			m.drawAdvancedPopup(s, f, solid[0], w, h)
+		}
 	}
 }
 

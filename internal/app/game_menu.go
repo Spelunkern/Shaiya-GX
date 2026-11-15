@@ -39,6 +39,9 @@ func (a *App) gameMenuControls(in *platform.Input, w, h int) (platform.Input, bo
 	width, height := a.gameMenu.Size()
 	x, y := a.gameMenu.Origin(w, h)
 	over := pointInside(in, x, y, width, height)
+	if ax, ay, aw, ah, ok := a.gameMenu.AdvancedRect(w, h); ok && pointInside(in, ax, ay, aw, ah) {
+		over = true
+	}
 	v := a.wv
 	if in.Pressed && over {
 		v.uiLeft = -3

@@ -64,11 +64,7 @@ func Open(c Config) (*Window, error) {
 		return nil, fmt.Errorf("window (OpenGL 4.5 core is required): %w", err)
 	}
 	w.MakeContextCurrent()
-	if c.VSync {
-		glfw.SwapInterval(1)
-	} else {
-		glfw.SwapInterval(0)
-	}
+	setSwapInterval(c.VSync)
 	win := &Window{Window: w, rememberSize: c.RememberSize && !c.Hidden,
 		normalSize: windowState{Width: c.Width, Height: c.Height}}
 	if win.rememberSize {
@@ -100,3 +96,15 @@ func (w *Window) Poll() bool {
 
 // Time is seconds since GLFW initialization.
 func Time() float64 { return glfw.GetTime() }
+
+func setSwapInterval(vsync bool) {
+	if vsync {
+		glfw.SwapInterval(1)
+	} else {
+		glfw.SwapInterval(0)
+	}
+}
+
+// SetVSync changes the swap interval of the current context (the window's,
+// on the render thread).
+func (w *Window) SetVSync(on bool) { setSwapInterval(on) }

@@ -105,8 +105,15 @@ func TestAntialiasSceneAndMenuGL(t *testing.T) {
 	a.menuOpen = true
 	a.gameMenu.Open(ui.MenuGraphics)
 	x, y := a.gameMenu.Origin(960, 600)
-	a.gameMenu.Update(&platform.Input{MouseX: x + 274, MouseY: y + 90, Pressed: true, MouseDown: true}, 960, 600)
-	a.gameMenu.Update(&platform.Input{MouseX: x + 274, MouseY: y + 90, Clicked: true}, 960, 600)
+	// Antialias lives in the Advanced window: open it, then the first row's list.
+	a.gameMenu.Update(&platform.Input{MouseX: x + 200, MouseY: y + 85, Pressed: true, MouseDown: true}, 960, 600)
+	a.gameMenu.Update(&platform.Input{MouseX: x + 200, MouseY: y + 85, Clicked: true}, 960, 600)
+	ax, ay, _, _, ok := a.gameMenu.AdvancedRect(960, 600)
+	if !ok {
+		t.Fatal("Advanced window did not open")
+	}
+	a.gameMenu.Update(&platform.Input{MouseX: ax + 215, MouseY: ay + 60, Pressed: true, MouseDown: true}, 960, 600)
+	a.gameMenu.Update(&platform.Input{MouseX: ax + 215, MouseY: ay + 60, Clicked: true}, 960, 600)
 	if !a.gameMenu.DisplayPopupOpen() {
 		t.Fatal("AA dropdown did not open")
 	}
