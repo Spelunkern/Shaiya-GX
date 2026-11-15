@@ -362,16 +362,26 @@ func (a *App) drawPlayerNames(w, h int) {
 			}
 		}
 	}
-	label := func(name string, pos render.V3, tint [4]float32, offset int, gm ...bool) {
+	grade := a.assets.Texture("interface/grade2.png")
+	label := func(name string, pos render.V3, tint [4]float32, offset int, extra ...playerPlate) {
 		if name == "" || pos.Sub(v.pos).Len() > 50 {
 			return
 		}
 		if x, y, depth, ok := projectLabel(pos, vp, w, h); ok {
+			plate := playerPlate{}
+			if len(extra) > 0 {
+				plate = extra[0]
+			}
 			labelWidth := a.font.Width(name)
 			prefixWidth := 0
-			if len(gm) > 0 && gm[0] {
+			if plate.gm {
 				prefixWidth = a.font.Width("(GM) ")
 				labelWidth += prefixWidth
+			}
+			rank, ranked := killRank(plate.kills)
+			if ranked && grade != nil {
+				// Native 0x453a88 (see kill_rank.go): a ranked name moves 6px left.
+				x -= 6
 			}
 			if a.scene3d.OccludedLabel(pos, x-labelWidth/2, y-a.font.Height-offset, labelWidth, a.font.Height, w, h) {
 				return
@@ -386,11 +396,17 @@ func (a *App) drawPlayerNames(w, h int) {
 				a.font.DrawName(a.sprites, "(GM)", left, top, ui.RGBColor(0x66CCFF))
 			}
 			a.font.DrawName(a.sprites, name, left+prefixWidth, top, tint)
+			if ranked && grade != nil {
+				// Native 0x453b61/0x44ebe0: 32x32 cell of grade2 right of the
+				// name, 3px up; ranks 1-16 in the left column, 17-31 right.
+				u0, v0 := float32(rank/16)*.5, float32(rank%16)/16
+				a.sprites.Draw(grade, float32(left+labelWidth+2), float32(top-3), 32, 32, u0, v0, u0+.5, v0+1./16, white)
+			}
 		}
 	}
 	if slot, ok := a.selfSlot(); ok && v.self != nil && settings.OwnName {
 		if pos, ok := v.self.NameAnchor(); ok {
-			label(slot.Name, pos, white, 0, a.state.Self.IsGM)
+			label(slot.Name, pos, white, 0, playerPlate{gm: a.state.Self.IsGM, kills: max(a.state.Self.PvPKills, a.state.Details.Kills)})
 			label(guildCaption(a.state, a.state.Guild.ID), pos, [4]float32{.72, .93, .72, 1}, -18)
 		}
 	}
@@ -443,7 +459,11 @@ func (a *App) drawPlayerNames(w, h int) {
 				label(kind, pos, [4]float32{.35, .9, 1, 1}, a.font.Height-2)
 				label(name, pos, tint, 0)
 			} else {
-				label(name, pos, tint, 0, e.Kind == game.KindUser && e.IsGM)
+				plate := playerPlate{gm: e.Kind == game.KindUser && e.IsGM}
+				if e.Kind == game.KindUser {
+					plate.kills = e.PvPKills
+				}
+				label(name, pos, tint, 0, plate)
 				if e.Kind == game.KindMob && a.state.Target == e.ID && pos.Sub(v.pos).Len() <= 50 {
 					if x, y, depth, ok := projectLabel(pos, vp, w, h); ok {
 						a.sprites.NameDepth(depth)

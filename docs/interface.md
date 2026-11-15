@@ -256,6 +256,12 @@ outline, with counts remaining readable above cooldown shading. Skill levels kee
 their existing colour. The inventory actor has frontal light and full ambient
 fill; this affects only its preview, preserving the world and portrait lighting.
 
+Player names with PvP kills show the original kill rank icon from `grade2.tga`
+(31 ranks, from 1 to 1,000,000 kills; ranks 1-16 in the left column, 17-31 in
+the right) to the right of the name, 3px above it, with the name moved 6px left.
+Own kills come from 0x020E/0x0105 and other players' from 0x0522; a character
+without kills shows no icon.
+
 Swimming and floating use the original 007_swim and 006_swnormal clips, including
 race/sex filename aliases. Entering swimming releases a previous locked pose;
 water locomotion takes precedence over sitting in presentation. Surface contact
