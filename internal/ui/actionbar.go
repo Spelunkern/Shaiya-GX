@@ -9,7 +9,7 @@ import (
 )
 
 const ActionSlots = 10
-const ActionBars = 2
+const ActionBars = 3
 const TotalActionSlots = ActionSlots * ActionBars
 
 type ActionSlot struct {
@@ -24,11 +24,13 @@ type ActionSlot struct {
 	CooldownDuration float64
 }
 
-// Phoenix ep4_action_bars.gd and main_slot_hud.gd: two independently
-// movable bars, background drag handles and centre-preserving orientation.
+// Phoenix ep4_action_bars.gd and main_slot_hud.gd: independently movable
+// bars, background drag handles and centre-preserving orientation. The last
+// visible bar carries + / - buttons that show or hide bars up to ActionBars.
 type ActionBar struct {
 	frames                    [2]*render.Texture
-	change                    *render.Texture
+	change, count             *render.Texture
+	countHover, countHeld     int // 1 adds a bar, 2 removes one; zero means none
 	Position                  [ActionBars]WindowPosition
 	Hover, held               int
 	dragging, orientationHeld int // one-based; zero means idle
@@ -37,7 +39,58 @@ type ActionBar struct {
 
 func NewActionBar(t Textures) (*ActionBar, error) {
 	ld := &loader{t: t}
-	return &ActionBar{frames: [2]*render.Texture{ld.get("main_slot_1.png"), ld.get("main_slot_2.png")}, change: ld.get("main_slot_change.png"), Hover: -1, held: -1}, ld.err
+	b := &ActionBar{frames: [2]*render.Texture{ld.get("main_slot_1.png"), ld.get("main_slot_2.png")}, change: ld.get("main_slot_change.png"), count: ld.get("stats_on_select_button.png"), Hover: -1, held: -1}
+	b.Position[2].Hidden = true
+	return b, ld.err
+}
+
+// Count is the number of visible bars; bars are shown and hidden in order.
+func (b *ActionBar) Count() int {
+	for bar := 1; bar < ActionBars; bar++ {
+		if b.Position[bar].Hidden {
+			return bar
+		}
+	}
+	return ActionBars
+}
+
+// Visible reports whether the slot index belongs to a shown bar.
+func (b *ActionBar) Visible(index int) bool { return index >= 0 && index/ActionSlots < b.Count() }
+
+// countButton returns the + (1) button on bar 1 or the - (2) button on bar 2,
+// each beside that bar's orientation button.
+func (b *ActionBar) countButton(button, w, h int) (x, y int, ok bool) {
+	bar := button - 1
+	if bar >= b.Count() {
+		return 0, 0, false
+	}
+	x, y = b.Origin(bar, w, h)
+	if b.Position[bar].Vertical {
+		return x + 28, y + 428, true
+	}
+	return x + 425, y + 9, true
+}
+func (b *ActionBar) countAt(mx, my, w, h int) int {
+	for button := 1; button <= 2; button++ {
+		if x, y, ok := b.countButton(button, w, h); ok && mx >= x && mx < x+22 && my >= y && my < y+20 {
+			return button
+		}
+	}
+	return 0
+}
+func (b *ActionBar) setCount(n, w, h int) {
+	for bar := 1; bar < ActionBars; bar++ {
+		hidden := bar >= n
+		if b.Position[bar].Hidden != hidden {
+			b.Position[bar].Hidden = hidden
+			if !hidden && !b.Position[bar].Moved {
+				// A newly shown bar sits clear of the others it would overlap.
+				bw, bh := b.Size(bar)
+				x, y := b.Origin(bar, w, h)
+				b.Position[bar].Move(x, y, w, h, bw, bh)
+			}
+		}
+	}
 }
 func (b *ActionBar) Size(bar int) (int, int) {
 	if b.Position[bar].Vertical {
@@ -48,7 +101,7 @@ func (b *ActionBar) Size(bar int) (int, int) {
 func ActionBarOrigin(w, h int) (int, int) { return max(0, (w-448)/2), max(0, h-64-8-54*2-6) }
 func (b *ActionBar) Origin(bar, w, h int) (int, int) {
 	x, y := ActionBarOrigin(w, h)
-	y += bar * 60
+	y += [ActionBars]int{0, 60, -60}[bar]
 	width, height := b.Size(bar)
 	return b.Position[bar].Origin(w, h, width, height, x, y)
 }
@@ -61,7 +114,7 @@ func (b *ActionBar) SlotOrigin(index, w, h int) (int, int) {
 	return x + 30 + 40*cell, y + 10
 }
 func (b *ActionBar) SlotAt(mx, my, w, h int) int {
-	for index := TotalActionSlots - 1; index >= 0; index-- {
+	for index := b.Count()*ActionSlots - 1; index >= 0; index-- {
 		x, y := b.SlotOrigin(index, w, h)
 		if mx >= x && mx < x+32 && my >= y && my < y+32 {
 			return index
@@ -84,7 +137,10 @@ func (b *ActionBar) changeAt(bar, mx, my, w, h int) bool {
 	return mx >= x && mx < x+22 && my >= y && my < y+24
 }
 func (b *ActionBar) Contains(mx, my, w, h int) bool {
-	for bar := 0; bar < ActionBars; bar++ {
+	if b.countAt(mx, my, w, h) > 0 {
+		return true
+	}
+	for bar := 0; bar < b.Count(); bar++ {
 		x, y := b.Origin(bar, w, h)
 		bw, bh := b.Size(bar)
 		if mx >= x && mx < x+bw && my >= y && my < y+bh {
@@ -93,8 +149,10 @@ func (b *ActionBar) Contains(mx, my, w, h int) bool {
 	}
 	return false
 }
-func (b *ActionBar) LayoutActive() bool { return b.dragging > 0 || b.orientationHeld > 0 }
-func (b *ActionBar) CancelHeld()        { b.held = -1 }
+func (b *ActionBar) LayoutActive() bool {
+	return b.dragging > 0 || b.orientationHeld > 0 || b.countHeld > 0
+}
+func (b *ActionBar) CancelHeld() { b.held = -1 }
 
 // Layout captures the complete drag/release; changed requests persistence.
 func (b *ActionBar) Layout(in *platform.Input, w, h int) (captured, changed bool) {
@@ -126,10 +184,33 @@ func (b *ActionBar) Layout(in *platform.Input, w, h int) (captured, changed bool
 		}
 		return true, changed
 	}
+	if b.countHeld > 0 {
+		if in.Clicked {
+			if b.countAt(in.MouseX, in.MouseY, w, h) == b.countHeld {
+				n := b.Count()
+				if b.countHeld == 1 {
+					b.setCount(min(n+1, ActionBars), w, h)
+				} else {
+					b.setCount(n-1, w, h)
+				}
+				changed = b.Count() != n
+			}
+			b.countHeld = 0
+		} else if !in.MouseDown {
+			b.countHeld = 0
+		}
+		return true, changed
+	}
+	b.countHover = b.countAt(in.MouseX, in.MouseY, w, h)
 	if !in.Pressed || b.SlotAt(in.MouseX, in.MouseY, w, h) >= 0 {
 		return false, false
 	}
-	for bar := ActionBars - 1; bar >= 0; bar-- {
+	if b.countHover > 0 {
+		b.CancelHeld()
+		b.countHeld = b.countHover
+		return true, false
+	}
+	for bar := b.Count() - 1; bar >= 0; bar-- {
 		x, y := b.Origin(bar, w, h)
 		bw, bh := b.Size(bar)
 		if in.MouseX < x || in.MouseX >= x+bw || in.MouseY < y || in.MouseY >= y+bh {
@@ -162,7 +243,7 @@ func (b *ActionBar) Update(in *platform.Input, w, h int) (int, bool) {
 	return click, b.Contains(in.MouseX, in.MouseY, w, h) && (in.Pressed || in.Clicked || in.MouseDown || in.RightPressed || in.RightDown || in.Wheel != 0) || wasHeld && in.Clicked
 }
 func (b *ActionBar) Draw(s *render.Sprites, f *Font, blank *render.Texture, w, h int, slots [TotalActionSlots]ActionSlot, _ bool) {
-	for bar := 0; bar < ActionBars; bar++ {
+	for bar := 0; bar < b.Count(); bar++ {
 		x, y := b.Origin(bar, w, h)
 		bw, bh := b.Size(bar)
 		orientation := 0
@@ -173,18 +254,38 @@ func (b *ActionBar) Draw(s *render.Sprites, f *Font, blank *render.Texture, w, h
 		if tex != nil {
 			s.Draw(tex, float32(x), float32(y), float32(bw), float32(bh), 0, 0, float32(bw)/float32(tex.W), float32(bh)/float32(tex.H), white)
 		}
-		nx, ny := x+3, y+19
+		// The number sits centred in the gap between the frame's two arrows.
+		nx, ny := x+13, y+25
 		cx, cy := x+424, y+30
 		if orientation == 1 {
-			nx, ny = x+19, y+2
+			nx, ny = x+25, y+12
 			cx, cy = x+4, y+425
 		}
-		f.Draw(s, fmt.Sprint(bar+1), nx, ny, white, 18)
+		number := fmt.Sprint(bar + 1)
+		f.Draw(s, number, nx-f.Width(number)/2, ny-f.Height/2, white, 18)
 		if b.change != nil {
 			s.Draw(b.change, float32(cx), float32(cy), 22, 24, 0, float32(orientation)*.5, 22.0/float32(b.change.W), float32(orientation)*.5+24.0/float32(b.change.H), white)
 		}
 	}
-	for i, slot := range slots {
+	if b.count != nil {
+		for button := 1; button <= 2; button++ {
+			bx, by, ok := b.countButton(button, w, h)
+			if !ok {
+				continue
+			}
+			col := 0
+			if button == 1 && b.Count() >= ActionBars {
+				col = 3
+			} else if b.countHeld == button {
+				col = 2
+			} else if b.countHover == button {
+				col = 1
+			}
+			v := float32(button-1) / 2
+			s.Draw(b.count, float32(bx), float32(by), 32, 32, float32(col)/4, v, float32(col+1)/4, v+.5, white)
+		}
+	}
+	for i, slot := range slots[:b.Count()*ActionSlots] {
 		cx, cy := b.SlotOrigin(i, w, h)
 		if slot.Icon != nil {
 			u := slot.UV

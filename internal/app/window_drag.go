@@ -297,6 +297,7 @@ func (a *App) layoutPositions() map[string]*ui.WindowPosition {
 	if a.actionBar != nil {
 		out["action_bar_0"] = &a.actionBar.Position[0]
 		out["action_bar_1"] = &a.actionBar.Position[1]
+		out["action_bar_2"] = &a.actionBar.Position[2]
 	}
 	if a.subActionsUI != nil {
 		out["sub_actions"] = &a.subActionsUI.Position

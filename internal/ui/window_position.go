@@ -8,6 +8,7 @@ type WindowPosition struct {
 	CenterX, CenterY float64
 	Moved            bool
 	Vertical         bool `json:",omitempty"`
+	Hidden           bool `json:",omitempty"`
 }
 
 func (p WindowPosition) Valid() bool {
