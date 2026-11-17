@@ -611,7 +611,8 @@ Full-map character coordinates sit four pixels higher above the map surface.
 ## Status fields and potion quantities
 
 The Status (T) Mode value remains empty; the original frame and its labels are
-retained. Stat shows the equipped upper armor's effective intrinsic/active-lapis
+retained.
+Every value is centred horizontally and vertically in its 15px field. Stat shows the equipped upper armor's effective intrinsic/active-lapis
 element, using the original SysMsg names and tier, or SysMsg 5270 for neutral.
 Long localized element names fit inside the existing field.
 

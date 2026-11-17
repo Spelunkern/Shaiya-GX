@@ -161,22 +161,23 @@ func (v *Status) Draw(s *render.Sprites, f *Font, w, h int, state StatusState) {
 		ratio := progress(pool.Current, 0, pool.Max)
 		s.Draw(v.resourceBars, float32(mainX+73), float32(y+265+20*i), 68*ratio, 15, 0, float32(i)/4, ratio, float32(i)/4+12.0/64, white)
 	}
-	text := func(value string, dx, dy, width int) { f.Draw(s, value, mainX+dx, y+dy, white, width) }
-	text(state.Class, 75, 80, 66)
-	text(state.Mode, 190, 80, 68)
+	// Every value sits centred, horizontally and vertically, in its measured
+	// 15px box of stats_off/stats_on (x, y, width relative to the sheet).
+	boxed := func(value string, bx, by, bw int) { centredText(s, f, value, mainX+bx, y+by, bw, statusBoxHeight) }
+	boxed(state.Class, 73, 79, 68)
+	boxed(state.Mode, 188, 79, 68)
 	// Keep the original Stat field; fit long localized neutral-element names.
 	elementScale := min(float32(1), 66/float32(max(1, f.Width(state.Element))))
-	f.DrawScaled(s, state.Element, float32(mainX+78), float32(y+326)+float32(f.Height)*(1-elementScale)/2, elementScale, white, 0)
-	// Native 0x0050436a-0x005043e0: title centred in the 182px field
-	// at (73, 99+2), relative to the main sheet even when expanded.
-	text(state.Title, 73+max(0, (182-f.Width(state.Title))/2), 101, 182)
-	text(fmt.Sprintf("%d / %d", state.Details.Exp, state.Details.NextExp), 78, 132, 180)
+	elementW := float32(f.Width(state.Element)) * elementScale
+	f.DrawScaled(s, state.Element, float32(mainX+73)+(68-elementW)/2, float32(y+325)+(statusBoxHeight-float32(f.Height)*elementScale)/2, elementScale, white, 0)
+	boxed(state.Title, 73, 99, 183)
+	boxed(fmt.Sprintf("%d / %d", state.Details.Exp, state.Details.NextExp), 73, 132, 183)
 	for i, index := range statOrder {
-		text(fmt.Sprint(state.Base[index]), 78+i/3*114, 174+i%3*20, 67)
+		boxed(fmt.Sprint(state.Base[index]), 73+i/3*115, 172+i%3*20, 68)
 	}
-	text(fmt.Sprint(state.Points), 192, 234, 66)
+	boxed(fmt.Sprint(state.Points), 188, 232, 68)
 	for i, pool := range []Resource{{state.HP, state.Details.MaxHP}, {state.MP, state.Details.MaxMP}, {state.SP, state.Details.MaxSP}} {
-		text(fmt.Sprintf("%d/%d", pool.Current, pool.Max), 74, 266+i*20, 66)
+		boxed(fmt.Sprintf("%d/%d", pool.Current, pool.Max), 73, 265+i*20, 68)
 	}
 	derived := []string{"-", "-", "-", "-"}
 	if state.Known {
@@ -184,19 +185,19 @@ func (v *Status) Draw(s *render.Sprites, f *Font, w, h int, state StatusState) {
 		derived = []string{fmt.Sprintf("%d-%d", d.MinAttack, d.MaxAttack), fmt.Sprintf("%d-%d", d.MinMagic, d.MaxMagic), fmt.Sprint(d.Defense), fmt.Sprint(d.Resistance)}
 	}
 	for i, value := range derived {
-		text(value, 192, 269+i*20, 66)
+		boxed(value, 188, 265+i*20, 68)
 	}
-	text(state.AttackSpeed, 92+max(0, (95-f.Width(state.AttackSpeed))/2), 345, 95)
-	text(state.MoveSpeed, 92+max(0, (95-f.Width(state.MoveSpeed))/2), 365, 95)
+	boxed(state.AttackSpeed, 92, 345, 96)
+	boxed(state.MoveSpeed, 92, 365, 96)
 	for i, value := range []uint32{state.Details.Kills, state.Details.Deaths, state.Details.Wins, state.Details.Losses} {
-		text(fmt.Sprint(value), 78+i%2*114, 405+i/2*20, 66)
+		boxed(fmt.Sprint(value), 73+i%2*115, 405+i/2*20, 68)
 	}
 	v.close.Draw(s)
 	v.expand.Draw(s)
 	if v.Expanded {
-		f.Draw(s, fmt.Sprint(uint32(state.Points)-min(uint32(state.Points), v.Draft.Total())), x+82, y+102, white, 58)
+		centredText(s, f, fmt.Sprint(uint32(state.Points)-min(uint32(state.Points), v.Draft.Total())), x+79, y+103, 61, statusBoxHeight)
 		for i, index := range statOrder {
-			f.Draw(s, fmt.Sprint(v.Draft[index]), x+52, y+132+i*20, white, 28)
+			centredText(s, f, fmt.Sprint(v.Draft[index]), x+51, y+131+i*20, 30, statusBoxHeight)
 		}
 		for i := range v.steps {
 			v.steps[i].Draw(s)
@@ -217,4 +218,14 @@ func (v *Status) Origin(w, h int) (int, int) {
 		return x, y
 	}
 	return v.Position.Origin(w, h, width, StatusHeight, x, y)
+}
+
+// statusBoxHeight is the height of every value box on the Status sheets.
+const statusBoxHeight = 15
+
+// centredText draws value centred in a box; text wider than the box keeps
+// its left edge so the font clips it on the right as before.
+func centredText(s *render.Sprites, f *Font, value string, bx, by, bw, bh int) {
+	x := bx + max(0, (bw-f.Width(value))/2)
+	f.Draw(s, value, x, by+(bh-f.Height)/2, white, bw)
 }
