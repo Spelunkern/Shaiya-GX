@@ -6,7 +6,7 @@ The interface is being reconstructed incrementally from original EP5 artwork and
 |---|---|---|
 | Account | Login, server list, faction, character selection/creation and account dialogs | Complete visual comparison and remaining variants |
 | HUD | Player portrait, resources, mob level colours, elemental target icon, selection dots, buffs/debuffs with applicable skill levels | Remaining target states and secondary indicators |
-| Action bars and skills | Two draggable/rotatable bars, shortcuts, drag and drop, original single-column skill book, confirmed reuse timers and native press feedback | Additional settings and complete state coverage |
+| Action bars and skills | Up to three draggable/rotatable bars (+ on bar 1, - on bar 2; count persists with the layout), shortcuts, drag and drop, original single-column skill book, confirmed reuse timers and native press feedback | Additional settings and complete state coverage |
 | Inventory | Equipment, bags, drag, left-click use, right-click equipment swaps, tooltips without zero sale prices and larger full-body preview | Remaining contexts and special dialogs |
 | Weapon enchantments | Original Weapon.Seff enchantments plus four ITM-selected innate EFT glows, equipped and remote models, both dual bindings | Full visual comparison across animations; see [weapon enchantments](weapon-enchantments.md) |
 | Cloaks | Original PC/CTL/3DC loading, equipment slot 7, all body families, native spring modes and animated attachment pins | Body/ground contact adapter, map wind and guild emblem overlay; full physical parity is not yet claimed |
@@ -515,7 +515,7 @@ lapis inactive. The server uses the same selection for affinity and gem bonuses.
 
 ## Confirmed equipment switching and HUD geometry
 
-Using a carried equipment item from either action bar submits the same native
+Using a carried equipment item from any action bar submits the same native
 inventory-to-equipment swap as inventory equip. The shortcut remains bound to
 its carried bag/slot. The old equipped item returns to that slot and therefore
 becomes the next item on the shortcut. A refused swap leaves both items and the
