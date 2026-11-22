@@ -44,6 +44,29 @@ func TestMouseAndKeyboardMovement(t *testing.T) {
 	}
 }
 
+func TestRightDragPreservesCombatFacing(t *testing.T) {
+	a := inputApp()
+	v := a.wv
+	v.facing = render.V3{0, 0, 1}
+	v.eye = render.V3{0, 2, -5}
+	v.faceCombatTarget(render.V3{1, 0, 0})
+	v.attackMoveUntil = 1
+	position, facing, eye := v.pos, v.facing, v.eye
+	a.updateWorld(&platform.Input{RightDown: true, MouseLook: true, MouseDX: 100}, 1.0/60)
+	if v.pos != position || v.eye.Sub(eye).Len() < .001 {
+		t.Fatal("right-drag should orbit without moving the player")
+	}
+	if v.facing.Sub(facing).Len() > .001 {
+		t.Fatalf("right-drag changed combat facing from %v to %v", facing, v.facing)
+	}
+
+	a.clock = 2
+	a.updateWorld(&platform.Input{RightDown: true, MouseLook: true}, 1.0/60)
+	if v.combatHeading.Len() != 0 || v.facing[2] < .9 {
+		t.Fatalf("right-drag did not resume steering after combat: %v", v.facing)
+	}
+}
+
 func TestDiagonalMovementKeepsHeadingWhileCameraTurns(t *testing.T) {
 	for _, tc := range []struct {
 		keys string

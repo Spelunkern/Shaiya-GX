@@ -371,7 +371,10 @@ func (a *App) stepWorld(in *platform.Input, dt float64, lastStep bool) {
 	if !a.updateActionApproach(in) {
 		return
 	}
-	if !in.SuppressAutoRun && (intent.forward || intent.back || intent.side != 0 || intent.turn != 0 || in.RightDown) {
+	// Orbiting the camera alone must not interrupt a target-facing attack or cast.
+	combatFacing := v.combatHeading.Len() > 0 && (a.clock < v.attackMoveUntil || v.self.ActionActive())
+	mouseSteer := in.RightDown && !combatFacing
+	if !in.SuppressAutoRun && (intent.forward || intent.back || intent.side != 0 || intent.turn != 0 || mouseSteer) {
 		v.restoreMovementHeading()
 	}
 	var dir render.V3
@@ -461,7 +464,7 @@ func (a *App) stepWorld(in *platform.Input, dt float64, lastStep bool) {
 	} else if v.diagonalHeading.Len() == 0 {
 		v.diagonalHeading = v.facing
 	}
-	if !diagonal && !blocked && speed > 0 && !a.state.Self.Dead && (in.RightDown || !v.travel && (intent.forward || intent.back)) {
+	if !diagonal && !blocked && speed > 0 && !a.state.Self.Dead && (mouseSteer || !v.travel && (intent.forward || intent.back)) {
 		v.facing = fwd
 	}
 	right := render.V3{0, 1, 0}.Cross(v.facing)
