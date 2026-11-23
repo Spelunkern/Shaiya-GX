@@ -115,8 +115,9 @@ func TestRealWeaponSounds(t *testing.T) {
 			}
 		}
 	}
-	if len(files) != 87 {
-		t.Fatalf("native weapon catalog resolved %d WAVs, want 87", len(files))
+	const wantClips = 90
+	if len(files) != wantClips {
+		t.Fatalf("GX weapon catalog resolved %d Ogg clips, want %d", len(files), wantClips)
 	}
-	t.Log("15 weapon categories resolved 87 original WAVs, all decoded within the voice budget")
+	t.Logf("decoded %d GX weapon clips within the voice budget", len(files))
 }
