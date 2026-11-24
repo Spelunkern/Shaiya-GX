@@ -38,6 +38,8 @@ type auctionView struct {
 	more, pending                  bool
 	nextRefresh                    float64
 	subcategory                    int
+	searchFaction                  uint8
+	searchGrade                    *uint8
 	other                          auctionList
 	requestView                    int
 
@@ -79,8 +81,9 @@ func (a *App) sendAuction(req proto.AuctionRequest, view, page int) {
 	a.auctionSequence++
 	v.sequence = a.auctionSequence
 	req.Sequence, req.Sort = v.sequence, v.sort
-	if v.view == proto.AuctionBrowse {
+	if view == proto.AuctionBrowse {
 		req.Category, req.Subcategory, req.Query = v.category, v.subcategory, v.query
+		req.Faction, req.NameGrade = v.searchFaction, v.searchGrade
 		minLevel, _ := strconv.Atoi(v.minLevel)
 		maxLevel, _ := strconv.Atoi(v.maxLevel)
 		if minLevel > 65535 || maxLevel > 65535 || maxLevel > 0 && minLevel > maxLevel {
@@ -237,6 +240,7 @@ func (a *App) auctionAction(action string) {
 		v.query, v.minLevel, v.maxLevel = "", "", ""
 		v.minIdx, v.maxIdx, v.grade = 0, 0, 7
 		v.subcategory = 0
+		v.searchFaction, v.searchGrade = proto.AuctionAnyFaction, nil
 		a.requestAuction(proto.AuctionRequest{})
 	case "details", "bid":
 		v.modal, v.focus, v.detail = action, -1, v.view

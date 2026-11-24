@@ -35,7 +35,7 @@ func (s *Session) auctionReply(reply proto.AuctionReply) {
 
 func (s *Session) handleAuction(p []byte) {
 	var req proto.AuctionRequest
-	if proto.DecodeAuction(p, 1024, &req) != nil || req.Page < 0 || req.Page > 10000 || !req.ValidCategory() ||
+	if proto.DecodeAuction(p, 1024, &req) != nil || req.Page < 0 || req.Page > 10000 || !req.ValidSearchFilters() ||
 		req.Sort < -4 || req.Sort > 4 || req.MinLevel < 0 || req.MaxLevel < 0 || req.MinLevel > 65535 || req.MaxLevel > 65535 || req.MaxLevel > 0 && req.MinLevel > req.MaxLevel ||
 		req.View < proto.AuctionBrowse || req.View > proto.AuctionWatch || len(req.Query) > 80 || len(req.Source) > 64 {
 		return

@@ -131,6 +131,25 @@ func TestAuctionSearchBarSelectsLevelsGradeAndCategory(t *testing.T) {
 	if a.auction.minLevel != "30" || a.auction.maxLevel != "" || a.auction.category != 2 || a.auction.subcategory != 5 {
 		t.Fatalf("search state %+v", a.auction)
 	}
+	if a.auction.searchFaction != proto.AuctionFury || a.auction.searchGrade == nil || *a.auction.searchGrade != 2 {
+		t.Fatalf("submitted faction and grade %+v", a.auction)
+	}
+	a.auction.unchecked, a.auction.grade = [2]bool{false, true}, 6
+	a.auction.pending = true
+	a.auctionSearch()
+	if a.auction.searchFaction != proto.AuctionFury || a.auction.searchGrade == nil || *a.auction.searchGrade != 2 {
+		t.Fatal("in-flight search filters changed")
+	}
+	a.auction.pending = false
+	a.auctionSearch()
+	if a.auction.searchFaction != proto.AuctionLight || a.auction.searchGrade == nil || *a.auction.searchGrade != 7 {
+		t.Fatal("native Light or Ancient selector lost")
+	}
+	a.auction.unchecked, a.auction.grade = [2]bool{true, true}, 7
+	a.auctionSearch()
+	if a.auction.searchFaction != proto.AuctionAnyFaction || a.auction.searchGrade != nil {
+		t.Fatal("equal checkbox states and All grades should be unrestricted")
+	}
 }
 
 func TestAuctionPairedListsKeepIndependentSelectionAndPage(t *testing.T) {

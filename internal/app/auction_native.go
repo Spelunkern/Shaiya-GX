@@ -174,6 +174,9 @@ func (a *App) auctionSwitch(view int) {
 
 func (a *App) auctionSearch() {
 	v := &a.auction
+	if v.pending {
+		return
+	}
 	v.page, v.selected, v.scroll, v.exactType, v.focus, v.dropdown = 0, -1, 0, 0, -1, 0
 	v.minLevel, v.maxLevel = "", ""
 	if v.minIdx > 0 {
@@ -185,6 +188,23 @@ func (a *App) auctionSearch() {
 	v.category, v.subcategory = v.group, 0
 	if v.group > 0 && v.sub > 0 {
 		v.subcategory = auctionGroups[v.group-1].gx[v.sub-1]
+	}
+	// EP5.4 0x1C01 uses the unrestricted selector when the boxes agree.
+	switch v.unchecked {
+	case [2]bool{false, true}:
+		v.searchFaction = proto.AuctionLight
+	case [2]bool{true, false}:
+		v.searchFaction = proto.AuctionFury
+	default:
+		v.searchFaction = proto.AuctionAnyFaction
+	}
+	v.searchGrade = nil
+	if v.grade < 7 {
+		grade := uint8(v.grade)
+		if grade == 6 {
+			grade = 7
+		}
+		v.searchGrade = &grade
 	}
 	a.requestAuction(proto.AuctionRequest{})
 }

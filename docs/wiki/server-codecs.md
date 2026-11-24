@@ -38,7 +38,9 @@ type AuctionRequest struct {
 	View, Page                   int
 	Query                        string
 	Category, MinLevel, MaxLevel int
-	Subcategory                  int `json:",omitempty"`
+	Subcategory                  int    `json:",omitempty"`
+	Faction                      uint8  `json:",omitempty"`
+	NameGrade                    *uint8 `json:",omitempty"`
 	ItemType, ItemID             uint8
 	Duration                     uint8
 	Count                        uint16
@@ -110,9 +112,10 @@ func AuctionCategory(realType, itemType uint8) int {
 ```
 
 ```go
-func (r AuctionRequest) ValidCategory() bool {
+func (r AuctionRequest) ValidSearchFilters() bool {
 	return r.Category >= 0 && r.Category < len(AuctionSubcategories) &&
-		r.Subcategory >= 0 && r.Subcategory <= len(AuctionSubcategories[r.Category])
+		r.Subcategory >= 0 && r.Subcategory <= len(AuctionSubcategories[r.Category]) &&
+		r.Faction <= AuctionFury && (r.NameGrade == nil || *r.NameGrade <= 5 || *r.NameGrade == 7)
 }
 ```
 

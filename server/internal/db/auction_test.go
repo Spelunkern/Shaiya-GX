@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -8,6 +9,75 @@ import (
 
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
 )
+
+func TestAuctionFiltersBeforePaging(t *testing.T) {
+	p := sqliteFixture(t)
+	// Use the stock Item definitions for Light/Fury Goddess weapons, a
+	// neutral Normal weapon, an Ancient hat, and faction-exempt type 30.
+	for _, fixture := range []struct {
+		itemType, typeID uint8
+		listings         int
+	}{{1, 65, 1}, {3, 65, 10}, {9, 1, 1}, {16, 69, 1}, {30, 189, 1}} {
+		item, err := json.Marshal(Item{Type: fixture.itemType, TypeID: fixture.typeID, Count: 1, Quality: 999})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range fixture.listings {
+			// Each listing belongs to a different seller, so the posting key is unique.
+			result, err := p.Exec(`INSERT INTO GX_Auctions(Seller,Request,SellerName,Name,Category,ItemType,TypeID,Level,Item,Price,Buyout,Deposit,Ends)
+				SELECT ?, 'filter', 'Filter seller', ItemName, 0, Type, TypeID, ReqLevel, ?, 500, 1000, 35, ?
+				FROM PS_GameDefs_Items WHERE ItemID=?`,
+				int(fixture.itemType)*100+i, item, time.Now().Unix()+3600, int(fixture.itemType)*1000+int(fixture.typeID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := requireOne(result); err != nil {
+				t.Fatalf("stock fixture %d/%d: %v", fixture.itemType, fixture.typeID, err)
+			}
+		}
+	}
+	normal, goddess, ancient, unsupported := uint8(0), uint8(4), uint8(7), uint8(6)
+	for _, tc := range []struct {
+		name string
+		req  proto.AuctionRequest
+		want uint8
+		rows int
+		more bool
+	}{
+		{"Light Goddess", proto.AuctionRequest{Faction: proto.AuctionLight, NameGrade: &goddess}, 1, 1, false},
+		{"Fury Goddess first page", proto.AuctionRequest{Faction: proto.AuctionFury, NameGrade: &goddess}, 3, 8, true},
+		{"Fury Goddess second page", proto.AuctionRequest{Faction: proto.AuctionFury, NameGrade: &goddess, Page: 1}, 3, 2, false},
+		{"Ancient", proto.AuctionRequest{NameGrade: &ancient}, 16, 1, false},
+		{"Fury Normal includes Lapis and neutral", proto.AuctionRequest{Faction: proto.AuctionFury, NameGrade: &normal}, 0, 2, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var req proto.AuctionRequest
+			if err := proto.DecodeAuction(proto.AuctionPacket(tc.req), 1024, &req); err != nil {
+				t.Fatal(err)
+			}
+			reply, err := ListAuctions(1, req)
+			if err != nil || len(reply.Rows) != tc.rows || reply.More != tc.more {
+				t.Fatalf("got %+v, %v", reply, err)
+			}
+			for _, row := range reply.Rows {
+				if tc.want != 0 && row.Type != tc.want {
+					t.Fatalf("unexpected match %d/%d", row.Type, row.TypeID)
+				}
+			}
+			if tc.want == 0 && (reply.Rows[0].Type != 30 || reply.Rows[1].Type != 9) {
+				t.Fatalf("expected Lapis and the neutral weapon, got %+v", reply.Rows)
+			}
+		})
+	}
+	if reply, err := ListAuctions(1, proto.AuctionRequest{}); err != nil || len(reply.Rows) != proto.AuctionPageSize || !reply.More {
+		t.Fatalf("unfiltered request %+v, %v", reply, err)
+	}
+	for _, invalid := range []proto.AuctionRequest{{Faction: 3}, {NameGrade: &unsupported}} {
+		if _, err := ListAuctions(1, invalid); !errors.Is(err, ErrAuctionInvalid) {
+			t.Fatalf("invalid selectors returned %v", err)
+		}
+	}
+}
 
 func auctionBuyer(t *testing.T, ch Character, slot uint8, name string) Character {
 	t.Helper()

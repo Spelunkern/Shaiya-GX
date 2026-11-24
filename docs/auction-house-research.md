@@ -64,7 +64,7 @@ Addresses in this table are server-side function entry points unless otherwise s
 
 | Opcode | Observed operation |
 |---|---|
-| `0x1C01` | Filtered search, four selector bytes and a fixed-size text region. Calls `0x441CA0`. |
+| `0x1C01` | Filtered search, five selector bytes and a fixed-size text region. Calls `0x441CA0`. |
 | `0x1C02` | Search by base item, with byte Type and TypeID combined as `Type × 1000 + TypeID`. Calls `0x441E20`. |
 | `0x1C03` | Page/follow-up on a server-side search context. Byte selector at `0x442060`. |
 | `0x1C04–05` | Active selling and bidding views. Calls `0x442140` and `0x4423D0`. |
@@ -172,8 +172,7 @@ GX now preserves frame corners at source size, keeps the same scale on both
 axes for button art, and draws the list rules in the same geometry used for
 selection and wheel paging. The category rail uses the supplied category
 atlas. Search and setup reuse their supplied state atlases. The panel grows
-vertically when the viewport permits. The detailed hierarchy, faction and
-quality selector semantics still need to be verified before adding filters.
+vertically when the viewport permits. The detailed hierarchy still needs verification.
 
 ## Item family filtering in GX
 
@@ -182,6 +181,49 @@ item families. Each child maps to catalog item types, including variant type
 IDs, and is applied before search pagination. The optional GX request field
 does not require a SQLite migration. The labels and family list are GX choices
 based on the current catalog. They do not establish the complete EP5.4 menu.
-The original screenshot establishes the presence of faction and quality
-selectors. The exact grade and faction filters remain open because they
-cannot be inferred from the catalog fields or default labels alone.
+## EP5.4 FR auction requests
+
+The [OpenShaiya EP5.4 FR client](https://archive.openshaiya.org/unpacked_clients.html)
+has SHA-256 `f8aba8ca504735e6cedaeac02f870ce0990306f83b6ae4cfcc658246c2c33319`.
+The addresses below are virtual addresses for that image, loaded at
+`0x400000`. The 740 × 600 size is written at `0x4594FD` and `0x459504`.
+Search initializes the faction checkboxes at relative coordinates
+`(0x23, 0x43)` and `(0x56, 0x43)`; both are checked at `0x45431D–0x45432A`.
+The opcode sites below call the common sender at `0x596830`. Lengths are
+payload lengths, excluding the two-byte frame length and two-byte opcode.
+Multi-byte fields are little-endian.
+
+| Request | FR client opcode site | Payload |
+|---|---|---|
+| `0x1C01` | `0x459972` | 37 bytes. Faction, minimum level, maximum level, category and name grade (one byte each), followed by 32 bytes of NUL-terminated text. |
+| `0x1C02` | `0x459A24` | 2 bytes. Item Type and TypeID. |
+| `0x1C03` | `0x45999C`, `0x4599D9` | 1 byte. Page selector 1 or 2 on the existing search. |
+| `0x1C04–07` | `0x458215`, `0x458239`, `0x4582E1`, `0x458305` | Empty. Selling, bidding, ended items and ended gold, respectively. |
+| `0x1C08` | `0x45A472` | 12 bytes. Bag, slot, count and duration (one byte each), then starting price and buyout (u32 each). |
+| `0x1C09–0A` | `0x45A2B2`, `0x45A2D8` | Market ID (u32). |
+| `0x1C0B` | `0x45A3C3` | Market ID and bid amount (u32 each). |
+| `0x1C0C–0D` | `0x459D20`, `0x459DF3` | Item result's market ID or gold result's money ID (u32). |
+| `0x1C14–17` | `0x459E0F`, `0x459BFF`, `0x459E4C`, `0x45A28C` | Watch view and clear have empty payloads. Add and remove each send a Market ID (u32). |
+
+Search assembles the faction selector at `0x4598D1–0x459904`. Equal
+checkbox states send 0, Light alone sends 1, and Fury alone sends 2.
+Level selections are multiplied by ten, with an unset maximum encoded
+as `0xFF`. The category lookup at `0x4527D0` returns 0 without a selected
+family. Grade selections 0–5 send their index, index 6 sends grade 7
+(Ancient), and index 7 sends `0xFF` (All).
+
+A local legacy `ps_game.exe` with SHA-256
+`48e8688c24b0d8fde241015a87342ebde14b4e8b48c793152530ffe214581f8e`
+corroborates the field order at `0x486315–0x486335`. The search matcher at
+`0x440E6B–0x440EEC` reads the item definition. Light excludes country
+values 3–5, Fury excludes 0–2, and Type 30 bypasses the faction check.
+An explicit name grade compares the byte at item definition offset
+`0x38`, the low byte of `ReqDex`. The initial matching search reply
+at `0x440FCD–0x440FF9` uses a status byte, a more-results byte and a
+row count followed by 48-byte rows. Further result codes and layouts
+still need their own verification.
+
+GX carries the confirmed faction and name-grade selectors as optional
+fields in `0x7F1F`. It reads both values from the item catalog before
+paginating listings, including existing listings. The legacy layouts
+above were recovered statically.

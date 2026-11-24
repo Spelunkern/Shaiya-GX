@@ -276,7 +276,7 @@ func ListAuctions(owner uint32, req proto.AuctionRequest) (proto.AuctionReply, e
 	args := []any{now}
 	switch req.View {
 	case proto.AuctionBrowse:
-		if !req.ValidCategory() {
+		if !req.ValidSearchFilters() {
 			return reply, ErrAuctionInvalid
 		}
 		if req.Category > 0 {
@@ -306,6 +306,21 @@ func ListAuctions(owner uint32, req proto.AuctionRequest) (proto.AuctionReply, e
 		if req.MaxLevel > 0 {
 			q += " AND a.Level<=?"
 			args = append(args, req.MaxLevel)
+		}
+		if req.Faction != proto.AuctionAnyFaction || req.NameGrade != nil {
+			q += " AND EXISTS (SELECT 1 FROM PS_GameDefs_Items d WHERE d.ItemID=a.ItemType*1000+a.TypeID"
+			switch req.Faction {
+			case proto.AuctionLight:
+				q += " AND (d.Type=30 OR d.Country NOT BETWEEN 3 AND 5)"
+			case proto.AuctionFury:
+				q += " AND (d.Type=30 OR d.Country>2)"
+			}
+			if req.NameGrade != nil {
+				// The native market compares the low byte of ReqDex (item name grade).
+				q += " AND (d.ReqDex & 255)=?"
+				args = append(args, *req.NameGrade)
+			}
+			q += ")"
 		}
 	case proto.AuctionSelling:
 		q += " AND a.Seller=?"

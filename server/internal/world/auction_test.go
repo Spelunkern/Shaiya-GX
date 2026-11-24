@@ -114,7 +114,15 @@ func TestAuctionTradingAcrossMapsAndFactions(t *testing.T) {
 	if len(filtered.Rows) != 0 {
 		t.Fatal("consumable appeared under Mounts", filtered)
 	}
-	browse := request(buyer, buyerFrames, proto.AuctionRequest{Query: "test stack", Category: 5, Subcategory: 1})
+	goddess := uint8(4)
+	filtered = request(buyer, buyerFrames, proto.AuctionRequest{Faction: proto.AuctionFury, NameGrade: &goddess})
+	if len(filtered.Rows) != 0 {
+		t.Fatal("Normal item appeared under the Goddess grade", filtered)
+	}
+	normal := uint8(0)
+	browse := request(buyer, buyerFrames, proto.AuctionRequest{
+		Query: "test stack", Category: 5, Subcategory: 1, Faction: proto.AuctionFury, NameGrade: &normal,
+	})
 	if len(browse.Rows) != 1 || browse.Rows[0].ID != list.Rows[0].ID {
 		t.Fatal(browse)
 	}

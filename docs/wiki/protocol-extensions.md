@@ -2052,7 +2052,7 @@ func (s *Session) auctionReply(reply proto.AuctionReply) {
 
 <details><summary>AuctionPacket — internal/proto/auction.go</summary>
 
-[Source definition](../../internal/proto/auction.go#L72)
+[Source definition](../../internal/proto/auction.go#L80)
 
 ```go
 func AuctionPacket(value any) []byte {
