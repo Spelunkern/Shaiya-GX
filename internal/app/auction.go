@@ -32,6 +32,7 @@ type auctionView struct {
 	fields                         [3]string
 	focus                          int
 	duration                       uint8
+	durationOpen                   bool
 	source                         proto.InventoryItem
 	token                          string
 	rows                           []proto.AuctionRow
@@ -220,7 +221,7 @@ func (a *App) auctionAction(action string) {
 	r := v.row()
 	switch action {
 	case "setup":
-		v.modal, v.focus = "setup", -1
+		v.modal, v.focus, v.durationOpen = "setup", -1, false
 		v.fields = [3]string{"", "500", "1000"}
 		v.message = ""
 		v.source = proto.InventoryItem{}
@@ -315,8 +316,7 @@ func (a *App) confirmAuction() {
 	} else {
 		r := v.row()
 		if r == nil || v.modal == "details" {
-			v.modal = ""
-			v.focus = -1
+			a.closeAuctionDialog()
 			return
 		}
 		req.ID, req.Version = r.ID, r.Version
@@ -329,7 +329,7 @@ func (a *App) confirmAuction() {
 			req.Amount = uint32(amount)
 		}
 	}
-	v.modal, v.focus = "", -1
+	a.closeAuctionDialog()
 	a.requestAuction(req)
 }
 

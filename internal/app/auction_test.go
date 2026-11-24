@@ -210,12 +210,12 @@ func TestAuctionDoubleClickOpensDetailsAndDialogClosesFromItsButtons(t *testing.
 		a.updateAuctionDialog(&platform.Input{MouseX: b.x + x, MouseY: b.y + y, Clicked: true}, 1024, 768)
 	}
 	click(0xb5+2, 0x8b+2)
-	if a.auction.dropdown != 4 {
-		t.Fatal("duration dropdown did not open")
+	if !a.auction.durationOpen || a.auction.dropdown != 0 {
+		t.Fatal("duration dropdown did not open independently of search filters")
 	}
 	click(0x70, 0xa4+3*0xf+2)
-	if a.auction.duration != 3 {
-		t.Fatal("duration entry was not selected")
+	if a.auction.duration != 3 || a.auction.durationOpen {
+		t.Fatal("duration entry was not selected or menu stayed open")
 	}
 	click(0xcd+2, 0x71+2)
 	if a.auction.focus != 2 {
@@ -224,6 +224,19 @@ func TestAuctionDoubleClickOpensDetailsAndDialogClosesFromItsButtons(t *testing.
 	click(0x8c+2, 0xd8+2)
 	if a.auction.modal != "" {
 		t.Fatal("setup Close button did not close")
+	}
+
+	a.auction.view = proto.AuctionSelling
+	a.auctionAction("setup")
+	click(0xb5+2, 0x8b+2)
+	if !a.auction.durationOpen {
+		t.Fatal("could not open duration on a second listing")
+	}
+	a.state.Entities[42] = &game.Entity{ID: 42}
+	a.shop.npcID = 42
+	a.updateAuction(&platform.Input{Keys: []platform.Key{platform.KeyEscape}}, 1024, 768)
+	if a.auction.modal != "" || a.auction.durationOpen || a.auction.dropdown != 0 {
+		t.Fatal("Escape did not clear the listing dialog and duration menu")
 	}
 }
 

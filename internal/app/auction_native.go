@@ -366,7 +366,7 @@ func (a *App) updateAuction(in *platform.Input, w, h int) bool {
 	}
 	if in.HasKey(platform.KeyEscape) {
 		if v.modal != "" {
-			v.modal, v.focus = "", -1
+			a.closeAuctionDialog()
 			return true
 		}
 		v.dropdown, v.focus = 0, -1
@@ -803,7 +803,7 @@ func (a *App) drawAuctionSearchBar(ox, oy int) {
 	}
 }
 
-func (a *App) drawAuctionDropdown(ox, oy int) {
+func (a *App) drawAuctionSearchDropdown(ox, oy int) {
 	v := &a.auction
 	if v.dropdown == 0 {
 		return
@@ -877,9 +877,10 @@ func (a *App) drawAuction(w, h int) {
 			a.drawAuctionScroll("p"+strconv.Itoa(i), [2]int{0x167, 0x2cb}[i], 0x7a, 0x1a3, ox, oy, count, auctionPage, offset)
 		}
 	}
-	a.drawAuctionDropdown(ox, oy)
 	if v.modal != "" {
 		a.drawAuctionDialog(w, h)
+	} else if v.view == proto.AuctionBrowse {
+		a.drawAuctionSearchDropdown(ox, oy)
 	}
 	if r := a.auctionHover; r != nil && v.modal == "" {
 		if d := a.itemsItem(r.Type, r.TypeID); d != nil {

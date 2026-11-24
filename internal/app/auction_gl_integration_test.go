@@ -62,6 +62,16 @@ func TestAuctionPanelsGL(t *testing.T) {
 			a.auction.modal = modal
 			for _, viewport := range [][2]int{{404, 480}, {1024, 768}} {
 				width, height := viewport[0], viewport[1]
+				b := auctionDialogBox(modal, width, height)
+				if modal == "setup" {
+					a.auction.duration = 0
+					a.updateAuctionDialog(&platform.Input{MouseX: b.x + 0xb7, MouseY: b.y + 0x8d, Pressed: true}, width, height)
+					if !a.auction.durationOpen {
+						t.Fatalf("%dx%d view %d could not open duration", width, height, view)
+					}
+				} else if modal == "" && view == proto.AuctionBrowse {
+					a.updateAuctionSearchBar(&platform.Input{Pressed: true}, 0x1b8-90, 0x42+4)
+				}
 				gl.Viewport(0, 0, int32(width), int32(height))
 				gl.ClearColor(.1, .1, .12, 1)
 				gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -71,6 +81,13 @@ func TestAuctionPanelsGL(t *testing.T) {
 				if code := gl.GetError(); code != gl.NO_ERROR {
 					t.Fatalf("%dx%d view %d modal %q GL error %#x", width, height, view, modal, code)
 				}
+				if modal == "setup" {
+					a.updateAuctionDialog(&platform.Input{MouseX: b.x + 0x70, MouseY: b.y + 0xa4 + 3*0xf + 2, Pressed: true}, width, height)
+					if a.auction.duration != 3 || a.auction.durationOpen {
+						t.Fatalf("%dx%d view %d could not select the longest duration", width, height, view)
+					}
+				}
+				a.auction.dropdown = 0
 				if out != "" && width == 1024 {
 					_ = os.MkdirAll(out, 0o700)
 					if err := render.SavePNG(filepath.Join(out, fmt.Sprintf("auction-v%d-%s.png", view, modal)), width, height); err != nil {
