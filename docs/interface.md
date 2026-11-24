@@ -274,6 +274,11 @@ Help remains visible but disabled in the options menu.
 Validation covers window-only transitions, real GL resize/resource preservation
 and graphics settings save/restart with real AA rendering.
 
+The five Graphics checkboxes control shadows, water surface effects, cloak and
+helmet visibility, and effects. Older data packs with the extended graphics frame are
+compacted at load time. The client reads the existing PNG without modifying
+the file or requiring the old artwork patch script.
+
 ## Antialiasing
 
 The former `Color Bit` slot offers **Off** (default), FXAA, TAA and supported

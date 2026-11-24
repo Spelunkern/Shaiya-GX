@@ -132,7 +132,7 @@ func (m *GameMenu) updateAntialias(in *platform.Input, x, y int) (bool, int) {
 }
 
 func (m *GameMenu) drawAntialias(s *render.Sprites, f *Font, x, y int) {
-	// The "Antialiasing" label is part of the frame art (tools/patch_option_graphic.py).
+	f.Draw(s, "AA", x+185, y+87, white, 23)
 	f.Draw(s, antialiasLabel(min(max(m.Settings.Antialias, 0), antialiasLevels-1)), x+211, y+87, white, 56)
 	m.antialiasButton.Draw(s)
 }

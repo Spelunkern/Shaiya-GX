@@ -75,9 +75,6 @@ type ClientSettings struct {
 	BannedWords                               bool `json:",omitempty"`
 	Shadows, Water, SkillEffects              bool
 	Antialias                                 int `json:",omitempty"`
-	// Thirteen unlabeled checkboxes reserved in the graphics page for future
-	// options; they toggle and persist but nothing reads them yet.
-	Spare [13]bool `json:",omitempty"`
 	// "Other Setup" of the User Option page. The original's All Windows and
 	// Re-open UI checkboxes had no effect and were removed.
 	WarningMsg                             bool
@@ -138,7 +135,7 @@ func NewGameMenu(t Textures) (*GameMenu, error) {
 func (m *GameMenu) Size() (int, int) {
 	switch m.Page {
 	case MenuGraphics:
-		return 308, 686 // art grown by 146 px of Etc. Option area
+		return 308, 540
 	case MenuSound:
 		return 256, 418
 	case MenuUser, MenuKeys:
@@ -213,7 +210,7 @@ func (m *GameMenu) controls(w, h int) (int, int, int, int) {
 	positions := [3][2]int{}
 	switch m.Page {
 	case MenuGraphics:
-		positions = [3][2]int{{149, 634}, {219, 634}, {21, 634}}
+		positions = [3][2]int{{149, 488}, {219, 488}, {21, 488}}
 	case MenuSound:
 		positions = [3][2]int{{105, 362}, {175, 362}, {15, 362}}
 	case MenuUser, MenuKeys:
@@ -336,7 +333,6 @@ func (m *GameMenu) Update(in *platform.Input, w, h int) int {
 			m.Settings.HideCloak, m.Settings.HideHelmet = false, false
 			m.Settings.DisplayMode = platform.DisplayMode{}
 			m.Settings.Antialias = defaults.Antialias
-			m.Settings.Spare = defaults.Spare
 		}
 		return MenuChanged
 	}
@@ -442,10 +438,7 @@ func (m *GameMenu) checks() []menuCheck {
 			{34, 332, &s.RejectTrade}, {137, 332, &s.ShakeScreen}, {241, 332, &s.WordBalloon},
 			{34, 358, &s.HideDamage}}
 	case MenuGraphics:
-		return []menuCheck{{35, 404, &s.Shadows}, {156, 404, &s.Water}, {35, 429, &s.HideCloak}, {156, 429, &s.HideHelmet}, {35, 451, &s.SkillEffects},
-			{35, 475, &s.Spare[0]}, {156, 475, &s.Spare[1]}, {35, 499, &s.Spare[2]}, {156, 499, &s.Spare[3]}, {156, 451, &s.Spare[4]},
-			{35, 523, &s.Spare[5]}, {156, 523, &s.Spare[6]}, {35, 547, &s.Spare[7]}, {156, 547, &s.Spare[8]},
-			{35, 571, &s.Spare[9]}, {156, 571, &s.Spare[10]}, {35, 595, &s.Spare[11]}, {156, 595, &s.Spare[12]}}
+		return []menuCheck{{35, 404, &s.Shadows}, {156, 404, &s.Water}, {35, 429, &s.HideCloak}, {156, 429, &s.HideHelmet}, {35, 451, &s.SkillEffects}}
 	}
 	return nil
 }

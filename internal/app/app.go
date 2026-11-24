@@ -577,6 +577,9 @@ func (a *App) Interface(name string) (*render.Texture, error) {
 	var t img.Texture
 	if err == nil {
 		t, err = img.DecodeResource("interface/"+name, b)
+		if err == nil && key == "option_graphic.png" {
+			prepareGraphicsMenuArt(t.RGBA)
+		}
 	}
 	if err != nil {
 		// Interface artwork is presentation, never authoritative game data.

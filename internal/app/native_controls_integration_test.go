@@ -366,7 +366,7 @@ func TestNativeControlsAgainstRapture(t *testing.T) {
 	if a.chatOpen || a.gameMenu.DisplayPopupOpen() || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) {
 		t.Fatal("resolution dropdown leaked keyboard input")
 	}
-	for _, in := range []platform.Input{{MouseX: mx + 230, MouseY: my + 645, Pressed: true, MouseDown: true}, {MouseX: mx + 230, MouseY: my + 645, Clicked: true}} {
+	for _, in := range []platform.Input{{MouseX: mx + 230, MouseY: my + 499, Pressed: true, MouseDown: true}, {MouseX: mx + 230, MouseY: my + 499, Clicked: true}} {
 		a.updateCharacters(&in, 1024, 734, .01)
 	}
 	if a.gameMenu.Page != ui.MenuMain || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{Width: 1024, Height: 768}) {

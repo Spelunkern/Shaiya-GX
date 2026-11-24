@@ -205,3 +205,20 @@ func TestSoundOptionCheckboxes(t *testing.T) {
 		t.Fatal("Reset did not restore the sound options")
 	}
 }
+
+func TestGraphicsMenuIgnoresSpareCheckboxArea(t *testing.T) {
+	m, err := NewGameMenu(marketTextures{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Open(MenuGraphics)
+	if len(m.checks()) != 5 {
+		t.Fatal("graphics requires five functional checkboxes")
+	}
+	want := m.Settings
+	x, y := m.Origin(1024, 768)
+	m.Update(&platform.Input{MouseX: x + 160, MouseY: y + 455, Pressed: true, MouseDown: true}, 1024, 768)
+	if action := m.Update(&platform.Input{MouseX: x + 160, MouseY: y + 455, Clicked: true}, 1024, 768); action != MenuNone || m.Settings != want {
+		t.Fatal("clicking the former placeholder changed graphics settings")
+	}
+}

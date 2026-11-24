@@ -70,7 +70,7 @@ func TestDisplayOptionsPopupGL(t *testing.T) {
 	if a.chatOpen || a.gameMenu.DisplayPopupOpen() || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) || len(applied) != 0 {
 		t.Fatal("pending resolution leaked input or applied early")
 	}
-	click(160, 645)
+	click(160, 499)
 	if len(applied) != 1 || applied[0] != (platform.DisplayMode{Width: 800, Height: 600}) || a.gameMenu.Page != ui.MenuMain {
 		t.Fatal("mode did not commit on OK", applied)
 	}
@@ -92,7 +92,7 @@ func TestDisplayOptionsPopupGL(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.gameMenuControls(&platform.Input{Keys: []platform.Key{platform.KeyEnter}}, 1024, 768)
-	click(160, 645)
+	click(160, 499)
 	if len(applied) != 2 || applied[1] != selected {
 		t.Fatal("window resolution failed to commit", applied)
 	}
