@@ -345,3 +345,63 @@ func TestServiceWindowsDragFromBodyButKeepListsAndButtons(t *testing.T) {
 		t.Fatal("header body did not drag")
 	}
 }
+
+func TestInventoryDragWithMerchantOpen(t *testing.T) {
+	const w, h = 1024, 768
+	a := inputApp()
+	a.inventory.open = true
+	a.inventoryUI.Position.Move(670, 100, w, h, ui.InventoryWidth, ui.InventoryHeight)
+	saved := a.inventoryUI.Position
+	a.shop.npcID = 42
+	a.state.Entities[42] = &game.Entity{Kind: game.KindNpc, NpcType: 1}
+
+	drive := func(x, y int, press, down, release bool) platform.Input {
+		return a.worldControls(&platform.Input{MouseX: x, MouseY: y, Pressed: press, MouseDown: down, Clicked: release}, w, h)
+	}
+	drag := func(x, y, dx, dy int) {
+		t.Helper()
+		if in := drive(x, y, true, true, false); in.Pressed || in.MouseDown {
+			t.Fatal("frame press leaked to the world")
+		}
+		drive(x+dx, y+dy, false, true, false)
+		if in := drive(x+dx, y+dy, false, false, true); in.Clicked || a.windowDrag.position != nil {
+			t.Fatal("frame release leaked to the world")
+		}
+	}
+	ix, iy := a.inventoryUI.Origin(w, h)
+	mx, my := a.marketUI.Origin(w, h)
+	if ix+ui.InventoryWidth != mx || iy != my {
+		t.Fatal("inventory did not start beside the merchant")
+	}
+	drive(ix+50, iy+15, true, true, false)
+	drive(ix+50, iy+15, false, false, true)
+	drag(mx+50, my+15, 100, 24)
+	ix, iy = a.inventoryUI.Origin(w, h)
+	mx, my = a.marketUI.Origin(w, h)
+	if ix+ui.InventoryWidth != mx || iy != my {
+		t.Fatal("clicking the inventory frame broke its default docking")
+	}
+	drag(ix+50, iy+15, 32, 100)
+	if x, y := a.inventoryUI.Origin(w, h); x != ix+32 || y != iy+100 {
+		t.Fatalf("inventory failed to move independently while trading: got %d,%d", x, y)
+	}
+	if x, y := a.marketUI.Origin(w, h); x != mx || y != my {
+		t.Fatal("moving inventory also moved the merchant")
+	}
+	drag(mx+50, my+15, 90, 24)
+	if x, y := a.marketUI.Origin(w, h); x != mx+90 || y != my+24 {
+		t.Fatal("merchant frame stopped dragging")
+	}
+	if x, y := a.inventoryUI.Origin(w, h); x != ix+32 || y != iy+100 {
+		t.Fatal("the moved inventory followed the merchant")
+	}
+
+	drive(ix+82, iy+115, true, true, false)
+	a.shop.npcID = 0
+	if in := drive(ix+82, iy+115, false, false, true); in.Clicked || a.windowDrag.position != nil {
+		t.Fatal("closing the merchant during a drag leaked the release")
+	}
+	if x, y := a.inventoryUI.Origin(w, h); x != 670 || y != 100 || a.inventoryUI.Position != saved {
+		t.Fatal("temporary merchant placement replaced the saved inventory position")
+	}
+}

@@ -12,15 +12,16 @@ import (
 )
 
 type shopView struct {
-	quantity  *tradeQuantity
-	npcID     uint32
-	page      int
-	pending   bool
-	deadline  float64
-	dragging  bool
-	questMode bool
-	talk      bool // the NPC conversation window precedes the service
-	dragIndex uint8
+	inventoryPosition ui.WindowPosition
+	quantity          *tradeQuantity
+	npcID             uint32
+	page              int
+	pending           bool
+	deadline          float64
+	dragging          bool
+	questMode         bool
+	talk              bool // the NPC conversation window precedes the service
+	dragIndex         uint8
 }
 
 func (a *App) merchantOpen() bool {
@@ -153,6 +154,7 @@ func (a *App) openNPC(id uint32) {
 		return
 	}
 	a.shop.npcID, a.shop.page, a.shop.questMode, a.shop.talk = id, 0, false, false
+	a.shop.inventoryPosition = ui.WindowPosition{}
 	if a.auctionBoard(id) {
 		a.beginAuction(id)
 		return

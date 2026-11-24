@@ -710,7 +710,9 @@ filled cells, including three-digit stacks.
 
 ## Personal warehouse
 
-Merchants and bankers open the inventory flush to the left of the service window. The inventory returns to its saved position when the service closes.
+Merchants and bankers open the inventory flush to the left of the service window.
+Drag the inventory frame independently during a merchant visit. The inventory
+returns to its saved position when the service closes.
 
 A personal banker opens account storage. While Warehouse Call is active,
 click its buff icon to reopen personal storage and the inventory. Drag the

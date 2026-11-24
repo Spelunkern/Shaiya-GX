@@ -26,6 +26,8 @@ func (a *App) inventoryDockOrigin(w, h int) (x, y int, active bool) {
 		x, y = a.bankUI.Origin(w, h)
 	case a.merchantOpen():
 		x, y = a.marketUI.Origin(w, h)
+		x, y = a.shop.inventoryPosition.Origin(w, h, ui.InventoryWidth, ui.InventoryHeight, x-ui.InventoryWidth, y)
+		return x, y, true
 	default:
 		return 0, 0, false
 	}

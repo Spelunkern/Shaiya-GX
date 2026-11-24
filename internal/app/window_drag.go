@@ -24,8 +24,14 @@ type windowDrag struct {
 func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 	d := &a.windowDrag
 	if d.position != nil {
+		merchantInventory := d.position == &a.shop.inventoryPosition
+		if merchantInventory && (!a.inventory.open || a.state == nil || !a.merchantOpen()) {
+			a.finishWindowDrag()
+			return true
+		}
 		clickable := d.portrait || d.click != nil
-		if !clickable || absInt(in.MouseX-d.pressX) > 4 || absInt(in.MouseY-d.pressY) > 4 {
+		// A click on the docked frame leaves it attached to the merchant.
+		if !clickable && !merchantInventory || absInt(in.MouseX-d.pressX) > 4 || absInt(in.MouseY-d.pressY) > 4 {
 			d.moved = true
 		}
 		if d.moved {
@@ -60,7 +66,7 @@ func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 		if !pointInside(in, x, y, width, height) || !free() {
 			return false
 		}
-		a.windowDrag = windowDrag{position: position, offsetX: in.MouseX - x, offsetY: in.MouseY - y, width: width, height: height}
+		a.windowDrag = windowDrag{position: position, pressX: in.MouseX, pressY: in.MouseY, offsetX: in.MouseX - x, offsetY: in.MouseY - y, width: width, height: height}
 		a.wv.uiLeft = -2
 		return true
 	}
@@ -179,8 +185,16 @@ func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 	}
 	if a.inventory.open && a.inventoryUI != nil {
 		x, y := a.inventoryUI.Origin(w, h)
-		if _, _, docked := a.inventoryDockOrigin(w, h); !docked && startFrame(&a.inventoryUI.Position, x, y, ui.InventoryWidth, ui.InventoryHeight, func() bool { return a.inventoryUI.FreeAt(in.MouseX, in.MouseY, w, h, a.inventory.bag) }) {
-			return true
+		if !a.warehouseOpen() {
+			position := &a.inventoryUI.Position
+			if a.merchantOpen() {
+				position = &a.shop.inventoryPosition
+			}
+			if startFrame(position, x, y, ui.InventoryWidth, ui.InventoryHeight, func() bool {
+				return a.inventoryUI.FreeAt(in.MouseX, in.MouseY, w, h, a.inventory.bag)
+			}) {
+				return true
+			}
 		}
 		if pointInside(in, x, y, ui.InventoryWidth, ui.InventoryHeight) {
 			return false
@@ -450,9 +464,11 @@ func pointInside(in *platform.Input, x, y, w, h int) bool {
 	return in.MouseX >= x && in.MouseX < x+w && in.MouseY >= y && in.MouseY < y+h
 }
 func (a *App) finishWindowDrag() {
-	if a.windowDrag.position != nil {
+	if position := a.windowDrag.position; position != nil {
 		a.windowDrag = windowDrag{}
-		a.saveUILayout()
+		if position != &a.shop.inventoryPosition {
+			a.saveUILayout()
+		}
 	}
 }
 func (a *App) layoutPositions() map[string]*ui.WindowPosition {
