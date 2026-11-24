@@ -24,20 +24,20 @@ func TestDisplayAppliesOnlyOnOKAndFailureRestoresSelection(t *testing.T) {
 	if len(calls) != 0 {
 		t.Fatal("pending resolution changed the display")
 	}
-	click(160, 499)
+	click(160, 645)
 	if len(calls) != 1 || calls[0] != (platform.DisplayMode{Width: 800, Height: 600}) {
 		t.Fatal("OK did not apply", calls)
 	}
 	a.gameMenu.Open(ui.MenuGraphics)
 	a.gameMenu.Settings.DisplayMode = platform.DisplayMode{Width: 1024, Height: 768}
 	a.cfg.ApplyDisplayMode = func(platform.DisplayMode) error { return errors.New("driver refused test mode") }
-	click(160, 499)
+	click(160, 645)
 	if a.gameMenu.Page != ui.MenuGraphics || a.gameMenu.DisplayError == "" || a.gameMenu.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) {
 		t.Fatal("failed display change did not recover")
 	}
 	retried := false
 	a.cfg.ApplyDisplayMode = func(platform.DisplayMode) error { retried = true; return nil }
-	click(160, 499)
+	click(160, 645)
 	if !retried {
 		t.Fatal("failed change left a stale applied-mode cache")
 	}

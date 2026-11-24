@@ -206,19 +206,45 @@ func TestSoundOptionCheckboxes(t *testing.T) {
 	}
 }
 
-func TestGraphicsMenuIgnoresSpareCheckboxArea(t *testing.T) {
+func TestGraphicsMenuPreservesReservedCheckboxes(t *testing.T) {
 	m, err := NewGameMenu(marketTextures{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	m.Open(MenuGraphics)
-	if len(m.checks()) != 5 {
-		t.Fatal("graphics requires five functional checkboxes")
+	if w, h := m.Size(); w != 308 || h != 686 || len(m.checks()) != 18 {
+		t.Fatalf("graphics page lost its expanded layout or reserved controls: %dx%d, %d checkboxes", w, h, len(m.checks()))
 	}
-	want := m.Settings
-	x, y := m.Origin(1024, 768)
-	m.Update(&platform.Input{MouseX: x + 160, MouseY: y + 455, Pressed: true, MouseDown: true}, 1024, 768)
-	if action := m.Update(&platform.Input{MouseX: x + 160, MouseY: y + 455, Clicked: true}, 1024, 768); action != MenuNone || m.Settings != want {
-		t.Fatal("clicking the former placeholder changed graphics settings")
+	click := func(dx, dy int) int {
+		x, y := m.Origin(1024, 768)
+		p := platform.Input{MouseX: x + dx, MouseY: y + dy, Pressed: true, MouseDown: true}
+		m.Update(&p, 1024, 768)
+		p.Pressed, p.MouseDown, p.Clicked = false, false, true
+		return m.Update(&p, 1024, 768)
+	}
+	original := m.Settings
+	positions := [13][2]int{{35, 475}, {156, 475}, {35, 499}, {156, 499}, {156, 451},
+		{35, 523}, {156, 523}, {35, 547}, {156, 547}, {35, 571}, {156, 571}, {35, 595}, {156, 595}}
+	want := original
+	for i, p := range positions {
+		want.Spare[i] = true
+		if action := click(p[0]+5, p[1]+5); action != MenuChanged || m.Settings != want {
+			t.Fatalf("reserved checkbox %d changed the wrong settings", i)
+		}
+	}
+	if action := click(230, 645); action != MenuChanged || m.Settings != original {
+		t.Fatal("Cancel did not discard reserved checkbox changes")
+	}
+	m.Open(MenuGraphics)
+	click(161, 456)
+	if action := click(160, 645); action != MenuSave || !m.SavedSettings().Spare[4] {
+		t.Fatal("OK did not save the reserved checkbox value")
+	}
+	m.Open(MenuGraphics)
+	if action := click(32, 645); action != MenuChanged || m.Settings.Spare != original.Spare {
+		t.Fatal("Reset did not restore the reserved checkbox defaults")
+	}
+	if action := click(230, 645); action != MenuChanged || !m.SavedSettings().Spare[4] {
+		t.Fatal("Cancel after reset lost the saved reserved checkbox value")
 	}
 }

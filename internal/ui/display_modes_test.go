@@ -25,7 +25,7 @@ func TestDisplayDropdownChoosesPendingModeAndCancelRestores(t *testing.T) {
 	if m.DisplayPopupOpen() || m.Settings.DisplayMode != (platform.DisplayMode{Width: 800, Height: 600}) {
 		t.Fatal("wrong pending display mode", m.Settings.DisplayMode)
 	}
-	click(230, 499)
+	click(230, 645)
 	if m.Page != MenuMain || m.Settings.DisplayMode != (platform.DisplayMode{}) {
 		t.Fatal("cancel kept pending resolution")
 	}

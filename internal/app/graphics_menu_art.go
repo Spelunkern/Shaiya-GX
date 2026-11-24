@@ -1,47 +1,96 @@
 package app
 
-import (
-	"bytes"
+import img "github.com/Spelunkern/Shaiya-GX/internal/data/image"
 
-	img "github.com/Spelunkern/Shaiya-GX/internal/data/image"
-)
-
-// prepareGraphicsMenuArt removes the artwork from the former spare controls
-// and clears the Color Bit label for the AA control.
-func prepareGraphicsMenuArt(art *img.RGBA) {
-	const (
-		split     = 469
-		addedRows = 146
-	)
-	if art == nil || art.W != 512 || art.H < 540 {
+// prepareGraphicsMenuArt gives compact EP5 artwork the stock GX layout. The
+// expanded pack already contains the reserved checkbox rows and footer.
+func prepareGraphicsMenuArt(t img.Texture) {
+	var width, height int
+	var levels [][]byte
+	switch {
+	case t.RGBA != nil:
+		width, height = t.RGBA.W, t.RGBA.H
+		levels = [][]byte{t.RGBA.Pix}
+	case t.DDS != nil && t.DDS.Format == img.FormatRGBA:
+		width, height = t.DDS.W, t.DDS.H
+		levels = t.DDS.Levels
+	default:
 		return
 	}
-
-	stride := art.W * 4
-	row := func(y, x0, x1 int) []byte {
-		return art.Pix[y*stride+x0*4 : y*stride+x1*4]
+	if width < 308 || height < 540 || len(levels) == 0 {
+		return
+	}
+	// The left frame is opaque at row 539 in both versions and at row 614
+	// only in the extended one, including when the compact PNG has padding.
+	opaque := func(y int) bool { return levels[0][4*(y*width+16)+3] != 0 }
+	if !opaque(539) {
+		return
+	}
+	compact := height < 686 || !opaque(614)
+	const addedRows = 146
+	targetHeight := height
+	if compact && height < 686 {
+		targetHeight += addedRows
 	}
 
-	// The previous asset patch cloned the Shadow checkbox into the vacant
-	// slot beside Effects and inserted 146 rows just below it.
-	expanded := art.H >= 686 && row(401, 32, 54)[3] != 0
-	for y := 0; expanded && y < 20; y++ {
-		expanded = bytes.Equal(row(401+y, 32, 54), row(448+y, 153, 175))
-	}
-	if expanded {
-		for y := 448; y < 468; y++ {
-			copy(row(y, 153, 175), row(y, 175, 197))
+	// Keep every authored PNG mip. Apply the same layout in each level's
+	// coordinates rather than re-generating the rest of the atlas.
+	for level, pixels := range levels {
+		w, h := max(width>>level, 1), max(height>>level, 1)
+		if compact {
+			pixels = expandGraphicsMenuArt(pixels, w, h, max(targetHeight>>level, 1), level)
 		}
-		copy(art.Pix[split*stride:], art.Pix[(split+addedRows)*stride:])
-		clear(art.Pix[(art.H-addedRows)*stride:])
+		// Clear Color Bit or the baked AA caption for the runtime AA label.
+		left, right, sample := 150>>level, 206>>level, 141>>level
+		for y := 84 >> level; y < 101>>level && sample < left; y++ {
+			row := pixels[y*w*4 : (y+1)*w*4]
+			for x := left; x < right; x++ {
+				copy(row[x*4:(x+1)*4], row[sample*4:(sample+1)*4])
+			}
+		}
+		levels[level] = pixels
+	}
+	if t.RGBA != nil {
+		t.RGBA.H, t.RGBA.Pix = targetHeight, levels[0]
+	} else {
+		t.DDS.H = targetHeight
+	}
+}
+
+func expandGraphicsMenuArt(pixels []byte, w, h, targetHeight, level int) []byte {
+	const split, addedRows = 469, 146
+	stride := w * 4
+	start, inserted := split>>level, addedRows>>level
+	if targetHeight != h {
+		expanded := make([]byte, stride*targetHeight)
+		copy(expanded, pixels)
+		pixels = expanded
+	}
+	if inserted == 0 {
+		return pixels
+	}
+	footer := start + inserted
+	copy(pixels[footer*stride:], pixels[start*stride:])
+	tileRows := max(1, 4>>level)
+	for row := range inserted {
+		tile := row % (2 * tileRows)
+		tile = min(tile, 2*tileRows-tile-1)
+		copy(pixels[(start+row)*stride:], pixels[(footer+tile)*stride:(footer+tile+1)*stride])
 	}
 
-	// Tile the panel background immediately left of Color Bit.
-	for y := 84; y < 101; y++ {
-		var tile [16 * 4]byte
-		copy(tile[:], row(y, 141, 157))
-		for x := 150; x < 206; x += 16 {
-			copy(row(y, x, min(x+16, 206)), tile[:])
+	// Clone the 22x20 Shadow frame into the slot beside Effects and six rows.
+	boxWidth, boxHeight := 22>>level, 20>>level
+	stamp := func(x, y int) {
+		src := (401>>level)*stride + (32>>level)*4
+		dst := (y>>level)*stride + (x>>level)*4
+		for row := range boxHeight {
+			copy(pixels[dst+row*stride:], pixels[src+row*stride:src+row*stride+boxWidth*4])
 		}
 	}
+	stamp(153, 448)
+	for y := 472; y <= 592; y += 24 {
+		stamp(32, y)
+		stamp(153, y)
+	}
+	return pixels
 }

@@ -285,10 +285,11 @@ Help remains visible but disabled in the options menu.
 Validation covers window-only transitions, real GL resize/resource preservation
 and graphics settings save/restart with real AA rendering.
 
-The five Graphics checkboxes control shadows, water surface effects, cloak and
-helmet visibility, and effects. Older data packs with the extended graphics frame are
-compacted at load time. The client reads the existing PNG without modifying
-the file or requiring the old artwork patch script.
+Five Graphics checkboxes control shadows, water surface effects, cloak and
+helmet visibility, and effects. The thirteen unlabeled checkboxes are reserved
+for future GX options. They retain their saved values. The client uses the
+expanded frame with either stock GX or compact EP5 artwork and leaves the
+source PNG intact.
 
 ## Antialiasing
 

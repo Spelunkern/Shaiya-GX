@@ -52,8 +52,8 @@ func TestAAAppliesAfterRestartGL(t *testing.T) {
 		a.gameMenu.Open(ui.MenuGraphics)
 		a.gameMenu.Settings.Antialias = mode
 		x, y := a.gameMenu.Origin(960, 600)
-		a.updateGameMenu(&platform.Input{MouseX: x + 160, MouseY: y + 498, Pressed: true, MouseDown: true}, 960, 600)
-		a.updateGameMenu(&platform.Input{MouseX: x + 160, MouseY: y + 498, Clicked: true}, 960, 600)
+		a.updateGameMenu(&platform.Input{MouseX: x + 160, MouseY: y + 644, Pressed: true, MouseDown: true}, 960, 600)
+		a.updateGameMenu(&platform.Input{MouseX: x + 160, MouseY: y + 644, Clicked: true}, 960, 600)
 		if a.gameMenu.Page != ui.MenuMain {
 			t.Fatal("graphics OK did not save")
 		}
