@@ -13,6 +13,10 @@ type ShadowMap struct {
 	bytes                   uint64
 	fbo, depth, color, prog uint32
 	receiver                *Mesh
+	uViewProj, uProjector   int32
+	uView, uClipPlane       int32
+	uFogRange, uOpacity     int32
+	uMaterialAlphaRef       int32
 }
 
 const shadowVS = `#version 450 core
@@ -58,7 +62,17 @@ func NewShadowMap() (*ShadowMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := &ShadowMap{prog: p}
+	u := func(n string) int32 { return gl.GetUniformLocation(p, gl.Str(n+"\x00")) }
+	m := &ShadowMap{
+		prog:              p,
+		uViewProj:         u("viewProj"),
+		uProjector:        u("projector"),
+		uView:             u("view"),
+		uClipPlane:        u("clipPlane"),
+		uFogRange:         u("fogRange"),
+		uOpacity:          u("opacity"),
+		uMaterialAlphaRef: u("materialAlphaRef"),
+	}
 	gl.CreateFramebuffers(1, &m.fbo)
 	gl.CreateRenderbuffers(1, &m.depth)
 	gl.NamedRenderbufferStorage(m.depth, gl.DEPTH_COMPONENT24, 256, 256)
@@ -131,20 +145,19 @@ func (m *ShadowMap) ProjectMasked(s *Scene3D, projector M4, v []Vertex, idx []ui
 func (m *ShadowMap) projectMasked(s *Scene3D, projector M4, v []Vertex, idx []uint32, opacity float32, material *Texture, cutoff float32) {
 	m.receiver.Stream(v, idx)
 	gl.UseProgram(m.prog)
-	uniform := func(n string) int32 { return gl.GetUniformLocation(m.prog, gl.Str(n+"\x00")) }
 	vp := s.View.Mul(s.depthProjection(s.Proj))
-	gl.UniformMatrix4fv(uniform("viewProj"), 1, false, &vp[0])
-	gl.UniformMatrix4fv(uniform("projector"), 1, false, &projector[0])
-	gl.UniformMatrix4fv(uniform("view"), 1, false, &s.View[0])
-	gl.Uniform4fv(uniform("clipPlane"), 1, &s.ClipPlane[0])
-	gl.Uniform2f(uniform("fogRange"), s.FogStart, s.FogEnd)
-	gl.Uniform1f(uniform("opacity"), opacity)
+	gl.UniformMatrix4fv(m.uViewProj, 1, false, &vp[0])
+	gl.UniformMatrix4fv(m.uProjector, 1, false, &projector[0])
+	gl.UniformMatrix4fv(m.uView, 1, false, &s.View[0])
+	gl.Uniform4fv(m.uClipPlane, 1, &s.ClipPlane[0])
+	gl.Uniform2f(m.uFogRange, s.FogStart, s.FogEnd)
+	gl.Uniform1f(m.uOpacity, opacity)
 	alpha := float32(-1)
 	if material != nil {
 		alpha = cutoff
 		gl.BindTextureUnit(1, material.ID)
 	}
-	gl.Uniform1f(uniform("materialAlphaRef"), alpha)
+	gl.Uniform1f(m.uMaterialAlphaRef, alpha)
 	gl.BindTextureUnit(0, m.color)
 	gl.Enable(gl.DEPTH_TEST)
 	if s.ReverseDepth {

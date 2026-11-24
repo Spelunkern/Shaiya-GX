@@ -53,18 +53,26 @@ type CharacterBatch struct {
 	instances   []render.SkinInstance
 	palettes    []render.M4
 	offsets     [][4]int32
-	rigidKeys   map[rigidMaterial]int
-	rigidGroups []rigidGroup
-	cloaks      []*Character
-	cloth       render.ClothCrowd
-	skin        render.SkinCrowd
+	rigidKeys       map[rigidMaterial]int
+	rigidGroups     []rigidGroup
+	rigid           render.RigidCrowd
+	rigidDrawGroups []render.RigidGroup
+	rigidWorlds     []render.M4
+	cloaks          []*Character
+	serial          []*Character
+	cloth           render.ClothCrowd
+	skin            render.SkinCrowd
 	weaponFX    []crowdWeaponEffect
 	Stats       CrowdDrawStats
 }
 
 func (b *CharacterBatch) Draw(k *render.Skinner, s *render.Scene3D, actors []*Character) {
+	b.DrawMin(k, s, actors, MinCrowdActors)
+}
+
+func (b *CharacterBatch) DrawMin(k *render.Skinner, s *render.Scene3D, actors []*Character, minActors int) {
 	b.Stats = CrowdDrawStats{}
-	if len(actors) < MinCrowdActors || s.Shadow {
+	if len(actors) < minActors || s.Shadow {
 		before := render.DrawCalls()
 		for _, c := range actors {
 			c.Draw(k, s)
@@ -99,16 +107,14 @@ func (b *CharacterBatch) Draw(k *render.Skinner, s *render.Scene3D, actors []*Ch
 			draw.instance = s.CrowdSkinInstance(c.World)
 		}
 	})
+	b.serial = b.serial[:0]
 	for i, c := range actors {
 		if c == nil {
 			continue
 		}
 		draw := &b.prepared[i]
 		if draw.serial {
-			b.flush(k, s)
-			before := render.DrawCalls()
-			c.Draw(k, s)
-			b.Stats.Fallback += render.DrawCalls() - before
+			b.serial = append(b.serial, c)
 			continue
 		}
 		if draw.occluded {
@@ -121,12 +127,22 @@ func (b *CharacterBatch) Draw(k *render.Skinner, s *render.Scene3D, actors []*Ch
 		}
 	}
 	b.flush(k, s)
+	if len(b.serial) != 0 {
+		before := render.DrawCalls()
+		for _, c := range b.serial {
+			c.Draw(k, s)
+		}
+		b.Stats.Fallback += render.DrawCalls() - before
+		clear(b.serial)
+		b.serial = b.serial[:0]
+	}
 	b.Stats.ClothBytes, b.Stats.ClothUploads = b.cloth.Uploaded, b.cloth.UploadOps
 }
 
 func (b *CharacterBatch) Delete() {
 	b.cloth.Delete()
 	b.skin.Delete()
+	b.rigid.Delete()
 }
 
 func (c *Character) hasBlendedAttachment() bool {
@@ -258,14 +274,36 @@ func (b *CharacterBatch) flush(k *render.Skinner, s *render.Scene3D) {
 	b.Stats.Cloth += render.DrawCalls() - before
 	before = render.DrawCalls()
 	if len(b.rigidKeys) != 0 {
+		b.rigidDrawGroups, b.rigidWorlds = b.rigidDrawGroups[:0], b.rigidWorlds[:0]
 		for i := range len(b.rigidKeys) {
 			group := &b.rigidGroups[i]
 			m := group.material
-			s.SetInstances(group.worlds)
-			s.DrawInstanced(m.mesh, m.texture, m.ref)
+			first := len(b.rigidWorlds)
+			b.rigidWorlds = append(b.rigidWorlds, group.worlds...)
+			b.rigidDrawGroups = append(b.rigidDrawGroups, render.RigidGroup{
+				Mesh:     m.mesh,
+				Texture:  m.texture,
+				AlphaRef: m.ref,
+				First:    first,
+				Count:    len(group.worlds),
+			})
+		}
+		if !b.rigid.Draw(s, b.rigidDrawGroups, b.rigidWorlds) {
+			for i := range len(b.rigidKeys) {
+				group := &b.rigidGroups[i]
+				m := group.material
+				s.SetInstances(group.worlds)
+				s.DrawInstanced(m.mesh, m.texture, m.ref)
+			}
+		}
+		for i := range len(b.rigidKeys) {
+			group := &b.rigidGroups[i]
 			group.material = rigidMaterial{}
 			group.worlds = group.worlds[:0]
 		}
+		clear(b.rigidDrawGroups)
+		b.rigidDrawGroups = b.rigidDrawGroups[:0]
+		b.rigidWorlds = b.rigidWorlds[:0]
 	}
 	b.Stats.Rigid += render.DrawCalls() - before
 	if len(b.weaponFX) > 0 {

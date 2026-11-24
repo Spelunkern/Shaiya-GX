@@ -75,7 +75,8 @@ type ClientSettings struct {
 	OwnName, PlayerNames, MonsterNames        bool
 	BannedWords                               bool `json:",omitempty"`
 	Shadows, Water, SkillEffects              bool
-	Antialias                                 int `json:",omitempty"`
+	Antialias                                 int  `json:",omitempty"`
+	NoVSync                                   bool `json:",omitempty"`
 	// Thirteen unlabeled checkboxes reserved in the graphics page for future
 	// options; they toggle and persist but nothing reads them yet.
 	Spare [13]bool `json:",omitempty"`

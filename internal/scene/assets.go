@@ -122,13 +122,14 @@ type Part struct {
 }
 
 type Model struct {
-	occluders    [][3]render.V3
-	lodErrors    [2]float32
-	lodAvailable [2]bool
-	colliders    []world.CollisionMesh
-	center       render.V3
-	radius       float32
-	Parts        []Part
+	occluders      [][3]render.V3
+	lodErrors      [2]float32
+	lodAvailable   [2]bool
+	colliders      []world.CollisionMesh
+	colliderBlocks [][]colliderBlock
+	center         render.V3
+	radius         float32
+	Parts          []Part
 }
 
 // SMOD loads a static model; textures come from Entity/Texture.

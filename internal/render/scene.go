@@ -149,9 +149,14 @@ void main() {
 	} else if (mode == 5) {
 		c = tint;
 	} else if (mode == 1) {
-		c = vec4(texture(tex1, vUV2 / tileSize).rgb, texture(tex0, vUV).a);
-		if (hasTerrainLight != 0) c.rgb *= texture(terrainLight, vUV).rgb;
+		vec2 tileUV = vUV2 / tileSize;
+		vec2 ddx = dFdx(tileUV);
+		vec2 ddy = dFdy(tileUV);
 		if (!terrainLayerEnabled(vUV2, terrainLayerBit)) discard;
+		float alpha = texture(tex0, vUV).a;
+		if (alpha <= alphaRef) discard;
+		c = vec4(textureGrad(tex1, tileUV, ddx, ddy).rgb, alpha);
+		if (hasTerrainLight != 0) c.rgb *= texture(terrainLight, vUV).rgb;
 	} else if (mode == 4) {
 		c = texture(tex0, vUV);
 		c.rgb *= texture(tex1, vUV2).rgb;

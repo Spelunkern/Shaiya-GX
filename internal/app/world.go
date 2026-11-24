@@ -16,6 +16,12 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/ui"
 )
 
+type nameplateIcon struct {
+	tex                        *render.Texture
+	x, y, w, h, u0, v0, u1, v1 float32
+	depth                      float32
+}
+
 // worldView is the in-game 3D view: map, own character and the native
 // third-person camera (0x444b10 reset, 0x4397d0 orbit/zoom, 0x43bfa0
 // movement; Phoenix tools/reference/ep5_camera_controls.md).
@@ -55,8 +61,14 @@ type worldView struct {
 	visiblePlayers              []*scene.Character
 	visiblePlayerMounts         []*scene.Vehicle
 	visiblePlayerCloth          []*scene.Character
+	visibleMobActors            []*scene.CreatureActor
+	visibleNPCs                 []*npcActor
 	crowdCharacters             []*scene.Character
 	crowdBatch                  scene.CharacterBatch
+	mobBatch                    scene.CharacterBatch
+	npcBatch                    scene.CharacterBatch
+	anyMobVisible               bool
+	anyPlayerVisible            bool
 	mobs                        map[uint32]*mobActor
 	transforms                  map[uint32]*transformActor
 	world                       *scene.World
@@ -98,6 +110,11 @@ type worldView struct {
 	mouselook                   bool
 	cameraReady                 bool
 	cameraEye, cameraTarget     render.V3
+	camRayOrigin, camRayEye     render.V3
+	camRayResult                render.V3
+	camRayHit, camRayValid      bool
+	camRayWorld                 *scene.World
+	plateIcons                  []nameplateIcon
 	shake                       float32 // seconds of camera shake left (0x54fe20 / 0x54fe70)
 	shakeOffset                 render.V3
 	firstDirection              render.V3
@@ -1184,6 +1201,8 @@ func (a *App) releaseWorld() {
 	}
 	if a.wv != nil {
 		a.wv.crowdBatch.Delete()
+		a.wv.mobBatch.Delete()
+		a.wv.npcBatch.Delete()
 		a.wv.shadow.Delete()
 		a.wv.waterReflection.Delete()
 		a.scene3d.ReleaseWaterBackground()

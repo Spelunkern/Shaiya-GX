@@ -177,9 +177,14 @@ flat in int layer;
 out vec4 frag;
 ` + terrainLayerBlocksGLSL + `
 void main() {
- vec4 c=vec4(texture(tiles[layer],vUV2/tileSizes[layer]).rgb,texture(masks[layer],vUV).a);
+ vec2 tileUV=vUV2/tileSizes[layer];
+ vec2 ddx=dFdx(tileUV);
+ vec2 ddy=dFdy(tileUV);
+ if (!terrainLayerEnabled(vUV2, layerBits[layer])) discard;
+ float alpha=texture(masks[layer],vUV).a;
+ if (alpha <= 7.5/255.0) discard;
+ vec4 c=vec4(textureGrad(tiles[layer],tileUV,ddx,ddy).rgb,alpha);
  if (lit != 0) c.rgb *= texture(lightmap,vUV).rgb;
- if (c.a <= 7.5/255.0 || !terrainLayerEnabled(vUV2, layerBits[layer])) discard;
  if (fogRange.y > fogRange.x) {
   float f=clamp((fogRange.y-vDepth)/(fogRange.y-fogRange.x),0.0,1.0);
   c.rgb=mix(fogColor,c.rgb,f);

@@ -91,9 +91,12 @@ func (a *App) expireCombatNumbers() {
 }
 
 func combatGlyphRect(point render.V3, width, height float32, view, projection render.M4, w, h int) (x, y, rw, rh float32, ok bool) {
+	return combatGlyphRectVP(point, width, height, view, view.Mul(projection), w, h)
+}
+
+func combatGlyphRectVP(point render.V3, width, height float32, view, vp render.M4, w, h int) (x, y, rw, rh float32, ok bool) {
 	right := render.V3{view[0], view[4], view[8]}
 	up := render.V3{view[1], view[5], view[9]}
-	vp := view.Mul(projection)
 	project := func(p render.V3) (float32, float32, bool) {
 		cw := p[0]*vp[3] + p[1]*vp[7] + p[2]*vp[11] + vp[15]
 		if cw <= 0 {
@@ -123,6 +126,7 @@ func (a *App) drawCombatNumbers(w, h int) {
 		return
 	}
 	view, projection := a.scene3d.View, a.scene3d.Proj
+	vp := view.Mul(projection)
 	right := render.V3{view[0], view[4], view[8]}
 	draw := func(entry combatNumber, age float32) {
 		point := entry.Point.Add(render.V3{0, age * .3, 0})
@@ -132,7 +136,7 @@ func (a *App) drawCombatNumbers(w, h int) {
 			width *= 1.5
 		}
 		glyph := func(p render.V3, dw, dh float32, sx, sw int, color [4]float32) {
-			x, y, rw, rh, ok := combatGlyphRect(p, dw, dh, view, projection, w, h)
+			x, y, rw, rh, ok := combatGlyphRectVP(p, dw, dh, view, vp, w, h)
 			if !ok {
 				return
 			}

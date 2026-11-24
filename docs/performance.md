@@ -802,3 +802,88 @@ comparisons test dungeon alpha and lightmaps, field terrain and placements,
 and the final water composite with full and cropped reflections. The packed
 field path differed by up to two channels per captured frame, each by one
 8-bit level. Asynchronous route tests cover movement and terrain residency.
+
+## Low-spec GPU, Crowd & UI Optimization Pass
+
+An audit on integrated AMD APU hardware exposed several CPU, driver, and UI
+overhead hotspots across dense scenes and `Glow = 0` configurations:
+
+- **Water-target color-only FBO (`internal/render/water_target.go`,
+  `name_depth.go`, `hover_depth.go`, `internal/app/world.go`)**: when `Glow` is
+  disabled, binding `worldDepth` as a shader sampler while it remained attached
+  to the active `frameTarget` FBO triggered a depth-feedback stall on AMD
+  OpenGL 4.5 (`21.5.2`). `BeginColorOnly()` binds a dedicated `colorFBO` with
+  no depth attachment before sampling `worldDepth` for nameplates/water, and
+  `SceneGlow` is skipped completely when `Glow == 0`.
+- **Rigid crowd attachment batching (`internal/render/rigid_crowd.go`,
+  `internal/scene/character_batch.go`)**: static rigid weapons and shields in
+  dense crowds are packed into an immutable vertex/index heap and drawn via the
+  bindless `mapVS`/`mapFS`/`mapCS` multi-draw indirect path (`gl.CULL_FACE`
+  disabled), cutting crowd draw calls by ~60% (falls back cleanly when `< 2`
+  groups or bindless MDI is unavailable). Concealed/blended draws defer after
+  the opaque crowd flush.
+- **Pre-outlined Latin-1 font atlas & nameplate icon batching
+  (`internal/ui/font.go`, `internal/app/entities.go`)**: Latin-1 glyph cells
+  pack a 1 px dilated outline directly into a `512x512` atlas (`outlineGlyphs`
+  / `hasOutline`), reducing `DrawOutlined` from 5 passes to 2 passes while
+  keeping the 5-pass path for dynamic Unicode fallbacks. World nameplate icons
+  are grouped/sorted by `tex.ID`.
+- **Skinned UBO & sprite ring buffers, cached locations, terrain layer skip,
+  and GL VRAM fallback (`internal/render/skinned.go`, `sprites.go`,
+  `shadow.go`, `effect_pipeline.go`, `terrain_overlay.go`, `scene.go`,
+  `device.go`)**: replaced per-draw buffer orphaning with a 64-slot
+  offset-aligned skinned UBO ring buffer and a 4-slot sprite VBO ring buffer;
+  cached `ShadowMap` / `uReversedDepth` uniform locations; bucketed
+  `effectUpload` capacities to powers of two; added early-out before sampling
+  disabled/low-alpha terrain layers; and added `GL_ATI_meminfo` VRAM query
+  fallback alongside Windows `ResidentBytes`/`TotalMemoryBytes`
+  (`internal/platform/memory_windows.go`).
+- **Animation keyframe binary search, coarse bounds, and 32-triangle camera
+  collider blocks (`internal/scene/character.go`, `character_bounds.go`,
+  `camera_collision.go`, `assets.go`, `field.go`, `internal/app/world_camera.go`,
+  `monsters.go`, `npcs.go`)**: added monotonic keyframe checks (`rotKeysSorted`
+  / `transKeysSorted`) for exact binary-search sampling; cached coarse AABBs
+  (`CoarseBounds`) and upgraded `Visible()` to `frustum.ClassifyBox`; added
+  stationary camera-ray caching in `World` (`v.world.Ready()`) plus
+  `segmentSphere` broad-phase and lazy 32-triangle `colliderBlock` AABBs; and
+  precomputed `vp` in `combatGlyphRectVP` (`combat_numbers.go`).
+- **VSync configuration (`cmd/shaiya/main.go`, `internal/platform/window.go`,
+  `internal/app/game_menu.go`, `app.go`)**: persisted `NoVSync` in settings and
+  added `-vsync` / runtime `ApplyVSync`.
+
+### Validation Benchmarks (AMD A12-9720P, Radeon R7 Graphics, OpenGL 4.5.14831 / 21.5.2, Windows 10)
+
+Each run renders 180 frames using `SHAIYA_TEST_RENDER=1` with real local assets.
+
+**Baseline (`1280x720`, default settings before pass):**
+
+| Scene | Throughput (ms/f) | CPU p50 (ms) | GPU p50 (ms) | Avg DC |
+| --- | --- | --- | --- | --- |
+| `world-stream` | 7.688 | 6.101 | 7.094 | 72.8 |
+| `world-mobs` | 12.265 | 6.998 (p95 16.009) | 8.795 (p95 14.619) | 77.0 |
+| `world-hud` | 10.197 | 7.004 | 9.677 (`gpu_wait` 2.908) | 108.3 |
+| `crowd-200` | 19.322 | 19.007 | 19.255 | 202.8 |
+
+**After depth-feedback reproduction vs. final optimizations (`1366x705`):**
+
+Note: before adding `BeginColorOnly()`, disabling Glow (`Glow=0`) regressed
+`crowd-200` at `1366x705` (`120` frames) from `22.459 ms/f` (`Glow=2`, `83.0`
+DC) to `36.599 ms/f` (`Glow=0`, `81.0` DC) due to the `worldDepth` feedback
+loop on AMD `21.5.2`.
+
+| Scene / Preset (`1366x705`, 180 frames) | Throughput (ms/f) | FPS | CPU p50 / p95 (ms) | GPU p50 / p95 (ms) | Wall p50 / p95 (ms) | Avg DC |
+| --- | --- | --- | --- | --- | --- | --- |
+| `world-stream-no-glow` | 7.273 | 137.5 | 6.106 / 10.000 | 6.381 / 9.485 | 6.999 / 10.003 | 70.8 |
+| `world-mobs-no-glow` | 8.889 | 112.5 | 7.053 / 9.939 | 8.402 / 8.798 | 8.887 / 12.014 | 76.0 |
+| `world-hud-no-glow` | 9.436 | 106.0 | 8.002 / 11.006 | 8.965 / 9.519 | 9.005 / 13.103 | 107.0 |
+| `crowd-200-no-glow` | 15.542 | 64.3 | 15.002 / 18.006 | 15.082 / 18.474 | 15.552 / 18.620 | 80.8 |
+| `crowd-200-geometry-low` | 14.427 | 69.3 | 13.463 / 17.455 | 13.472 / 18.347 | 14.007 / 18.004 | 72.8 |
+
+Validation scope on this workstation: all Go unit tests (`go test ./...`), Go
+`go vet ./...`, Python server tool tests (`server/tools`), Windows OpenGL 4.5
+render/scene integration tests (11 `internal/render` tests and 3
+`internal/scene` tests), and non-CGO Linux `go vet` for pure-Go packages passed
+on Windows 10; native Linux runtime execution was not run in this environment.
+In `go test -tags integration ./server/... -count=1`, untouched `HEAD`
+(`de39442`) has a pre-existing failure in `server/internal/world`
+(`TestClassicTeleportRuneDestinations`).

@@ -41,6 +41,7 @@ func clientMain() (code int) {
 	width := flag.Int("w", 1024, "window width")
 	height := flag.Int("h", 768, "window height")
 	volume := flag.Float64("volume", 0.6, "master audio volume (0..1; screenshots are silent)")
+	vsync := flag.Bool("vsync", true, "enable vertical synchronization")
 	debug := flag.Bool("gldebug", false, "OpenGL debug context")
 	shot := flag.String("screenshot", "", "render offscreen to this PNG and exit")
 	shotScreen := flag.String("screenshot-screen", "login", "offscreen scene: login | servers | chars | create | faction | world-*")
@@ -66,14 +67,20 @@ func clientMain() (code int) {
 		return 1
 	}
 	diagnostics.data(*dataDir)
-	if err := run(*dataDir, app.Config{LoginAddr: *login, WorldPort: *worldPort, Version: proto.ClientVersion, Volume: *volume}, *width, *height, *debug, *shot, *shotScreen, *autoplay, *autoSelect, *autoCast); err != nil {
+	overrideVSync := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "vsync" {
+			overrideVSync = true
+		}
+	})
+	if err := run(*dataDir, app.Config{LoginAddr: *login, WorldPort: *worldPort, Version: proto.ClientVersion, Volume: *volume, OverrideVSync: overrideVSync}, *width, *height, *vsync, *debug, *shot, *shotScreen, *autoplay, *autoSelect, *autoCast); err != nil {
 		diagnostics.fail(err, interactive)
 		return 1
 	}
 	return 0
 }
 
-func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen, autoUser string, autoSelect, autoCast int) error {
+func run(dataDir string, cfg app.Config, w, h int, vsync, debug bool, shot, shotScreen, autoUser string, autoSelect, autoCast int) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	arc, err := archive.OpenDirectory(dataDir)
@@ -87,7 +94,7 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 			restoreSize = false
 		}
 	})
-	win, err := platform.Open(platform.Config{Title: "Shaiya GX", Width: w, Height: h, Debug: debug, VSync: true,
+	win, err := platform.Open(platform.Config{Title: "Shaiya GX", Width: w, Height: h, Debug: debug, VSync: vsync,
 		Hidden: shot != "" || autoUser != "", RememberSize: true, RestoreSize: restoreSize})
 	if err != nil {
 		return err
@@ -102,6 +109,7 @@ func run(dataDir string, cfg app.Config, w, h int, debug bool, shot, shotScreen,
 	cfg.RememberLayout = shot == "" && autoUser == ""
 	cfg.DisplayModes, cfg.ApplyDisplayMode = win.DisplayModes, win.ApplyDisplayMode
 	cfg.CurrentDisplayMode = win.CurrentDisplayMode
+	cfg.ApplyVSync = win.SetVSync
 	cfg.OverrideDisplay = !restoreSize
 	log.Print("Initializing client resources")
 	a, err := app.New(cfg, arc)

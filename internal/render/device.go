@@ -40,6 +40,7 @@ func Init(debug bool) error {
 	gpuCapacity = 0
 	bindless, drawParameters, s3tc := false, false, false
 	var extensionCount int32
+	var atiMeminfo bool
 	gl.GetIntegerv(gl.NUM_EXTENSIONS, &extensionCount)
 	for i := int32(0); i < extensionCount; i++ {
 		switch gl.GoStr(gl.GetStringi(gl.EXTENSIONS, uint32(i))) {
@@ -55,6 +56,15 @@ func Init(debug bool) error {
 			if kib > 0 {
 				gpuCapacity = uint64(kib) * 1024
 			}
+		case "GL_ATI_meminfo":
+			atiMeminfo = true
+		}
+	}
+	if gpuCapacity == 0 && atiMeminfo {
+		var info [4]int32
+		gl.GetIntegerv(0x87FC, &info[0]) // TEXTURE_FREE_MEMORY_ATI
+		if info[0] > 0 {
+			gpuCapacity = uint64(info[0]) * 1024
 		}
 	}
 	skinIndirectSupported = bindless && drawParameters

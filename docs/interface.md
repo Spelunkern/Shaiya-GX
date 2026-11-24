@@ -259,7 +259,7 @@ Old saved fullscreen resolutions migrate to ordinary window sizes. Resolution
 changes apply on OK, Cancel discards them, and explicit `-w`/`-h` arguments retain
 their startup override. The existing OpenGL context is preserved.
 
-VSync retains the fixed startup behavior (enabled); there is no VSync setting.
+VSync remains enabled by default; setting `"NoVSync": true` in `settings.json` or passing `-vsync=false` disables it (there is no graphics-menu toggle yet).
 Help remains visible but disabled in the options menu.
 Validation covers window-only transitions, real GL resize/resource preservation
 and graphics settings save/restart with real AA rendering.

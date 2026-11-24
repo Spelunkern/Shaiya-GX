@@ -38,3 +38,58 @@ func TestCameraUsesAuthoredColliderAndNearestHit(t *testing.T) {
 		t.Fatal("dungeon collider was ignored")
 	}
 }
+
+func TestSegmentSphereAndColliderBlocksMatchBruteForce(t *testing.T) {
+	if !segmentSphere(render.V3{0, 0, 0}, render.V3{1, 0, 0}, render.V3{0, 0, 0}, 0) {
+		t.Fatal("zero radius should fail open")
+	}
+	if segmentSphere(render.V3{0, 5, 0}, render.V3{10, 0, 0}, render.V3{5, 0, 0}, 1) {
+		t.Fatal("disjoint ray hit sphere")
+	}
+	if !segmentSphere(render.V3{0, 0, 0}, render.V3{10, 0, 0}, render.V3{5, 0.5, 0}, 1) {
+		t.Fatal("intersecting ray missed sphere")
+	}
+
+	const triCount = 110
+	vertices := make([]world.Vec3, 0, triCount*3)
+	faces := make([]world.Face, 0, triCount)
+	minB := world.Vec3{1e9, 1e9, 1e9}
+	maxB := world.Vec3{-1e9, -1e9, -1e9}
+	for i := range triCount {
+		z := -float32(i+1) * 0.25
+		x := float32((i%5)-2) * 1.5
+		base := uint16(len(vertices))
+		tri := [3]world.Vec3{{x - 1, 0, z}, {x + 1, 0, z}, {x, 3, z}}
+		for _, v := range tri {
+			vertices = append(vertices, v)
+			for a := range 3 {
+				minB[a] = min(minB[a], v[a])
+				maxB[a] = max(maxB[a], v[a])
+			}
+		}
+		faces = append(faces, world.Face{base, base + 1, base + 2})
+	}
+	mesh := world.CollisionMesh{Vertices: vertices, Faces: faces, Bounds: world.Box{Min: minB, Max: maxB}}
+	blocks := buildColliderBlocks(&mesh)
+	if len(blocks) != 4 {
+		t.Fatalf("got %d blocks, want 4", len(blocks))
+	}
+
+	queries := []struct {
+		origin, eye render.V3
+		best        float32
+	}{
+		{render.V3{0, 1, 2}, render.V3{0, 1, -40}, 1},
+		{render.V3{-1.5, 1, 2}, render.V3{1.5, 1, -40}, 1},
+		{render.V3{25, 1, 2}, render.V3{25, 1, -40}, 1},
+		{render.V3{0, 1, 2}, render.V3{0, 1, -40}, 0.1},
+	}
+	for _, q := range queries {
+		delta := q.eye.Sub(q.origin)
+		want := colliderSegment(&mesh, q.origin, delta, q.best)
+		got := colliderSegmentBlocks(&mesh, blocks, q.origin, delta, q.best)
+		if got != want {
+			t.Fatalf("query %v->%v (best=%v): got %v, want %v", q.origin, q.eye, q.best, got, want)
+		}
+	}
+}

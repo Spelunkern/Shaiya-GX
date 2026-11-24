@@ -139,20 +139,34 @@ func (a *App) updatePlayerAnimationRates() {
 }
 
 func (a *App) drawMonsters() {
+	v := a.wv
 	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
+	v.visibleMobActors = v.visibleMobActors[:0]
+	v.crowdCharacters = v.crowdCharacters[:0]
 	for id, e := range a.state.Entities {
 		if e.Kind != game.KindMob {
 			continue
 		}
-		if cached := a.wv.mobs[id]; cached != nil && cached.actor != nil {
+		if cached := v.mobs[id]; cached != nil && cached.actor != nil {
 			if cached.actor.CorpseFade < 1 && cached.actor.Visible(frustum, a.scene3d.ClipPlane) {
-				cached.actor.Draw(a.skinner, a.scene3d)
-				if a.clientSettings().SkillEffects {
-					cached.actor.DrawEffects(a.scene3d)
-				}
+				v.visibleMobActors = append(v.visibleMobActors, cached.actor)
+				v.crowdCharacters = append(v.crowdCharacters, cached.actor.Character)
 			}
 		}
 	}
+	if a.scene3d.ClipPlane == ([4]float32{}) {
+		v.anyMobVisible = len(v.visibleMobActors) > 0
+	}
+	v.mobBatch.DrawMin(a.skinner, a.scene3d, v.crowdCharacters, 4)
+	if a.clientSettings().SkillEffects {
+		for _, actor := range v.visibleMobActors {
+			actor.DrawEffects(a.scene3d)
+		}
+	}
+	clear(v.visibleMobActors)
+	v.visibleMobActors = v.visibleMobActors[:0]
+	clear(v.crowdCharacters)
+	v.crowdCharacters = v.crowdCharacters[:0]
 }
 
 // Phoenix's deliberate alternative to native corpse sinking: hold the death

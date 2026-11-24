@@ -9,16 +9,22 @@ import (
 // Sprites batches textured quads in pixel coordinates (origin top-left),
 // the space the original UI is laid out in. Blending is the D3D9 UI state
 // SRCALPHA / INVSRCALPHA.
+const spriteRingSlots = 4
+
 type Sprites struct {
 	clipRect               [4]float32
 	clipped                bool
 	prog                   uint32
 	vao, vbo               uint32
+	vboCap, vboHead        int
 	uScreen, uMasked       int32
 	uCircle                int32
 	uGrayscale             int32
+	uReversedDepth         int32
 	nameDepth              float32
 	depth                  *Texture
+	depthTextureID         uint32
+	depthW, depthH         int
 	depthValid             bool
 	depthReversed          bool
 	depthReadValid         bool
@@ -110,13 +116,14 @@ func NewSprites(maxQuads int) (*Sprites, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Sprites{prog: p, uScreen: gl.GetUniformLocation(p, gl.Str("screen\x00")), cap: maxQuads, nameDepth: -1}
+	s := &Sprites{prog: p, uScreen: gl.GetUniformLocation(p, gl.Str("screen\x00")), cap: maxQuads, vboCap: maxQuads * 6 * spriteRingSlots, nameDepth: -1}
 	s.uMasked = gl.GetUniformLocation(p, gl.Str("masked\x00"))
 	s.uCircle = gl.GetUniformLocation(p, gl.Str("circle\x00"))
 	s.uGrayscale = gl.GetUniformLocation(p, gl.Str("grayscale\x00"))
+	s.uReversedDepth = gl.GetUniformLocation(p, gl.Str("reversedDepth\x00"))
 	gl.CreateBuffers(1, &s.vbo)
-	gl.NamedBufferStorage(s.vbo, maxQuads*6*spriteVertexBytes, nil, gl.DYNAMIC_STORAGE_BIT)
-	addGPUBytes(uint64(maxQuads * 6 * spriteVertexBytes))
+	gl.NamedBufferData(s.vbo, s.vboCap*spriteVertexBytes, nil, gl.STREAM_DRAW)
+	addGPUBytes(uint64(s.vboCap * spriteVertexBytes))
 	gl.CreateVertexArrays(1, &s.vao)
 	gl.VertexArrayVertexBuffer(s.vao, 0, s.vbo, 0, int32(spriteVertexBytes))
 	var vertex spriteVertex
@@ -167,15 +174,15 @@ func (s *Sprites) draw(t *Texture, x, y, w, h, u0, v0, u1, v1 float32, rgba [4]f
 		x, y, w, h = left, top, right-left, bottom-top
 	}
 	s.reserve(t, 6)
-	v := func(px, py, u, vv float32) {
-		s.verts = append(s.verts, spriteVertex{px, py, u, vv, rgba, s.nameDepth, flat})
-	}
-	v(x, y, u0, v0)
-	v(x+w, y, u1, v0)
-	v(x+w, y+h, u1, v1)
-	v(x, y, u0, v0)
-	v(x+w, y+h, u1, v1)
-	v(x, y+h, u0, v1)
+	d := s.nameDepth
+	s.verts = append(s.verts,
+		spriteVertex{x, y, u0, v0, rgba, d, flat},
+		spriteVertex{x + w, y, u1, v0, rgba, d, flat},
+		spriteVertex{x + w, y + h, u1, v1, rgba, d, flat},
+		spriteVertex{x, y, u0, v0, rgba, d, flat},
+		spriteVertex{x + w, y + h, u1, v1, rgba, d, flat},
+		spriteVertex{x, y + h, u0, v1, rgba, d, flat},
+	)
 }
 
 func (s *Sprites) reserve(t *Texture, vertices int) {
@@ -215,10 +222,16 @@ func (s *Sprites) Flush() {
 		s.verts = s.verts[:0]
 		return
 	}
-	gl.NamedBufferSubData(s.vbo, 0, len(s.verts)*spriteVertexBytes, unsafe.Pointer(&s.verts[0]))
+	n := len(s.verts)
+	if s.vboHead+n > s.vboCap {
+		gl.NamedBufferData(s.vbo, s.vboCap*spriteVertexBytes, nil, gl.STREAM_DRAW)
+		s.vboHead = 0
+	}
+	gl.NamedBufferSubData(s.vbo, s.vboHead*spriteVertexBytes, n*spriteVertexBytes, unsafe.Pointer(&s.verts[0]))
 	gl.BindTextureUnit(0, s.tex.ID)
-	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(s.verts)))
+	gl.DrawArrays(gl.TRIANGLES, int32(s.vboHead), int32(n))
 	drawCalls++
+	s.vboHead += n
 	s.verts = s.verts[:0]
 }
 

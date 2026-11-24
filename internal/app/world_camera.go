@@ -211,7 +211,22 @@ func (v *worldView) updateRenderedCamera(dt float32) {
 		return
 	}
 	origin := v.cameraOrigin()
-	if eye, hit := v.world.CameraIntersection(origin, v.eye); hit && !v.firstPerson {
+	var eye render.V3
+	var hit bool
+	if !v.firstPerson {
+		if v.camRayValid && v.camRayWorld == v.world && v.camRayOrigin == origin && v.camRayEye == v.eye && v.world.Ready() {
+			eye, hit = v.camRayResult, v.camRayHit
+		} else {
+			eye, hit = v.world.CameraIntersection(origin, v.eye)
+			if v.world.Ready() {
+				v.camRayWorld, v.camRayOrigin, v.camRayEye = v.world, origin, v.eye
+				v.camRayResult, v.camRayHit, v.camRayValid = eye, hit, true
+			} else {
+				v.camRayValid = false
+			}
+		}
+	}
+	if hit && !v.firstPerson {
 		v.cameraEye = eye
 	} else {
 		v.cameraEye = cameraApproach(v.cameraEye, v.eye.Add(v.shakeOffset), dt)

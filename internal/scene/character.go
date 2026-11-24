@@ -385,6 +385,8 @@ type Clip struct {
 	restLocal       []render.M4
 	restRotation    [][4]float32
 	restTranslation [][3]float32
+	rotSorted       []bool
+	transSorted     []bool
 	reach           []boneReach
 }
 
@@ -401,9 +403,13 @@ func (s *Assets) Clip(file string) (*Clip, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &Clip{ani: a}
+	c := &Clip{
+		ani:         a,
+		rotSorted:   make([]bool, len(a.Bones)),
+		transSorted: make([]bool, len(a.Bones)),
+	}
 	// local_i = rest_i * inv(rest_parent) (row vectors).
-	for _, bone := range a.Bones {
+	for i, bone := range a.Bones {
 		l := render.M4(bone.Rest)
 		if p := bone.Parent; p >= 0 && int(p) < len(a.Bones) {
 			l = l.Mul(render.M4(a.Bones[p].Rest).Inverse())
@@ -412,6 +418,8 @@ func (s *Assets) Clip(file string) (*Clip, error) {
 		q, t := render.MatrixQuat(l)
 		c.restRotation = append(c.restRotation, q)
 		c.restTranslation = append(c.restTranslation, t)
+		c.rotSorted[i] = rotKeysSorted(bone.Rot)
+		c.transSorted[i] = transKeysSorted(bone.Trans)
 	}
 	c.reach = c.makeReach()
 	s.clips[key] = c
@@ -458,10 +466,18 @@ func (c *Clip) localPose(i int, frame float32) bonePose {
 	pose := c.restPose(i)
 	bone := c.ani.Bones[i]
 	if len(bone.Rot) > 0 {
-		pose.rotation = sampleRot(bone.Rot, frame)
+		if i < len(c.rotSorted) && c.rotSorted[i] {
+			pose.rotation = sampleRotSorted(bone.Rot, frame)
+		} else {
+			pose.rotation = sampleRot(bone.Rot, frame)
+		}
 	}
 	if len(bone.Trans) > 0 {
-		pose.position = sampleTrans(bone.Trans, frame)
+		if i < len(c.transSorted) && c.transSorted[i] {
+			pose.position = sampleTransSorted(bone.Trans, frame)
+		} else {
+			pose.position = sampleTrans(bone.Trans, frame)
+		}
 	}
 	return pose
 }
@@ -491,9 +507,36 @@ func (c *Clip) finalsInto(t float32, out []render.M4) []render.M4 {
 	return out
 }
 
+func rotKeysSorted(k []model.RotKey) bool {
+	if len(k) <= 8 {
+		return false
+	}
+	for i := 1; i < len(k); i++ {
+		if k[i].Frame < k[i-1].Frame || float32(k[i].Frame) < float32(k[i-1].Frame) {
+			return false
+		}
+	}
+	return true
+}
+
+func transKeysSorted(k []model.TransKey) bool {
+	if len(k) <= 8 {
+		return false
+	}
+	for i := 1; i < len(k); i++ {
+		if k[i].Frame < k[i-1].Frame || float32(k[i].Frame) < float32(k[i-1].Frame) {
+			return false
+		}
+	}
+	return true
+}
+
 func sampleRot(k []model.RotKey, f float32) [4]float32 {
 	if f <= float32(k[0].Frame) {
 		return k[0].Q
+	}
+	if f >= float32(k[len(k)-1].Frame) {
+		return k[len(k)-1].Q
 	}
 	for i := 1; i < len(k); i++ {
 		if f <= float32(k[i].Frame) {
@@ -505,9 +548,33 @@ func sampleRot(k []model.RotKey, f float32) [4]float32 {
 	return k[len(k)-1].Q
 }
 
+func sampleRotSorted(k []model.RotKey, f float32) [4]float32 {
+	if f <= float32(k[0].Frame) {
+		return k[0].Q
+	}
+	if f >= float32(k[len(k)-1].Frame) {
+		return k[len(k)-1].Q
+	}
+	lo, hi := 1, len(k)-1
+	for lo < hi {
+		mid := int(uint(lo+hi) >> 1)
+		if f <= float32(k[mid].Frame) {
+			hi = mid
+		} else {
+			lo = mid + 1
+		}
+	}
+	a, b := k[lo-1], k[lo]
+	t := (f - float32(a.Frame)) / float32(b.Frame-a.Frame)
+	return render.Slerp(a.Q, b.Q, t)
+}
+
 func sampleTrans(k []model.TransKey, f float32) [3]float32 {
 	if f <= float32(k[0].Frame) {
 		return k[0].T
+	}
+	if f >= float32(k[len(k)-1].Frame) {
+		return k[len(k)-1].T
 	}
 	for i := 1; i < len(k); i++ {
 		if f <= float32(k[i].Frame) {
@@ -517,6 +584,27 @@ func sampleTrans(k []model.TransKey, f float32) [3]float32 {
 		}
 	}
 	return k[len(k)-1].T
+}
+
+func sampleTransSorted(k []model.TransKey, f float32) [3]float32 {
+	if f <= float32(k[0].Frame) {
+		return k[0].T
+	}
+	if f >= float32(k[len(k)-1].Frame) {
+		return k[len(k)-1].T
+	}
+	lo, hi := 1, len(k)-1
+	for lo < hi {
+		mid := int(uint(lo+hi) >> 1)
+		if f <= float32(k[mid].Frame) {
+			hi = mid
+		} else {
+			lo = mid + 1
+		}
+	}
+	a, b := k[lo-1], k[lo]
+	t := (f - float32(a.Frame)) / float32(b.Frame-a.Frame)
+	return [3]float32{a.T[0] + (b.T[0]-a.T[0])*t, a.T[1] + (b.T[1]-a.T[1])*t, a.T[2] + (b.T[2]-a.T[2])*t}
 }
 
 // Update advances the animation.

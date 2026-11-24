@@ -151,20 +151,33 @@ func (a *App) prepareNPCs() {
 }
 
 func (a *App) drawNPCs() {
+	v := a.wv
 	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
+	v.visibleNPCs = v.visibleNPCs[:0]
+	v.crowdCharacters = v.crowdCharacters[:0]
 	for id, e := range a.state.Entities {
 		if e.Kind != game.KindNpc {
 			continue
 		}
-		if cached := a.wv.npcs[id]; cached != nil && cached.actor != nil {
+		if cached := v.npcs[id]; cached != nil && cached.actor != nil {
 			if cached.actor.Visible(frustum, a.scene3d.ClipPlane) {
-				cached.actor.Draw(a.skinner, a.scene3d)
-				if cached.questEffect != nil && !a.scene3d.Shadow {
-					cached.questEffect.Draw(a.scene3d)
-				}
+				v.visibleNPCs = append(v.visibleNPCs, cached)
+				v.crowdCharacters = append(v.crowdCharacters, cached.actor.Character)
 			}
 		}
 	}
+	v.npcBatch.DrawMin(a.skinner, a.scene3d, v.crowdCharacters, 4)
+	if !a.scene3d.Shadow {
+		for _, npc := range v.visibleNPCs {
+			if npc.questEffect != nil {
+				npc.questEffect.Draw(a.scene3d)
+			}
+		}
+	}
+	clear(v.visibleNPCs)
+	v.visibleNPCs = v.visibleNPCs[:0]
+	clear(v.crowdCharacters)
+	v.crowdCharacters = v.crowdCharacters[:0]
 }
 
 func (a *App) prepareNPCQuestEffect(n *npcActor, e *game.Entity, pos render.V3, budget *int) {

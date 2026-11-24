@@ -23,7 +23,7 @@ type hoverDepthReadback struct {
 // and zero-timeout fences allow reading only completed transfers. Until a
 // matching sample arrives, the cursor stays neutral. Clicks use NameVisibleAt.
 func (s *Sprites) NameHoverVisibleAt(x, y, width, height int, depth float32) bool {
-	if s == nil || !s.depthValid || s.depth == nil || s.depth.W != width || s.depth.H != height || x < 0 || y < 0 || x >= width || y >= height {
+	if s == nil || !s.depthValid || s.depthTextureID == 0 || s.depthW != width || s.depthH != height || x < 0 || y < 0 || x >= width || y >= height {
 		return false
 	}
 	r := &s.hoverDepth
@@ -62,7 +62,7 @@ func (s *Sprites) NameHoverVisibleAt(x, y, width, height int, depth float32) boo
 			}
 			available.sample = hoverDepthSample{frame: s.depthFrame, x: x, y: y, width: width, height: height, reversed: s.depthReversed}
 			gl.BindBuffer(gl.PIXEL_PACK_BUFFER, available.buffer)
-			gl.GetTextureSubImage(s.depth.ID, 0, int32(x), int32(height-1-y), 0, 1, 1, 1, gl.DEPTH_COMPONENT, gl.FLOAT, 4, gl.PtrOffset(0))
+			gl.GetTextureSubImage(s.depthTextureID, 0, int32(x), int32(height-1-y), 0, 1, 1, 1, gl.DEPTH_COMPONENT, gl.FLOAT, 4, gl.PtrOffset(0))
 			gl.BindBuffer(gl.PIXEL_PACK_BUFFER, 0)
 			available.fence = gl.FenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
 		}

@@ -1,9 +1,11 @@
 package app
 
 import (
+	"cmp"
 	"fmt"
 	"log"
 	"math"
+	"slices"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/game"
 	"github.com/Spelunkern/Shaiya-GX/internal/proto"
@@ -332,22 +334,24 @@ func (a *App) drawRemotePlayers() {
 		}
 	}
 	scene.PrepareCrowdCloth(v.visiblePlayerCloth, a.scene3d)
-	flush := func() {
-		v.crowdBatch.Draw(a.skinner, a.scene3d, v.crowdCharacters)
-		clear(v.crowdCharacters)
-		v.crowdCharacters = v.crowdCharacters[:0]
-	}
-	for i, character := range v.visiblePlayers {
-		if mount := v.visiblePlayerMounts[i]; mount != nil {
-			flush()
+	for _, mount := range v.visiblePlayerMounts {
+		if mount != nil {
 			mount.Draw(a.skinner, a.scene3d)
 			mount.DrawEffects(a.scene3d)
 		}
+	}
+	v.crowdCharacters = v.crowdCharacters[:0]
+	for _, character := range v.visiblePlayers {
 		if character != nil {
 			v.crowdCharacters = append(v.crowdCharacters, character)
 		}
 	}
-	flush()
+	v.crowdBatch.DrawMin(a.skinner, a.scene3d, v.crowdCharacters, 4)
+	clear(v.crowdCharacters)
+	v.crowdCharacters = v.crowdCharacters[:0]
+	if a.scene3d.ClipPlane == ([4]float32{}) {
+		v.anyPlayerVisible = len(v.visiblePlayers) > 0
+	}
 	clear(v.visiblePlayers)
 	clear(v.visiblePlayerMounts)
 	clear(v.visiblePlayerCloth)
@@ -512,6 +516,16 @@ func (a *App) catalogNameSuffix(e *game.Entity) string {
 	return fmt.Sprintf(" (%d)", e.TypeID)
 }
 
+func (a *App) captureNameDepth() {
+	if a.frameTarget != nil {
+		if id, dw, dh := a.frameTarget.DepthTexture(); id != 0 && dw == a.physW && dh == a.physH {
+			a.sprites.UseNameDepthTexture(id, dw, dh, a.scene3d.ReverseDepth)
+			return
+		}
+	}
+	a.sprites.CaptureNameDepth(a.physW, a.physH)
+}
+
 // drawPlayerNames uses the original world anchors and fixed pixel overlays.
 func (a *App) drawPlayerNames(w, h int) {
 	settings := a.clientSettings()
@@ -524,21 +538,29 @@ func (a *App) drawPlayerNames(w, h int) {
 		return
 	}
 	vp := a.scene3d.View.Mul(a.scene3d.Proj)
+	frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
+	v.plateIcons = v.plateIcons[:0]
 	captured := false
+	if v.anyMobVisible || v.anyPlayerVisible {
+		a.captureNameDepth()
+		captured = true
+	}
 	// A model can be visible while its label anchor is off screen. Preserve
 	// scene depth for clicking the mesh in that case too.
-	for _, batch := range v.groundBatches {
-		if len(batch) > 0 {
-			a.sprites.CaptureNameDepth(a.physW, a.physH)
-			captured = true
-			break
+	if !captured {
+		for _, batch := range v.groundBatches {
+			if len(batch) > 0 {
+				a.captureNameDepth()
+				captured = true
+				break
+			}
 		}
 	}
 	if !captured {
 		frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 		for _, mob := range v.mobs {
 			if mob != nil && mob.actor != nil && mob.actor.Visible(frustum, a.scene3d.ClipPlane) {
-				a.sprites.CaptureNameDepth(a.physW, a.physH)
+				a.captureNameDepth()
 				captured = true
 				break
 			}
@@ -548,7 +570,7 @@ func (a *App) drawPlayerNames(w, h int) {
 		frustum := render.ViewFrustum(a.scene3d.View, a.scene3d.VisibilityProjection())
 		for _, player := range v.actors {
 			if player != nil && player.character != nil && player.character.Visible(frustum, a.scene3d.ClipPlane) {
-				a.sprites.CaptureNameDepth(a.physW, a.physH)
+				a.captureNameDepth()
 				captured = true
 				break
 			}
@@ -570,7 +592,7 @@ func (a *App) drawPlayerNames(w, h int) {
 			return
 		}
 		if !captured {
-			a.sprites.CaptureNameDepth(a.physW, a.physH)
+			a.captureNameDepth()
 			captured = true
 		}
 		a.sprites.NameDepth(depth)
@@ -593,14 +615,14 @@ func (a *App) drawPlayerNames(w, h int) {
 				if ranked {
 					outerLeft -= 6 // Match the early PvP-rank offset before it is compensated.
 				}
-				a.sprites.Draw(tex, float32(outerLeft), float32(top-3), 16, 16, 0, 0, 1, 1, white)
+				v.plateIcons = append(v.plateIcons, nameplateIcon{tex, float32(outerLeft), float32(top - 3), 16, 16, 0, 0, 1, 1, depth})
 			}
 		}
 		if ranked {
 			if grade := a.assets.Texture("interface/grade2.png"); grade != nil {
 				outerRight += 1 + 32
 				u0, v0 := float32(rank/16)*.5, float32(rank%16)/16
-				a.sprites.Draw(grade, float32(left+width+1), float32(top-3), 32, 32, u0, v0, u0+.5, v0+1./16, white)
+				v.plateIcons = append(v.plateIcons, nameplateIcon{grade, float32(left + width + 1), float32(top - 3), 32, 32, u0, v0, u0 + .5, v0 + 1./16, depth})
 			}
 		}
 		if marker != "" {
@@ -610,7 +632,7 @@ func (a *App) drawPlayerNames(w, h int) {
 			}
 			if dot != nil {
 				for _, edge := range []int{outerLeft - 17, outerRight + 1} {
-					a.sprites.Draw(dot, float32(edge), float32(top-3), 16, 16, 0, 0, 1, 1, white)
+					v.plateIcons = append(v.plateIcons, nameplateIcon{dot, float32(edge), float32(top - 3), 16, 16, 0, 0, 1, 1, depth})
 				}
 			}
 		}
@@ -682,8 +704,16 @@ func (a *App) drawPlayerNames(w, h int) {
 				pos := actor.actor.NPCPlateAnchor(e.NpcType, e.TypeID)
 				// The MON height can sit inside the mesh; the depth-tested plate
 				// would then vanish behind its own NPC, so keep it above the crown.
-				if _, hi, ok := actor.actor.WorldBounds(); ok && e.NpcType != 12 && pos[1] < hi[1]+.15 {
-					pos[1] = hi[1] + .15
+				if e.NpcType != 12 {
+					if clo, chi, ok := actor.actor.CoarseBounds(); ok {
+						if pos[1] < chi[1]+.15 && frustum.BoxVisible(clo, chi) {
+							if _, hi, ok := actor.actor.WorldBounds(); ok && pos[1] < hi[1]+.15 {
+								pos[1] = hi[1] + .15
+							}
+						}
+					} else if _, hi, ok := actor.actor.WorldBounds(); ok && pos[1] < hi[1]+.15 {
+						pos[1] = hi[1] + .15
+					}
 				}
 				// The notice board's plate is hidden by its own board when seen
 				// from the front: raise it well above the board.
@@ -695,6 +725,15 @@ func (a *App) drawPlayerNames(w, h int) {
 			}
 		}
 	}
+	if len(v.plateIcons) > 1 {
+		slices.SortFunc(v.plateIcons, func(a, b nameplateIcon) int { return cmp.Compare(a.tex.ID, b.tex.ID) })
+	}
+	for _, icon := range v.plateIcons {
+		a.sprites.NameDepth(icon.depth)
+		a.sprites.Draw(icon.tex, icon.x, icon.y, icon.w, icon.h, icon.u0, icon.v0, icon.u1, icon.v1, white)
+	}
+	clear(v.plateIcons)
+	v.plateIcons = v.plateIcons[:0]
 	a.sprites.NameDepth(-1)
 }
 

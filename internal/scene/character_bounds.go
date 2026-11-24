@@ -165,9 +165,16 @@ func (c *Character) WorldBounds() (render.V3, render.V3, bool) {
 	return c.boundMin, c.boundMax, c.boundValid
 }
 
+func (c *Character) CoarseBounds() (render.V3, render.V3, bool) {
+	return c.coarseBodyBounds()
+}
+
 func (c *Character) Visible(frustum render.Frustum, clip [4]float32) bool {
-	if lo, hi, valid := c.coarseBodyBounds(); valid && (!render.ClipBoxVisible(clip, lo, hi) || !frustum.BoxVisible(lo, hi)) {
-		return false
+	if lo, hi, valid := c.coarseBodyBounds(); valid {
+		visible, inside := frustum.ClassifyBox(lo, hi, clip)
+		if !visible || inside {
+			return visible
+		}
 	}
 	lo, hi, valid := c.WorldBounds()
 	return !valid || render.ClipBoxVisible(clip, lo, hi) && frustum.BoxVisible(lo, hi)

@@ -9,12 +9,13 @@ import (
 
 // WaterTarget owns a reusable color/depth target for the reflected scene.
 type WaterTarget struct {
-	toneFailed           bool
-	fbo, color, depth    uint32
-	toneProgram, toneVAO uint32
-	toneExponent         int32
-	width, height        int32
-	bytes                uint64
+	toneFailed              bool
+	fbo, colorFBO           uint32
+	color, depth            uint32
+	toneProgram, toneVAO    uint32
+	toneExponent            int32
+	width, height           int32
+	bytes                   uint64
 }
 
 func NewWaterTarget(width, height int) (*WaterTarget, error) {
@@ -29,17 +30,35 @@ func NewWaterTarget(width, height int) (*WaterTarget, error) {
 	gl.TextureParameteri(t.color, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 	gl.TextureParameteri(t.color, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TextureParameteri(t.color, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.CreateRenderbuffers(1, &t.depth)
-	gl.NamedRenderbufferStorage(t.depth, gl.DEPTH_COMPONENT32F, t.width, t.height)
+	gl.CreateTextures(gl.TEXTURE_2D, 1, &t.depth)
+	gl.TextureStorage2D(t.depth, 1, gl.DEPTH_COMPONENT32F, t.width, t.height)
+	gl.TextureParameteri(t.depth, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TextureParameteri(t.depth, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	gl.TextureParameteri(t.depth, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TextureParameteri(t.depth, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 	gl.NamedFramebufferTexture(t.fbo, gl.COLOR_ATTACHMENT0, t.color, 0)
-	gl.NamedFramebufferRenderbuffer(t.fbo, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, t.depth)
+	gl.NamedFramebufferTexture(t.fbo, gl.DEPTH_ATTACHMENT, t.depth, 0)
 	if status := gl.CheckNamedFramebufferStatus(t.fbo, gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
 		t.Delete()
 		return nil, fmt.Errorf("water target: framebuffer %#x", status)
 	}
+	gl.CreateFramebuffers(1, &t.colorFBO)
+	gl.NamedFramebufferTexture(t.colorFBO, gl.COLOR_ATTACHMENT0, t.color, 0)
+	if status := gl.CheckNamedFramebufferStatus(t.colorFBO, gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
+		t.Delete()
+		return nil, fmt.Errorf("water color target: framebuffer %#x", status)
+	}
 	t.bytes = uint64(width) * uint64(height) * 8
 	addGPUBytes(t.bytes)
 	return t, nil
+}
+
+// BeginColorOnly binds the color-only FBO so subsequent passes (e.g. sprite
+// nameplates) can sample t.depth safely without an OpenGL depth feedback loop.
+func (t *WaterTarget) BeginColorOnly() {
+	if t != nil && t.colorFBO != 0 {
+		gl.BindFramebuffer(gl.FRAMEBUFFER, t.colorFBO)
+	}
 }
 
 // Capture preserves target bindings, viewport, scissor and clear values.
@@ -96,10 +115,19 @@ func (t *WaterTarget) Delete() {
 	gl.DeleteProgram(t.toneProgram)
 	gl.DeleteVertexArrays(1, &t.toneVAO)
 	gl.DeleteFramebuffers(1, &t.fbo)
+	gl.DeleteFramebuffers(1, &t.colorFBO)
 	gl.DeleteTextures(1, &t.color)
-	gl.DeleteRenderbuffers(1, &t.depth)
+	gl.DeleteTextures(1, &t.depth)
 	removeGPUBytes(t.bytes)
 	*t = WaterTarget{}
+}
+
+// DepthTexture returns the target's 32-bit float depth texture and size.
+func (t *WaterTarget) DepthTexture() (id uint32, w, h int) {
+	if t == nil {
+		return 0, 0, 0
+	}
+	return t.depth, int(t.width), int(t.height)
 }
 
 // Present copies the captured color to the restored caller target. Depth stays

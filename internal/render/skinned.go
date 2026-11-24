@@ -170,6 +170,8 @@ type Skinner struct {
 	camera                                             *Scene3D
 	view, projection                                   M4
 	palette                                            uint32
+	paletteStride, paletteSlots, paletteSlot           int
+	paletteBytes                                       uint64
 	prog                                               uint32
 	uBoneCount, uWorld, uViewProj, uView, uLight, uAmb int32
 	uMode, uRef, uFogColor, uFogRange                  int32
@@ -189,11 +191,19 @@ func NewSkinner() (*Skinner, error) {
 	if err != nil {
 		return nil, err
 	}
+	var align int32
+	gl.GetIntegerv(gl.UNIFORM_BUFFER_OFFSET_ALIGNMENT, &align)
+	if align < 256 {
+		align = 256
+	}
+	stride := ((MaxBones*64 + int(align) - 1) / int(align)) * int(align)
+	const slots = 64
+	totalBytes := stride * slots
 	var palette uint32
 	gl.CreateBuffers(1, &palette)
-	gl.NamedBufferStorage(palette, MaxBones*64, nil, gl.DYNAMIC_STORAGE_BIT)
-	addGPUBytes(MaxBones * 64)
-	k := skinProgram(p, palette)
+	gl.NamedBufferData(palette, totalBytes, nil, gl.STREAM_DRAW)
+	addGPUBytes(uint64(totalBytes))
+	k := skinProgram(p, palette, stride, slots, uint64(totalBytes))
 	if skinIndirectSupported {
 		vertex := strings.Replace(skinVS, "#version 450 core\n", "#version 450 core\n#extension GL_ARB_shader_draw_parameters : require\n#define SKIN_INDIRECT\n", 1)
 		fragment := strings.Replace(sceneFS, "#version 450 core\n", "#version 450 core\n#extension GL_ARB_bindless_texture : require\n#define SKIN_INDIRECT\n", 1)
@@ -201,15 +211,15 @@ func NewSkinner() (*Skinner, error) {
 		if err != nil {
 			log.Printf("skinned multi-draw unavailable: %v", err)
 		} else {
-			k.indirect = skinProgram(indirect, palette)
+			k.indirect = skinProgram(indirect, palette, stride, slots, uint64(totalBytes))
 		}
 	}
 	return k, nil
 }
 
-func skinProgram(p, palette uint32) *Skinner {
+func skinProgram(p, palette uint32, stride, slots int, paletteBytes uint64) *Skinner {
 	u := func(n string) int32 { return gl.GetUniformLocation(p, gl.Str(n+"\x00")) }
-	return &Skinner{prog: p, uCrowdBase: u("crowdBase"), uCrowdDrawOffset: u("drawOffset"), palette: palette, uBoneCount: u("boneCount"), uWorld: u("world"), uViewProj: u("worldViewProj"), uView: u("worldView"),
+	return &Skinner{prog: p, uCrowdBase: u("crowdBase"), uCrowdDrawOffset: u("drawOffset"), palette: palette, paletteStride: stride, paletteSlots: slots, paletteBytes: paletteBytes, uBoneCount: u("boneCount"), uWorld: u("world"), uViewProj: u("worldViewProj"), uView: u("worldView"),
 		uLight: u("lightDir"), uAmb: u("ambient"), uMode: u("mode"), uRef: u("alphaRef"),
 		uFogColor: u("fogColor"), uFogRange: u("fogRange"), uClipPlane: u("clipPlane"), uOpacity: u("actorOpacity"), uCorpseFade: u("corpseFade")}
 }
@@ -227,7 +237,7 @@ func (k *Skinner) Begin(s *Scene3D, ambient float32) {
 	gl.UseProgram(k.prog)
 	k.SetOpacity(1)
 	k.SetCorpseFade(0)
-	gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, k.palette)
+	gl.BindBufferRange(gl.UNIFORM_BUFFER, 0, k.palette, 0, k.paletteStride)
 	gl.Uniform4fv(k.uClipPlane, 1, &s.ClipPlane[0])
 	k.view, k.projection = s.View, s.depthProjection(s.Proj)
 	k.camera = s
@@ -265,7 +275,14 @@ func (k *Skinner) SetPalette(bones []M4) {
 	n := min(len(bones), MaxBones)
 	gl.Uniform1i(k.uBoneCount, int32(n))
 	if n > 0 {
-		gl.NamedBufferSubData(k.palette, 0, n*64, unsafe.Pointer(&bones[0][0]))
+		if k.paletteSlot >= k.paletteSlots {
+			gl.NamedBufferData(k.palette, int(k.paletteBytes), nil, gl.STREAM_DRAW)
+			k.paletteSlot = 0
+		}
+		offset := k.paletteSlot * k.paletteStride
+		gl.NamedBufferSubData(k.palette, offset, n*64, unsafe.Pointer(&bones[0][0]))
+		gl.BindBufferRange(gl.UNIFORM_BUFFER, 0, k.palette, offset, k.paletteStride)
+		k.paletteSlot++
 	}
 }
 
@@ -285,7 +302,7 @@ func (k *Skinner) Delete() {
 			removeGPUBytes(k.crowdBytes[i])
 		}
 	}
-	removeGPUBytes(MaxBones * 64)
+	removeGPUBytes(k.paletteBytes)
 	k.palette, k.prog = 0, 0
 }
 

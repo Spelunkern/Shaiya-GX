@@ -85,3 +85,34 @@ func TestCharacterVisibilityIncludesAttachmentsAndUpdatesPose(t *testing.T) {
 		t.Fatal("unknown attachment must fall back to drawing")
 	}
 }
+
+func TestSortedKeyframeSamplingMatchesLinear(t *testing.T) {
+	rots := make([]model.RotKey, 20)
+	trans := make([]model.TransKey, 20)
+	for i := range rots {
+		frame := uint32(i * 3)
+		if i == 7 {
+			frame = rots[i-1].Frame // duplicate frame edge case
+		}
+		ang := float64(i) * 0.12
+		rots[i] = model.RotKey{Frame: frame, Q: [4]float32{0, float32(math.Sin(ang)), 0, float32(math.Cos(ang))}}
+		trans[i] = model.TransKey{Frame: frame, T: [3]float32{float32(i), float32(i) * 0.5, -float32(i)}}
+	}
+	if !rotKeysSorted(rots) || !transKeysSorted(trans) {
+		t.Fatal("monotonic keyframes should be marked sorted")
+	}
+	unsorted := append([]model.RotKey(nil), rots...)
+	unsorted[10].Frame = 1
+	if rotKeysSorted(unsorted) {
+		t.Fatal("unsorted keyframes must not use binary search")
+	}
+	samples := []float32{-5, 0, 1.5, 18, 18.01, 30, 57, 100}
+	for _, f := range samples {
+		if got, want := sampleRotSorted(rots, f), sampleRot(rots, f); got != want {
+			t.Fatalf("rot at %v: got %v, want %v", f, got, want)
+		}
+		if got, want := sampleTransSorted(trans, f), sampleTrans(trans, f); got != want {
+			t.Fatalf("trans at %v: got %v, want %v", f, got, want)
+		}
+	}
+}

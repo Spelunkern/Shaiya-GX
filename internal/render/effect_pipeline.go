@@ -84,24 +84,38 @@ type effectPlacement struct {
 }
 
 type effectUpload struct {
-	id    uint32
-	bytes uint64
+	id       uint32
+	bytes    uint64
+	capacity uint64
 }
 
 func (u *effectUpload) upload(size int, data unsafe.Pointer) {
+	if size <= 0 {
+		return
+	}
 	if u.id == 0 {
 		gl.CreateBuffers(1, &u.id)
 	}
-	gl.NamedBufferData(u.id, size, data, gl.STREAM_DRAW)
-	removeGPUBytes(u.bytes)
+	if uint64(size) > u.capacity {
+		capBytes := max(uint64(4096), u.capacity)
+		for capBytes < uint64(size) {
+			capBytes *= 2
+		}
+		removeGPUBytes(u.capacity)
+		u.capacity = capBytes
+		addGPUBytes(u.capacity)
+	}
+	gl.NamedBufferData(u.id, int(u.capacity), nil, gl.STREAM_DRAW)
+	if data != nil {
+		gl.NamedBufferSubData(u.id, 0, size, data)
+	}
 	u.bytes = uint64(size)
-	addGPUBytes(u.bytes)
 }
 
 func (u *effectUpload) delete() {
 	if u.id != 0 {
 		gl.DeleteBuffers(1, &u.id)
-		removeGPUBytes(u.bytes)
+		removeGPUBytes(u.capacity)
 		*u = effectUpload{}
 	}
 }

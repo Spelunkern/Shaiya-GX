@@ -29,17 +29,78 @@ func segmentTriangle(origin, delta, a, b, c render.V3) (float32, bool) {
 	return d, d > 1e-5 && d <= 1
 }
 
+const cameraColliderBlockSize = 32
+
+type colliderBlock struct {
+	min, max render.V3
+	valid    bool
+}
+
+func buildColliderBlocks(mesh *world.CollisionMesh) []colliderBlock {
+	if len(mesh.Faces) <= cameraColliderBlockSize {
+		return nil
+	}
+	blocks := make([]colliderBlock, (len(mesh.Faces)+cameraColliderBlockSize-1)/cameraColliderBlockSize)
+	for blockIdx := range blocks {
+		start := blockIdx * cameraColliderBlockSize
+		end := min(start+cameraColliderBlockSize, len(mesh.Faces))
+		lo := render.V3{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
+		hi := render.V3{-math.MaxFloat32, -math.MaxFloat32, -math.MaxFloat32}
+		has := false
+		for _, f := range mesh.Faces[start:end] {
+			for _, vi := range f {
+				if int(vi) >= len(mesh.Vertices) {
+					continue
+				}
+				v := mesh.Vertices[vi]
+				has = true
+				for axis := range 3 {
+					lo[axis] = min(lo[axis], v[axis])
+					hi[axis] = max(hi[axis], v[axis])
+				}
+			}
+		}
+		if has {
+			blocks[blockIdx] = colliderBlock{min: lo, max: hi, valid: true}
+		}
+	}
+	return blocks
+}
+
 func colliderSegment(mesh *world.CollisionMesh, origin, delta render.V3, best float32) float32 {
-	if !segmentBox(origin, delta, render.V3(mesh.Bounds.Min), render.V3(mesh.Bounds.Max)) {
+	return colliderSegmentBlocks(mesh, nil, origin, delta, best)
+}
+
+func colliderSegmentBlocks(mesh *world.CollisionMesh, blocks []colliderBlock, origin, delta render.V3, best float32) float32 {
+	if !segmentBoxParam(origin, delta, render.V3(mesh.Bounds.Min), render.V3(mesh.Bounds.Max), best) {
 		return best
 	}
-	for _, f := range mesh.Faces {
-		if int(f[0]) >= len(mesh.Vertices) || int(f[1]) >= len(mesh.Vertices) || int(f[2]) >= len(mesh.Vertices) {
+	if len(blocks) == 0 {
+		for _, f := range mesh.Faces {
+			if int(f[0]) >= len(mesh.Vertices) || int(f[1]) >= len(mesh.Vertices) || int(f[2]) >= len(mesh.Vertices) {
+				continue
+			}
+			t, hit := segmentTriangle(origin, delta, render.V3(mesh.Vertices[f[0]]), render.V3(mesh.Vertices[f[1]]), render.V3(mesh.Vertices[f[2]]))
+			if hit && t < best {
+				best = t
+			}
+		}
+		return best
+	}
+	for blockIdx, blk := range blocks {
+		if !blk.valid || !segmentBoxParam(origin, delta, blk.min, blk.max, best) {
 			continue
 		}
-		t, hit := segmentTriangle(origin, delta, render.V3(mesh.Vertices[f[0]]), render.V3(mesh.Vertices[f[1]]), render.V3(mesh.Vertices[f[2]]))
-		if hit && t < best {
-			best = t
+		start := blockIdx * cameraColliderBlockSize
+		end := min(start+cameraColliderBlockSize, len(mesh.Faces))
+		for _, f := range mesh.Faces[start:end] {
+			if int(f[0]) >= len(mesh.Vertices) || int(f[1]) >= len(mesh.Vertices) || int(f[2]) >= len(mesh.Vertices) {
+				continue
+			}
+			t, hit := segmentTriangle(origin, delta, render.V3(mesh.Vertices[f[0]]), render.V3(mesh.Vertices[f[1]]), render.V3(mesh.Vertices[f[2]]))
+			if hit && t < best {
+				best = t
+			}
 		}
 	}
 	return best
@@ -57,11 +118,18 @@ func (w *World) CameraIntersection(origin, eye render.V3) (render.V3, bool) {
 		if m == nil || len(m.colliders) == 0 {
 			return
 		}
+		if m.colliderBlocks == nil {
+			m.colliderBlocks = make([][]colliderBlock, len(m.colliders))
+			for i := range m.colliders {
+				m.colliderBlocks[i] = buildColliderBlocks(&m.colliders[i])
+			}
+		}
 		inv := matrix.Inverse()
 		start := transformPoint(origin, inv)
 		end := transformPoint(eye, inv)
+		localDelta := end.Sub(start)
 		for i := range m.colliders {
-			best = colliderSegment(&m.colliders[i], start, end.Sub(start), best)
+			best = colliderSegmentBlocks(&m.colliders[i], m.colliderBlocks[i], start, localDelta, best)
 		}
 	}
 	if s := w.stream; s != nil {
@@ -85,6 +153,16 @@ func (w *World) CameraIntersection(origin, eye render.V3) (render.V3, bool) {
 			if o.rotor != nil {
 				matrix = o.rotor.transform(w.DynamicTime())
 			}
+			if o.radius > 0 {
+				center, radius := o.drawCenter, o.drawRadius
+				if !o.drawBoundsValid {
+					center = transformPoint(o.center, o.world)
+					radius = o.radius * o.scale
+				}
+				if !segmentSphere(origin, delta, center, radius+0.05) {
+					return
+				}
+			}
 			project(s.assets.models[o.file], matrix)
 		}
 		for _, id := range s.global {
@@ -106,8 +184,14 @@ func (w *World) CameraIntersection(origin, eye render.V3) (render.V3, bool) {
 			project(o.Model, o.World)
 		}
 	}
+	if len(w.dgColliders) > 0 && len(w.dgColliderBlocks) != len(w.dgColliders) {
+		w.dgColliderBlocks = make([][]colliderBlock, len(w.dgColliders))
+		for i := range w.dgColliders {
+			w.dgColliderBlocks[i] = buildColliderBlocks(&w.dgColliders[i])
+		}
+	}
 	for i := range w.dgColliders {
-		best = colliderSegment(&w.dgColliders[i], origin, delta, best)
+		best = colliderSegmentBlocks(&w.dgColliders[i], w.dgColliderBlocks[i], origin, delta, best)
 	}
 	// Terrain is a continuous surface; bracket a crossing along the short camera ray.
 	if w.HasTerrain() {
@@ -139,8 +223,26 @@ func (w *World) CameraIntersection(origin, eye render.V3) (render.V3, bool) {
 	return origin.Add(delta.Scale(best)), best < 1
 }
 
+func segmentSphere(origin, delta, center render.V3, radius float32) bool {
+	if radius <= 0 {
+		return true
+	}
+	oc := origin.Sub(center)
+	dd := delta.Dot(delta)
+	if dd <= 1e-12 {
+		return oc.Dot(oc) <= radius*radius
+	}
+	t := min(max(-oc.Dot(delta)/dd, float32(0)), float32(1))
+	closest := oc.Add(delta.Scale(t))
+	return closest.Dot(closest) <= radius*radius
+}
+
 func segmentBox(origin, delta, minimum, maximum render.V3) bool {
-	lo, hi := float32(0), float32(1)
+	return segmentBoxParam(origin, delta, minimum, maximum, 1)
+}
+
+func segmentBoxParam(origin, delta, minimum, maximum render.V3, maxT float32) bool {
+	lo, hi := float32(0), maxT
 	for axis := range 3 {
 		if math.Abs(float64(delta[axis])) < 1e-8 {
 			if origin[axis] < minimum[axis] || origin[axis] > maximum[axis] {

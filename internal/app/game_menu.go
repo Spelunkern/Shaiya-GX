@@ -186,21 +186,22 @@ func (a *App) clientSettings() ui.ClientSettings {
 }
 
 func (a *App) applyClientSettings() {
+	settings := a.clientSettings()
+	if a.cfg.ApplyVSync != nil && !a.cfg.OverrideVSync {
+		a.cfg.ApplyVSync(!settings.NoVSync)
+	}
 	if a.wv != nil && a.wv.self != nil {
-		settings := a.clientSettings()
 		if settings.HideCloak != a.appliedHideCloak || settings.HideHelmet != a.appliedHideHelmet {
 			a.appliedHideCloak, a.appliedHideHelmet = settings.HideCloak, settings.HideHelmet
 			a.refreshSelf(a.wv)
 		}
 	}
 	if a.chatUI != nil {
-		settings := a.clientSettings()
 		a.chatUI.Rows = settings.ChatRows
 		a.chatUI.Filters, a.chatUI.Transparent = settings.ChatFilters, settings.ChatTransparent
 	}
 	if a.sound != nil {
-		s := a.clientSettings()
-		a.sound.SetMix(s.Music, s.Effects, s.Ambient)
+		a.sound.SetMix(settings.Music, settings.Effects, settings.Ambient)
 	}
 }
 

@@ -104,6 +104,11 @@ func (a *App) pickNPC(in *platform.Input, w, h int) uint32 {
 				}
 			case game.KindUser:
 				if p := a.wv.actors[key]; p != nil && p.entity == e && p.character != nil {
+					if clo, chi, ok := p.character.CoarseBounds(); ok {
+						if _, coarseHit := rayBox(origin, direction, clo, chi); !coarseHit {
+							continue
+						}
+					}
 					if lo, hi, valid := p.character.WorldBounds(); valid {
 						distance, hit = rayBox(origin, direction, lo, hi)
 					}
@@ -250,10 +255,18 @@ func (a *App) pickMob(in *platform.Input, w, h int) uint32 {
 						}
 					}
 				} else if p := a.wv.actors[id]; p != nil && p.character != nil {
-					if lo, hi, valid := p.character.WorldBounds(); valid {
-						distance, hit = rayBox(origin, direction, lo, hi)
-						tested = hit
-						occlusionDistance = distance
+					coarseMiss := false
+					if clo, chi, ok := p.character.CoarseBounds(); ok {
+						if _, coarseHit := rayBox(origin, direction, clo, chi); !coarseHit {
+							coarseMiss = true
+						}
+					}
+					if !coarseMiss {
+						if lo, hi, valid := p.character.WorldBounds(); valid {
+							distance, hit = rayBox(origin, direction, lo, hi)
+							tested = hit
+							occlusionDistance = distance
+						}
 					}
 				}
 				if hit {

@@ -21,6 +21,8 @@ import (
 type Font struct {
 	tex           *render.Texture
 	glyphs        [256]glyph
+	outlineGlyphs [256]glyph
+	hasOutline    bool
 	unicode       *unicodeFont
 	Ascent        int
 	Height        int
@@ -75,7 +77,7 @@ func loadFontData(data []byte, cellHeight int, pixelSize bool) (*Font, error) {
 	if err != nil {
 		return nil, err
 	}
-	const aw, ah = 512, 256
+	const aw, ah = 512, 512
 	atlas := image.NewAlpha(image.Rect(0, 0, aw, ah))
 	px, py, rowH := 1, 1, 0
 	for c := 32; c < 256; c++ {
@@ -99,6 +101,39 @@ func loadFontData(data []byte, cellHeight int, pixelSize bool) (*Font, error) {
 		}
 		f.glyphs[c] = g
 	}
+	px, py, rowH = 1, max(256, py+rowH+1), 0
+	sample := func(src glyph, sx, sy int) uint8 {
+		if sx < 0 || sy < 0 || sx >= src.w || sy >= src.h {
+			return 0
+		}
+		return atlas.Pix[(src.y+sy)*aw+src.x+sx]
+	}
+	for c := 32; c < 256; c++ {
+		src := f.glyphs[c]
+		if src.w <= 0 || src.h <= 0 {
+			f.outlineGlyphs[c] = glyph{adv: src.adv}
+			continue
+		}
+		ow, oh := src.w+2, src.h+2
+		if px+ow+1 > aw {
+			px, py, rowH = 1, py+rowH+1, 0
+		}
+		if py+oh+1 > ah {
+			return nil, fmt.Errorf("font outline atlas full")
+		}
+		f.outlineGlyphs[c] = glyph{x: px, y: py, w: ow, h: oh, ox: src.ox - 1, oy: src.oy - 1, adv: src.adv}
+		for dy := 0; dy < oh; dy++ {
+			ly := dy - 1
+			for dx := 0; dx < ow; dx++ {
+				lx := dx - 1
+				a := outlineUnionAlpha(sample(src, lx+1, ly), sample(src, lx-1, ly), sample(src, lx, ly+1), sample(src, lx, ly-1))
+				atlas.Pix[(py+dy)*aw+px+dx] = a
+			}
+		}
+		px += ow + 1
+		rowH = max(rowH, oh)
+	}
+	f.hasOutline = true
 	rgba := &img.RGBA{W: aw, H: ah, Pix: make([]byte, aw*ah*4)}
 	for i, a := range atlas.Pix {
 		rgba.Pix[i*4], rgba.Pix[i*4+1], rgba.Pix[i*4+2], rgba.Pix[i*4+3] = 255, 255, 255, a
@@ -106,6 +141,17 @@ func loadFontData(data []byte, cellHeight int, pixelSize bool) (*Font, error) {
 	f.tex = render.Upload(img.Texture{RGBA: rgba})
 	f.atlasW, f.atlasH = aw, ah
 	return f, nil
+}
+
+func outlineUnionAlpha(a1, a2, a3, a4 uint8) uint8 {
+	if a1 == 0 && a2 == 0 && a3 == 0 && a4 == 0 {
+		return 0
+	}
+	if a1 == 255 || a2 == 255 || a3 == 255 || a4 == 255 {
+		return 255
+	}
+	remain := (1 - float64(a1)/255) * (1 - float64(a2)/255) * (1 - float64(a3)/255) * (1 - float64(a4)/255)
+	return uint8((1-remain)*255 + .5)
 }
 
 // Width is the advance of s in pixels.
@@ -124,10 +170,15 @@ func (f *Font) Width(s string) int {
 
 // DrawOutlined follows Phoenix's black-outlined fixed-pixel nameplates.
 func (f *Font) DrawOutlined(s *render.Sprites, text string, x, y int, tint [4]float32) {
-	for _, offset := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
-		f.drawText(s, text, float32(x+offset[0]), float32(y+offset[1]), 1, [4]float32{0, 0, 0, tint[3]}, 0, false)
+	if !f.hasOutline || (f.unicode != nil && needsUnicode(text)) {
+		for _, offset := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+			f.drawText(s, text, float32(x+offset[0]), float32(y+offset[1]), 1, [4]float32{0, 0, 0, tint[3]}, 0, false)
+		}
+		f.drawText(s, text, float32(x), float32(y), 1, tint, 0, false)
+		return
 	}
-	f.drawText(s, text, float32(x), float32(y), 1, tint, 0, false)
+	f.drawGlyphs(s, &f.outlineGlyphs, text, float32(x), float32(y), 1, [4]float32{0, 0, 0, tint[3]}, 0)
+	f.drawGlyphs(s, &f.glyphs, text, float32(x), float32(y), 1, tint, 0)
 }
 
 // DrawName uses the US EP4 single foreground and four one-pixel outline passes.
@@ -159,12 +210,16 @@ func (f *Font) drawText(s *render.Sprites, text string, x, y, scale float32, rgb
 		f.unicode.draw(s, text, x, y, scale, rgba, maxW, monochromeOnly)
 		return
 	}
+	f.drawGlyphs(s, &f.glyphs, text, x, y, scale, rgba, maxW)
+}
+
+func (f *Font) drawGlyphs(s *render.Sprites, glyphs *[256]glyph, text string, x, y, scale float32, rgba [4]float32, maxW int) {
 	pen := 0
 	for _, r := range text {
 		if r >= 256 {
 			r = '?'
 		}
-		g := f.glyphs[r]
+		g := glyphs[r]
 		if maxW > 0 && pen+g.adv > maxW {
 			return
 		}

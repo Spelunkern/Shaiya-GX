@@ -109,5 +109,14 @@ func (w *Window) Poll() bool {
 
 func (w *Window) Minimized() bool { return w.GetAttrib(glfw.Iconified) != 0 }
 
+// SetVSync enables or disables swap-interval synchronization for the current context.
+func (w *Window) SetVSync(enabled bool) {
+	if enabled {
+		glfw.SwapInterval(1)
+	} else {
+		glfw.SwapInterval(0)
+	}
+}
+
 // Time is seconds since GLFW initialization.
 func Time() float64 { return glfw.GetTime() }

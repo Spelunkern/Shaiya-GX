@@ -50,6 +50,7 @@ type World struct {
 	dungeonOccluders    []dungeonOccluder
 	dgShadow            *dungeonShadowIndex
 	dgColliders         []world.CollisionMesh
+	dgColliderBlocks    [][]colliderBlock
 	cameraSeen          map[int]bool
 	FogColor            render.V3
 	FogStart            float32

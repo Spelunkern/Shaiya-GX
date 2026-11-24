@@ -31,7 +31,9 @@ type Config struct {
 	DisplayModes       func() []platform.DisplayMode
 	CurrentDisplayMode func() platform.DisplayMode
 	ApplyDisplayMode   func(platform.DisplayMode) error
+	ApplyVSync         func(bool)
 	OverrideDisplay    bool
+	OverrideVSync      bool
 	RememberLayout     bool
 	Volume             float64
 	LoginAddr          string
@@ -714,7 +716,7 @@ func (a *App) drawFrame(w, h int) {
 		a.drawMapLoading(w, h)
 		return
 	}
-	if a.scene3d.ReverseDepth && !a.sceneGlowFailed {
+	if a.clientSettings().Glow > 0 && a.scene3d.ReverseDepth && !a.sceneGlowFailed {
 		if a.sceneGlow == nil {
 			var err error
 			a.sceneGlow, err = render.NewSceneGlow()
@@ -737,6 +739,9 @@ func (a *App) drawFrame(w, h int) {
 	if scale := a.uiScale(w, h); scale < 1 {
 		render.SetUIScale(scale)
 		w, h = int(math.Round(float64(w)/scale)), int(math.Round(float64(h)/scale))
+	}
+	if a.frameTarget != nil {
+		a.frameTarget.BeginColorOnly()
 	}
 	a.sprites.Begin(w, h)
 	if a.screen == screenWorld {

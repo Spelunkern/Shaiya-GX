@@ -18,9 +18,11 @@ func (s *Sprites) CaptureNameDepth(w, h int) {
 		reversed = 1
 	}
 	gl.UseProgram(s.prog)
-	gl.Uniform1i(gl.GetUniformLocation(s.prog, gl.Str("reversedDepth\x00")), reversed)
-	if s.depth == nil || s.depth.W != w || s.depth.H != h {
+	gl.Uniform1i(s.uReversedDepth, reversed)
+	if s.depth == nil || s.depth.W != w || s.depth.H != h || s.depthTextureID != s.depth.ID {
 		s.ResetHoverDepth()
+	}
+	if s.depth == nil || s.depth.W != w || s.depth.H != h {
 		if s.depth != nil {
 			s.depth.Delete()
 		}
@@ -34,7 +36,31 @@ func (s *Sprites) CaptureNameDepth(w, h int) {
 		s.depth = &Texture{ID: id, W: w, H: h, bytes: bytes}
 	}
 	gl.CopyTextureSubImage2D(s.depth.ID, 0, 0, 0, 0, 0, int32(w), int32(h))
+	s.depthTextureID, s.depthW, s.depthH = s.depth.ID, w, h
 	gl.BindTextureUnit(2, s.depth.ID)
+	s.depthValid = true
+	s.depthFrame++
+}
+
+// UseNameDepthTexture binds an existing float depth texture directly without copying.
+func (s *Sprites) UseNameDepthTexture(texID uint32, w, h int, reversed bool) {
+	s.InvalidateNameDepth()
+	if texID == 0 || w <= 0 || h <= 0 {
+		return
+	}
+	s.Flush()
+	if s.depthTextureID != texID || s.depthW != w || s.depthH != h {
+		s.ResetHoverDepth()
+	}
+	s.depthTextureID, s.depthW, s.depthH = texID, w, h
+	s.depthReversed = reversed
+	rev := int32(0)
+	if reversed {
+		rev = 1
+	}
+	gl.UseProgram(s.prog)
+	gl.Uniform1i(s.uReversedDepth, rev)
+	gl.BindTextureUnit(2, texID)
 	s.depthValid = true
 	s.depthFrame++
 }
@@ -55,12 +81,12 @@ func (s *Sprites) NameDepth(depth float32) {
 // NameVisibleAt samples one pixel only on a click, using the same depth and
 // tolerance as the label shader. It avoids allowing clicks through walls.
 func (s *Sprites) NameVisibleAt(x, y, width, height int, depth float32) bool {
-	if s == nil || !s.depthValid || s.depth == nil || s.depth.W != width || s.depth.H != height || x < 0 || y < 0 || x >= width || y >= height {
+	if s == nil || !s.depthValid || s.depthTextureID == 0 || s.depthW != width || s.depthH != height || x < 0 || y < 0 || x >= width || y >= height {
 		return false
 	}
 	if !s.depthReadValid || s.depthReadX != x || s.depthReadY != y {
 		var value float32
-		gl.GetTextureSubImage(s.depth.ID, 0, int32(x), int32(height-1-y), 0, 1, 1, 1, gl.DEPTH_COMPONENT, gl.FLOAT, 4, gl.Ptr(&value))
+		gl.GetTextureSubImage(s.depthTextureID, 0, int32(x), int32(height-1-y), 0, 1, 1, 1, gl.DEPTH_COMPONENT, gl.FLOAT, 4, gl.Ptr(&value))
 		if s.depthReversed {
 			value = 1 - value
 		}
