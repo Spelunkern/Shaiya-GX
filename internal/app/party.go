@@ -527,7 +527,8 @@ func (a *App) drawMemberBuffTooltip() {
 	if name == "" {
 		name = a.msg.Format(12295, map[string]string{"v": fmt.Sprint(b.Hover.Skill), "v2": fmt.Sprint(b.Hover.Level)})
 	}
-	a.tooltip = []itemDetailLine{{name, [4]float32{1, 1, 0, 1}}}
-	a.tooltipItem, a.tooltipSockets = false, nil
-	a.tooltipDescription = strings.ReplaceAll(def.Description, `\n`, "\n")
+	a.setTooltip(tooltipContent{
+		tooltip:            []itemDetailLine{{name, [4]float32{1, 1, 0, 1}}},
+		tooltipDescription: strings.ReplaceAll(def.Description, `\n`, "\n"),
+	})
 }

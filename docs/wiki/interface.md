@@ -174,7 +174,7 @@ Profanity, system notices and in-game item links are outside the content checks.
 
 ## Item details, cooldowns and cursors
 
-Equipment for a different class displays the red SysMsg 456 warning in its tooltip. Item properties use original SysMsg labels, yellow titles/base bonuses, orange remake values and white prices. Recovery amounts on consumable families are no longer shown as permanent equipment bonuses. Classes, stack metadata and extra attribute requirements have been removed from the tooltip. Original inline description controls and confirmed gem sockets remain. Full modifier-key/rarity presentation still needs comparison.
+Equipment for a different class displays the red SysMsg 456 warning in its tooltip. Item properties use original SysMsg labels, yellow titles/base bonuses, orange remake values and white prices. Recovery amounts on consumable families are no longer shown as permanent equipment bonuses. Classes, stack metadata and extra attribute requirements have been removed from the tooltip. Original inline description controls and confirmed gem sockets remain. Hovering gear in a bag shows the currently equipped item for that slot beside it, including its own lapis and stats. An empty matching slot shows just the bag item. Full modifier-key/rarity presentation still needs comparison.
 
 K has nine rows in one column: icons at `(46,78+43*i)`, names at `(88,81+43*i)`, requirements at y=97+43*i, and 32px learn buttons at `(278,84+43*i)` with 22px hit regions. Original SysMsg labels and red unmet requirements replace the compact two-column labels. Learning, scrolling, drag/drop, tooltips and skill use share those rows.
 

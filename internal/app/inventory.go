@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Spelunkern/Shaiya-GX/internal/data/effect"
 	"github.com/Spelunkern/Shaiya-GX/internal/data/sdata"
@@ -216,6 +217,10 @@ func (a *App) drawInventory(w, h int) {
 	if !hovered {
 		return
 	}
+	a.queueInventoryItemTooltip(key)
+}
+
+func (a *App) queueInventoryItemTooltip(key [2]uint8) {
 	it, ok := a.state.Inventory[key]
 	if !ok {
 		return
@@ -224,8 +229,22 @@ func (a *App) drawInventory(w, h int) {
 	if def == nil {
 		return
 	}
-	left, top := max(0, x-304), min(y+260, max(0, h-110))
-	a.drawItemDetails(def, &it, it.Count, left, top, w, h, itemSellingPrice(def.SellPrice))
+	a.setTooltip(a.itemTooltip(def, &it, it.Count, itemSellingPrice(def.SellPrice)))
+	if key[0] == 0 {
+		return
+	}
+	for _, slot := range inventoryEquipSlots(it.Type) {
+		equipped := a.state.Inventory[[2]uint8{0, slot}]
+		if equipped.Type == 0 {
+			continue
+		}
+		if equippedDef := a.itemsItem(equipped.Type, equipped.TypeID); equippedDef != nil {
+			comparison := a.itemTooltip(equippedDef, &equipped, equipped.Count, "")
+			comparison.tooltip = slices.Insert(comparison.tooltip, min(1, len(comparison.tooltip)), itemDetailLine{a.tr(12375), gray})
+			a.tooltipEquipped = comparison
+			break
+		}
+	}
 }
 
 // Server validation decides whether an item can be used or equipped.

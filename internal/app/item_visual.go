@@ -100,9 +100,13 @@ func (a *App) drawItemIcon(d *sdata.Item, x, y, size int, tint [4]float32, insta
 	}
 }
 
-// Tooltip data comes from the instance for mutable state and from SData for
-// names and base effects. Clamp its dynamically sized frame to the viewport.
 func (a *App) drawItemDetails(def *sdata.Item, instance *proto.InventoryItem, count uint16, left, top, w, h int, price string) {
+	a.setTooltip(a.itemTooltip(def, instance, count, price))
+}
+
+// Tooltip data comes from the instance for mutable state and from SData for
+// names and base effects.
+func (a *App) itemTooltip(def *sdata.Item, instance *proto.InventoryItem, count uint16, price string) tooltipContent {
 	instance = withoutCloakGems(instance)
 	// A socketed elemental lapis changes the item's effective tooltip element.
 	// Keep the cached definition immutable; intrinsic/first-socket priority wins.
@@ -234,31 +238,27 @@ func (a *App) drawItemDetails(def *sdata.Item, instance *proto.InventoryItem, co
 			}
 		}
 	}
-	a.tooltipMuted = false
-	a.tooltip = rows
-	a.tooltipItem = true
-	a.tooltipDescription = description
+	content := tooltipContent{tooltip: rows, tooltipItem: true, tooltipDescription: description}
 	rt := itemtype.Real(def.Type)
 	effects, immunities := a.itemEffects(def, instance)
 	if itemtype.IsAntiDebuffLapis(def.Type, def.TypeID) && len(immunities) == 1 {
-		a.tooltipDescription = "Blocks " + immunities[0].Name + " while linked to equipped gear."
+		content.tooltipDescription = "Blocks " + immunities[0].Name + " while linked to equipped gear."
 	}
-	a.tooltipExtra = tooltipExtras{forgeInfo: itemForgeInfo(def), effects: effects, immunities: immunities, effectChance: def.Type == 30 || rt >= 1 && rt <= 15, effectsLabel: a.tr(12264), immuneLabel: a.tr(12265)}
+	content.tooltipExtra = tooltipExtras{forgeInfo: itemForgeInfo(def), effects: effects, immunities: immunities, effectChance: def.Type == 30 || rt >= 1 && rt <= 15, effectsLabel: a.tr(12264), immuneLabel: a.tr(12265)}
 	if rt := itemtype.Real(def.Type); rt >= 1 && rt <= 25 && def.Server > 0 && def.RequiredStats[4] > 0 {
-		a.tooltipExtra.maxOJ = min(def.RequiredStats[4], 99)
+		content.tooltipExtra.maxOJ = min(def.RequiredStats[4], 99)
 		pool := uint8(9)
 		if rt <= 15 || rt == 22 || rt == 23 || rt == 25 {
 			pool = 6
 		}
-		a.tooltipExtra.maxOJStats = min(def.Server, pool)
+		content.tooltipExtra.maxOJStats = min(def.Server, pool)
 		if id := def.RequiredStats[5]; id > 0 {
-			a.tooltipExtra.material = a.itemsItem(uint8(id/1000), uint8(id%1000))
-			if a.tooltipExtra.material != nil {
-				a.tooltipDescription = strings.TrimSpace(nativeEnhancementDescription.ReplaceAllString(a.tooltipDescription, ""))
+			content.tooltipExtra.material = a.itemsItem(uint8(id/1000), uint8(id%1000))
+			if content.tooltipExtra.material != nil {
+				content.tooltipDescription = strings.TrimSpace(nativeEnhancementDescription.ReplaceAllString(content.tooltipDescription, ""))
 			}
 		}
 	}
-	a.tooltipSockets = nil
 	sockets := 0
 	if rt := itemtype.Real(def.Type); rt >= 1 && rt <= 25 {
 		sockets = min(int(def.Slot), 6)
@@ -275,9 +275,9 @@ func (a *App) drawItemDetails(def *sdata.Item, instance *proto.InventoryItem, co
 		if instance != nil && instance.Gems[i] != 0 {
 			gem = a.itemsItem(30, instance.Gems[i])
 		}
-		a.tooltipSockets = append(a.tooltipSockets, tooltipSocket{definition: gem, inactive: inactive[i]})
+		content.tooltipSockets = append(content.tooltipSockets, tooltipSocket{definition: gem, inactive: inactive[i]})
 	}
-
+	return content
 }
 
 var nativeEnhancementDescription = regexp.MustCompile(`(?i)(?:\{c[0-9]+\})?\[Enhancement:[^\]]*\](?:\{/c\})?`)

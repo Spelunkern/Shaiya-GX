@@ -102,12 +102,8 @@ func (a *App) drawRecreationDetails(w, h int) {
 	if d == nil {
 		return
 	}
-	extra := a.tooltipExtra
-	rows, item, description, sockets, muted := a.tooltip, a.tooltipItem, a.tooltipDescription, a.tooltipSockets, a.tooltipMuted
-	defer func() {
-		a.tooltipExtra = extra
-		a.tooltip, a.tooltipItem, a.tooltipDescription, a.tooltipSockets, a.tooltipMuted = rows, item, description, sockets, muted
-	}()
+	primary, equipped := a.tooltipContent, a.tooltipEquipped
+	defer func() { a.tooltipContent, a.tooltipEquipped = primary, equipped }()
 	a.drawItemDetails(d, &it, it.Count, 0, 0, w, h, itemSellingPrice(d.SellPrice))
 	x, y := a.blacksmithUI.Origin(w, h)
 	position := [2]int{x + ui.BlacksmithWidth + 8, y + 90}

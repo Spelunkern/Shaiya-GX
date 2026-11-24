@@ -28,7 +28,7 @@ func (a *App) openGameMenu() {
 	a.menuIntent = ui.MenuNone
 	a.gameMenu.CharSelect = a.screen != screenWorld
 	a.gameMenu.Open(ui.MenuMain)
-	a.tooltip = nil
+	a.setTooltip(tooltipContent{})
 }
 
 // Options is an ordinary window. It owns pointer gestures started inside it,

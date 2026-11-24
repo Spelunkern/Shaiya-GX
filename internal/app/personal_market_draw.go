@@ -72,11 +72,11 @@ func (a *App) drawPersonalMarketModal(w int) {
 	d := a.personalMarket.dialog
 	switch d.op {
 	case proto.MyShopBuy:
-		a.tooltip = nil
+		a.setTooltip(tooltipContent{})
 		q := a.quantityUI
 		q.Draw(a.sprites, a.font)
 	case proto.MyShopAdd, proto.MyShopPrice:
-		a.tooltip = nil
+		a.setTooltip(tooltipContent{})
 		m := a.exchangeMoney
 		m.Draw(a.sprites, a.font)
 	}

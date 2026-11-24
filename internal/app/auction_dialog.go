@@ -219,7 +219,7 @@ func (a *App) drawAuctionDetails(b auctionBounds, r proto.AuctionRow, w, h int) 
 		// The shared tooltip carries the sockets and fits the 205px text box.
 		a.drawItemDetails(def, inst, r.Count, b.x+0x17, b.y+0x53, w, h, "")
 		a.drawSharedTooltipAt(w, h, &[2]int{b.x + 0x17, b.y + 0x53})
-		a.tooltip = nil
+		a.setTooltip(tooltipContent{})
 	}
 	t := time.Unix(r.Ends, 0)
 	date := fmt.Sprintf("%d/%d %d:%d", int(t.Month()), t.Day(), t.Hour(), t.Minute())

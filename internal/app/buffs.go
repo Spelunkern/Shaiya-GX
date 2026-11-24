@@ -124,10 +124,10 @@ func (a *App) drawBuffTooltip(w, h int) {
 	if name == "" {
 		name = a.msg.Format(12295, map[string]string{"v": fmt.Sprint(b.buff.Skill), "v2": fmt.Sprint(b.buff.Level)})
 	}
-	a.tooltip = []itemDetailLine{{name, [4]float32{1, 1, 0, 1}}}
-	a.tooltipItem = false
-	a.tooltipSockets = nil
-	a.tooltipDescription = strings.ReplaceAll(b.def.Description, `\n`, "\n")
+	a.setTooltip(tooltipContent{
+		tooltip:            []itemDetailLine{{name, [4]float32{1, 1, 0, 1}}},
+		tooltipDescription: strings.ReplaceAll(b.def.Description, `\n`, "\n"),
+	})
 
 	if b.buff.Skill == warehouseCallSkill {
 		a.tooltipDescription = warehouseCallDescription

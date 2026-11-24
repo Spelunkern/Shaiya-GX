@@ -50,12 +50,13 @@ const (
 )
 
 type App struct {
+	tooltipContent
+
 	showCatalogIDs                      bool
 	physicsClockAt                      time.Time
 	collisionLines                      *render.DebugLines
 	collisionVertices                   []render.DebugLineVertex
 	missingInterfaces                   int
-	tooltipMuted                        bool
 	forgeQuoteSerial                    uint32
 	npcSkillDefs                        map[sdata.SkillKey]sdata.Skill
 	chatBubbles                         []chatBubble
@@ -169,14 +170,10 @@ type App struct {
 	subActionsUI                        *ui.SubActions
 	subActionsOpen                      bool
 	font                                *ui.Font
-	tooltip                             []itemDetailLine
+	tooltipEquipped                     tooltipContent
 	tooltipFont                         *ui.Font
 	tooltipHeadingFont                  *ui.Font
 	chatTextFont                        *ui.Font
-	tooltipItem                         bool
-	tooltipDescription                  string
-	tooltipExtra                        tooltipExtras
-	tooltipSockets                      []tooltipSocket
 	chatCache                           []game.ChatLine
 	chatEntries                         []ui.ChatEntry
 	chatFilter                          *text.WordFilter

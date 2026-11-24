@@ -456,3 +456,4 @@
 12372		"Took <v> damage from drowning"
 12373		"You drowned"
 12374		"Select a target first"
+12375		"Equipped"

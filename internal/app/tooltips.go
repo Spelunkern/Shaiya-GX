@@ -11,6 +11,22 @@ import (
 	"github.com/Spelunkern/Shaiya-GX/internal/ui"
 )
 
+const tooltipCardWidth = 208
+
+type tooltipContent struct {
+	tooltip            []itemDetailLine
+	tooltipDescription string
+	tooltipExtra       tooltipExtras
+	tooltipSockets     []tooltipSocket
+	tooltipItem        bool
+	tooltipMuted       bool
+}
+
+func (a *App) setTooltip(content tooltipContent) {
+	a.tooltipContent = content
+	a.tooltipEquipped = tooltipContent{}
+}
+
 // Shared presentation from Phoenix skill_tooltip.gd / item_tooltip.gd:
 // 208px tipbox, 185px body, 12px text, cursor-left placement and gold border.
 func (a *App) queueSkillTooltip(key sdata.SkillKey) {
@@ -50,17 +66,15 @@ func (a *App) queueSkillTooltip(key sdata.SkillKey) {
 		rows = append(rows, itemDetailLine{a.msg.Format(12324, map[string]string{"v": fmt.Sprint(d.RequiredLevel)}), gray}, itemDetailLine{a.msg.Format(12325, map[string]string{"v": fmt.Sprint(d.Points)}), gray})
 	}
 
-	a.tooltipItem = false
-	a.tooltipSockets = nil
-	a.tooltipDescription = strings.ReplaceAll(d.Description, `\n`, "\n")
+	description := strings.ReplaceAll(d.Description, `\n`, "\n")
 
 	if warehouseCall {
-		a.tooltipDescription = warehouseCallDescription
+		description = warehouseCallDescription
 		if seconds := d.KeepSeconds(); seconds > 0 {
 			rows = append(rows, itemDetailLine{"Duration: " + ui.BuffDuration(seconds, true), white})
 		}
 	}
-	a.tooltip = rows
+	a.setTooltip(tooltipContent{tooltip: rows, tooltipDescription: description})
 }
 func (a *App) queueActionTooltip(w, h int) {
 	pointer := &platform.Input{MouseX: a.lastMouseX, MouseY: a.lastMouseY}
@@ -72,10 +86,7 @@ func (a *App) queueActionTooltip(w, h int) {
 		return
 	}
 	if action, ok := a.localAction(index); ok {
-		a.tooltip = []itemDetailLine{{a.subActionName(uint8(action)), white}}
-		a.tooltipItem = false
-		a.tooltipDescription = ""
-		a.tooltipSockets = nil
+		a.setTooltip(tooltipContent{tooltip: []itemDetailLine{{a.subActionName(uint8(action)), white}}})
 		return
 	}
 	q, _ := a.shortcutAt(index)
@@ -162,52 +173,84 @@ func (a *App) drawSharedTooltipAt(w, h int, position *[2]int) {
 		heading = f
 	}
 	layout := layoutTooltipWithHeading(f, heading, a.tooltip, a.tooltipItem, a.tooltipDescription, len(a.tooltipSockets), a.tooltipExtra)
-	scale := min(float32(1), min(float32(w)/208, float32(h)/float32(max(1, layout.height))))
-	left, top := ui.TooltipOriginFor(a.lastMouseX, a.lastMouseY, 208, layout.height, w, h, a.tooltipItem, scale)
+	if equipped := a.tooltipEquipped; position == nil && len(equipped.tooltip) > 0 {
+		other := layoutTooltipWithHeading(f, heading, equipped.tooltip, equipped.tooltipItem, equipped.tooltipDescription, len(equipped.tooltipSockets), equipped.tooltipExtra)
+		left, equippedLeft, top, scale := tooltipPairOrigin(a.lastMouseX, a.lastMouseY, w, h, max(layout.height, other.height))
+		a.drawTooltipCard(a.tooltipContent, layout, f, heading, left, top, scale)
+		a.drawTooltipCard(equipped, other, f, heading, equippedLeft, top, scale)
+		return
+	}
+	scale := min(float32(1), min(float32(w)/tooltipCardWidth, float32(h)/float32(max(1, layout.height))))
+	left, top := ui.TooltipOriginFor(a.lastMouseX, a.lastMouseY, tooltipCardWidth, layout.height, w, h, a.tooltipItem, scale)
 	if position != nil {
-		left = max(0, min(position[0], w-int(208*scale)))
+		left = max(0, min(position[0], w-int(tooltipCardWidth*scale)))
 		top = max(0, min(position[1], h-int(float32(layout.height)*scale)))
 	}
-	rect := func(x, y, width, height int, color [4]float32) {
-		a.sprites.Draw(a.white, float32(left)+float32(x)*scale, float32(top)+float32(y)*scale, float32(width)*scale, float32(height)*scale, 0, 0, 1, 1, color)
+	a.drawTooltipCard(a.tooltipContent, layout, f, heading, float32(left), float32(top), scale)
+}
+
+// Keep the hovered card nearest the cursor and fit the two cards as one unit.
+func tooltipPairOrigin(mouseX, mouseY, w, h, height int) (hovered, equipped, top, scale float32) {
+	const gap = 6
+	const width = 2*tooltipCardWidth + gap
+	scale = min(1, float32(w)/width, float32(h)/float32(max(1, height)))
+	groupWidth := width * scale
+	pointer := float32(mouseX)
+	x := pointer + 8
+	placeLeft := pointer >= groupWidth || (x+groupWidth > float32(w) && mouseX >= w/2)
+	if placeLeft {
+		x = pointer - groupWidth
 	}
-	ui.DrawTipFrame(a.sprites, a.white, float32(left), float32(top), 208, float32(layout.height), scale, ui.TipFill, ui.TipBorder)
+	x = max(0, min(x, float32(w)-groupWidth))
+	top = max(0, min(float32(mouseY+10), float32(h)-float32(height)*scale))
+	next := x + (tooltipCardWidth+gap)*scale
+	if placeLeft {
+		return next, x, top, scale
+	}
+	return x, next, top, scale
+}
+
+func (a *App) drawTooltipCard(content tooltipContent, layout tooltipLayout, f, heading *ui.Font, left, top, scale float32) {
+	rect := func(x, y, width, height int, color [4]float32) {
+		a.sprites.Draw(a.white, left+float32(x)*scale, top+float32(y)*scale, float32(width)*scale, float32(height)*scale, 0, 0, 1, 1, color)
+	}
+	ui.DrawTipFrame(a.sprites, a.white, left, top, tooltipCardWidth, float32(layout.height), scale, ui.TipFill, ui.TipBorder)
 	for _, run := range layout.runs {
 		face := f
 		if run.emphasis {
 			face = heading
 		}
-		if a.tooltipMuted {
+		if content.tooltipMuted {
 			run.color = [4]float32{.6, .6, .6, 1}
 		}
 		if run.shadow {
-			face.DrawScaled(a.sprites, run.text, float32(left)+float32(run.x+1)*scale, float32(top)+float32(run.y+1)*scale, scale, [4]float32{0, 0, 0, 1}, 185)
+			face.DrawScaled(a.sprites, run.text, left+float32(run.x+1)*scale, top+float32(run.y+1)*scale, scale, [4]float32{0, 0, 0, 1}, 185)
 		}
-		face.DrawScaled(a.sprites, run.text, float32(left)+float32(run.x)*scale, float32(top)+float32(run.y)*scale, scale, run.color, 185)
+		face.DrawScaled(a.sprites, run.text, left+float32(run.x)*scale, top+float32(run.y)*scale, scale, run.color, 185)
 	}
-	if a.tooltipItem {
+	if content.tooltipItem {
 		i := 0
-		for _, row := range [2][]tooltipItemEffect{a.tooltipExtra.effects, a.tooltipExtra.immunities} {
+		for _, row := range [2][]tooltipItemEffect{content.tooltipExtra.effects, content.tooltipExtra.immunities} {
 			for _, skill := range row {
 				if file, uv, ok := skill.icon(); ok {
 					if tex := a.assets.Texture("interface/" + file); tex != nil {
 						x, y := layout.effectIcons[i][0], layout.effectIcons[i][1]
-						a.sprites.Draw(tex, float32(left)+float32(x)*scale, float32(top)+float32(y)*scale, 18*scale, 18*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
+						a.sprites.Draw(tex, left+float32(x)*scale, top+float32(y)*scale, 18*scale, 18*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
 					}
 				}
 				i++
 			}
 		}
 	}
-	if a.tooltipItem && a.tooltipExtra.material != nil {
-		d := a.tooltipExtra.material
+	if content.tooltipItem && content.tooltipExtra.material != nil {
+		d := content.tooltipExtra.material
 		if file, uv, ok := ui.ItemIcon(d.Type, d.Icon); ok {
 			if tex := a.assets.Texture("interface/" + file); tex != nil {
-				a.sprites.Draw(tex, float32(left)+float32(layout.materialX)*scale, float32(top)+float32(layout.materialY)*scale, 14*scale, 14*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
+				a.sprites.Draw(tex, left+float32(layout.materialX)*scale, top+float32(layout.materialY)*scale, 14*scale, 14*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
 			}
 		}
 	}
-	for i, socket := range a.tooltipSockets {
+	for i, socket := range content.tooltipSockets {
 		x, y := 10+i*20, layout.socketY
 		if socket.definition == nil {
 			rect(x, y, 16, 16, [4]float32{0, 0, 0, .5})
@@ -217,19 +260,18 @@ func (a *App) drawSharedTooltipAt(w, h int, position *[2]int) {
 		if file, uv, ok := ui.ItemIcon(d.Type, d.Icon); ok {
 			if tex := a.assets.Texture("interface/" + file); tex != nil {
 				if socket.inactive {
-					a.sprites.DrawGrayscale(tex, float32(left)+float32(x)*scale, float32(top)+float32(y)*scale, 16*scale, 16*scale, uv.U0, uv.V0, uv.U1, uv.V1, [4]float32{.7, .7, .7, 1})
+					a.sprites.DrawGrayscale(tex, left+float32(x)*scale, top+float32(y)*scale, 16*scale, 16*scale, uv.U0, uv.V0, uv.U1, uv.V1, [4]float32{.7, .7, .7, 1})
 				} else {
-					a.sprites.Draw(tex, float32(left)+float32(x)*scale, float32(top)+float32(y)*scale, 16*scale, 16*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
+					a.sprites.Draw(tex, left+float32(x)*scale, top+float32(y)*scale, 16*scale, 16*scale, uv.U0, uv.V0, uv.U1, uv.V1, white)
 				}
 			}
 		}
 	}
-
 }
 
 // Drawing order decides hover ownership, including empty panel backgrounds.
 func (a *App) clearTooltipUnderPanel(x, y, w, h int) {
 	if a.lastMouseX >= x && a.lastMouseX < x+w && a.lastMouseY >= y && a.lastMouseY < y+h {
-		a.tooltip = nil
+		a.setTooltip(tooltipContent{})
 	}
 }

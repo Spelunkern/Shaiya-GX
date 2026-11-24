@@ -105,8 +105,8 @@ func (a *App) drawTargetEffectTooltip(w, h int) {
 	if name == "" {
 		name = a.msg.Format(12321, map[string]string{"v": fmt.Sprint(b.buff.Skill)})
 	}
-	a.tooltip = []itemDetailLine{{name, [4]float32{1, 1, 0, 1}}, {ui.BuffDuration(b.seconds(a.clock), b.timed), white}}
-	a.tooltipItem = false
-	a.tooltipSockets = nil
-	a.tooltipDescription = strings.ReplaceAll(b.def.Description, `\n`, "\n")
+	a.setTooltip(tooltipContent{
+		tooltip:            []itemDetailLine{{name, [4]float32{1, 1, 0, 1}}, {ui.BuffDuration(b.seconds(a.clock), b.timed), white}},
+		tooltipDescription: strings.ReplaceAll(b.def.Description, `\n`, "\n"),
+	})
 }
