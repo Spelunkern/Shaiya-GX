@@ -209,8 +209,8 @@ Search assembles the faction selector at `0x4598D1–0x459904`. Equal
 checkbox states send 0, Light alone sends 1, and Fury alone sends 2.
 Level selections are multiplied by ten, with an unset maximum encoded
 as `0xFF`. The category lookup at `0x4527D0` returns 0 without a selected
-family. Grade selections 0–5 send their index, index 6 sends grade 7
-(Ancient), and index 7 sends `0xFF` (All).
+family. Grade selections 0–5 send their index, index 6 sends grade 7,
+and index 7 sends `0xFF` for an unrestricted grade search.
 
 A local legacy `ps_game.exe` with SHA-256
 `48e8688c24b0d8fde241015a87342ebde14b4e8b48c793152530ffe214581f8e`

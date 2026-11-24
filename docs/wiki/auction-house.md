@@ -38,4 +38,8 @@ Layout and draw routines recovered from EP5.4 `Game.exe` (addresses in the heade
 
 Search offers the original category groups (Weapon, Armor, Accessories, Lapis, Miscellaneous). The entries map positionally onto GX's item families. Choosing a group or entry does not search; press Search or Enter, as in the original. Buy Now, Cancel Auction and Delete All ask through the native confirmation box. Double-click a row to open its details window. Level steps are the original 0–70 dropdowns.
 
-The Light/Fury checks and the Quality (grade) dropdown are drawn and kept in the window state, but the GX market does not store item grade or faction, so they do not yet filter results.
+The Light/Fury checks and Quality dropdown apply when you submit a search.
+Checking both factions or clearing both shows all factions. Neutral items
+and Type 30 lapis can appear for either faction. Quality matches the item
+definition's name grade. Search Item looks up the selected base item
+independently of the previous filters.
