@@ -118,11 +118,17 @@ func (a *App) updateWindowDrag(in *platform.Input, w, h int) bool {
 	}
 	if a.personalMarketOpen() {
 		x, y := a.personalMarketUI.Origin(w, h)
-		if startFrame(&a.personalMarketUI.Position, x, y, ui.PersonalMarketWidth, ui.PersonalMarketHeight, frameFree(a.personalMarketUI, x, y, func(rx, ry int) bool { return ui.PersonalMarketCellAt(rx, ry) != ui.PersonalMarketNone })) {
-			return true
+		position, freeAt := &a.personalMarketUI.Position, a.personalMarketUI.FreeAt
+		width, height := ui.PersonalMarketWidth, ui.PersonalMarketHeight
+		if a.state.ShopView.Open && a.marketUI != nil {
+			x, y = a.marketUI.Origin(w, h)
+			position, freeAt = &a.marketUI.Position, a.marketUI.FreeAt
+			width, height = ui.MarketWidth, ui.MarketHeight
 		}
-		if pointInside(in, x, y, ui.PersonalMarketWidth, ui.PersonalMarketHeight) {
-			return false
+		if pointInside(in, x, y, width, height) {
+			return startFrame(position, x, y, width, height, func() bool {
+				return freeAt(in.MouseX, in.MouseY, w, h)
+			})
 		}
 	}
 	if a.guild.open && a.guildUI != nil {
