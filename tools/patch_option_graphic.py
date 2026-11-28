@@ -11,24 +11,21 @@
 * fills the grown area with real panel bands so it does not look stretched.
 
 Usage: tools/patch_option_graphic.py <data dir> [pristine.png] [font.ttf]
-The pristine art is kept at work/option_graphic.original.png (outside the
-client folder) and copied from the data folder on first use.
+The default pristine backup is stored in .local/option-art/<data-dir-name>
+beside the data directory. Supply pristine.png to use a different backup.
 """
-import shutil
 import sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
+from option_art import load_option_art
 
 GROW, SPLIT = 146, 469
 LABEL_SIZE = 11          # extra black rows inserted before row 469 (below the last checkbox)
 data = Path(sys.argv[1])
 root = Path(__file__).resolve().parents[1]
 font_path = sys.argv[3] if len(sys.argv) > 3 else str(root / "resources/fonts/ui.ttf")
-target = data / "interface/option_graphic.png"
-backup = Path(sys.argv[2]) if len(sys.argv) > 2 else root / "work/option_graphic.original.png"
-if not backup.exists():
-    shutil.copy(target, backup)
-src = Image.open(backup).convert("RGBA")
+backup = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+target, src = load_option_art(data, "option_graphic.png", backup)
 W, H = src.size
 out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
 out.paste(src.crop((0, 0, W, SPLIT)), (0, 0))
