@@ -89,6 +89,7 @@ __pycache__/
 /server/build/
 /server/out/
 /server/.local/
+**/.local/option-art/
 /server/runtime/
 /server/logs/
 /server/internal/world/logs/
