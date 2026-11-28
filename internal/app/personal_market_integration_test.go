@@ -116,22 +116,30 @@ func TestPersonalMarketBetweenClients(t *testing.T) {
 	place(0, 0, "125")
 	place(1, 1, "999")
 	secondX, secondY := ui.PersonalMarketCell(1)
-	click(seller, mx+secondX+5, my+secondY+5)
-	click(seller, mx+148, my+369)
+	seller.worldControls(&platform.Input{
+		MouseX: mx + secondX + 5, MouseY: my + secondY + 5, RightPressed: true, RightDown: true,
+	}, w, h)
 	pump("remove second offer", func() bool { return !sst.MyShop.Slots[1].Used })
 	firstX, firstY := ui.PersonalMarketCell(0)
 	click(seller, mx+firstX+5, my+firstY+5)
-	click(seller, mx+102, my+370)
 	seller.worldControls(&platform.Input{Chars: []rune("160"), Keys: []platform.Key{platform.KeyEnter}}, w, h)
 	pump("change unit price", func() bool { return sst.MyShop.Slots[0].Price == 160 })
+	const message = "Apulune Potions"
 	click(seller, mx+30, my+73)
-	seller.worldControls(&platform.Input{Chars: []rune("Apulune Potions")}, w, h)
+	if !seller.personalMarket.editing {
+		t.Fatal("click did not focus the market message")
+	}
+	seller.worldControls(&platform.Input{Chars: []rune(message)}, w, h)
 	seller.worldControls(&platform.Input{Keys: []platform.Key{platform.KeyEnter}}, w, h)
+	if seller.personalMarket.editing || seller.personalMarket.title.Text != message {
+		t.Fatal("typed market message was not committed")
+	}
 	draw(seller, "market-setup")
 	click(seller, mx+35, my+368)
 	pump("seller seated and advert visible", func() bool {
-		return sst.MyShop.Phase == proto.MyShopSelling && sst.Self.Sitting && bst.ShopSigns[sst.SelfID] == "Apulune Potions"
+		return sst.MyShop.Phase == proto.MyShopSelling && sst.Self.Sitting && bst.ShopSigns[sst.SelfID] == message
 	})
+	t.Log("seller typed the market message, opened the stall, and the buyer received the advertised title")
 	openBuyer := func() {
 		t.Helper()
 		buyer.state.Target = sst.SelfID
@@ -152,9 +160,9 @@ func TestPersonalMarketBetweenClients(t *testing.T) {
 	beforeS, beforeB := sst.Details.Money, bst.Details.Money
 	purchase := func() {
 		t.Helper()
-		x, y := buyer.personalMarketUI.Origin(w, h)
-		click(buyer, x+firstX+5, y+firstY+5)
-		click(buyer, x+90, y+370)
+		x, y := buyer.marketUI.Origin(w, h)
+		cx, cy, _ := ui.MarketCell(0)
+		click(buyer, x+cx+5, y+cy+5)
 		q := buyer.quantityUI
 		if buyer.personalMarket.dialog.op != proto.MyShopBuy || q.Value() != 1 {
 			t.Fatal("buy did not start a one-unit quantity dialog")
@@ -172,6 +180,8 @@ func TestPersonalMarketBetweenClients(t *testing.T) {
 			sst.Inventory[[2]uint8{1, 0}].Count == 2 && bst.Inventory[[2]uint8{1, 0}].Count == 2 &&
 			sst.Details.Money == beforeS+320 && bst.Details.Money == beforeB-320
 	})
+	t.Logf("buyer received two items for 320 gold and seller received 320 gold (seller %d → %d, buyer %d → %d)",
+		beforeS, sst.Details.Money, beforeB, bst.Details.Money)
 	click(seller, mx+35, my+368)
 	pump("stop closes buyer and removes advert", func() bool {
 		return sst.MyShop.Phase == proto.MyShopSetup && !bst.ShopView.Open && bst.ShopSigns[sst.SelfID] == ""
@@ -185,4 +195,5 @@ func TestPersonalMarketBetweenClients(t *testing.T) {
 			sst.Inventory[[2]uint8{1, 0}].Count == 0 && bst.Inventory[[2]uint8{1, 0}].Count == 4 &&
 			sst.Details.Money == beforeS+640 && bst.Details.Money == beforeB-640
 	})
+	t.Log("the buyer received the last two items and the empty stall closed for both clients")
 }

@@ -60,26 +60,36 @@ func (p *PersonalMarket) CancelHeld() {
 	p.close.held = false
 }
 
-// Update returns the control released this frame. A right click on a filled
-// cell returns PersonalMarketRemove with the cell in Cell.
+// FreeAt keeps the drag handler and the controls on the same hit areas.
+func (p *PersonalMarket) FreeAt(mx, my, w, h int) bool {
+	x, y := p.Origin(w, h)
+	close := p.close
+	close.OriginX, close.OriginY = x, y
+	return !close.hit(&platform.Input{MouseX: mx, MouseY: my}) &&
+		personalMarketControlAt(mx-x, my-y, false) == PersonalMarketNone
+}
+
+func personalMarketControlAt(x, y int, buyer bool) int {
+	switch {
+	case x >= 16 && x < 174 && y >= 62 && y < 119 && !buyer:
+		return PersonalMarketMessage
+	case y >= 353 && y < 385 && !buyer && x >= 23 && x < 87:
+		return PersonalMarketToggle
+	case y >= 353 && y < 385 && x >= 116 && x < 180:
+		return PersonalMarketCancel
+	default:
+		return PersonalMarketCellAt(x, y)
+	}
+}
+
+// Update returns the control released this frame.
 func (p *PersonalMarket) Update(in *platform.Input, w, h int, buyer bool) int {
 	x, y := p.Origin(w, h)
 	p.close.OriginX, p.close.OriginY = x, y
 	if p.close.Update(in) || in.CloseOnEscape() {
 		return PersonalMarketClose
 	}
-	hit := PersonalMarketNone
-	mx, my := in.MouseX-x, in.MouseY-y
-	switch {
-	case mx >= 16 && mx < 174 && my >= 62 && my < 119 && !buyer:
-		hit = PersonalMarketMessage
-	case my >= 353 && my < 385 && !buyer && mx >= 23 && mx < 87:
-		hit = PersonalMarketToggle
-	case my >= 353 && my < 385 && mx >= 116 && mx < 180:
-		hit = PersonalMarketCancel
-	default:
-		hit = PersonalMarketCellAt(mx, my)
-	}
+	hit := personalMarketControlAt(in.MouseX-x, in.MouseY-y, buyer)
 	if in.Pressed {
 		p.held = hit
 	}
